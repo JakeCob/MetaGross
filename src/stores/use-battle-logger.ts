@@ -1,0 +1,361 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { TeamPokemon } from "@/lib/types/pokemon";
+import type {
+  BattleMode,
+  BattleResult,
+  Turn,
+  TurnAction,
+  FieldState,
+  ActivePokemon,
+  Side,
+  Slot,
+} from "@/lib/types/battle";
+import { DEFAULT_FIELD_STATE } from "@/lib/types/battle";
+
+export type BattlePhase =
+  | "idle"
+  | "teamEntry"
+  | "teamPreview"
+  | "inProgress"
+  | "complete";
+
+export interface MatchData {
+  format: string;
+  mode: BattleMode;
+  result: BattleResult;
+  myTeam: TeamPokemon[];
+  myTeamId: string | null;
+  opponentTeam: Partial<TeamPokemon>[];
+  myBrought: string[];
+  opponentBrought: string[];
+  myLeads: string[];
+  opponentLeads: string[];
+  turns: Turn[];
+  opponentName: string;
+  notes: string;
+}
+
+export interface BattleLoggerState {
+  // Phase management
+  phase: BattlePhase;
+  mode: BattleMode | null;
+
+  // Team data
+  myTeam: TeamPokemon[];
+  opponentTeam: Partial<TeamPokemon>[];
+  myTeamId: string | null;
+
+  // Team preview selections
+  myBrought: string[];
+  opponentBrought: string[];
+  myLeads: string[];
+  opponentLeads: string[];
+
+  // Battle state
+  turns: Turn[];
+  result: BattleResult | null;
+
+  // Turn management (new)
+  currentTurn: number;
+  fieldState: FieldState;
+  activeP1: ActivePokemon[];
+  activeP2: ActivePokemon[];
+  currentTurnActions: TurnAction[];
+  faintedP1: string[];
+  faintedP2: string[];
+
+  // Metadata
+  format: string;
+  opponentName: string;
+  notes: string;
+
+  // Actions
+  startBattle: (mode: BattleMode) => void;
+  setMyTeam: (team: TeamPokemon[], teamId?: string) => void;
+  setOpponentTeam: (team: Partial<TeamPokemon>[]) => void;
+  proceedToTeamPreview: () => void;
+  setMyBrought: (species: string[]) => void;
+  setOpponentBrought: (species: string[]) => void;
+  setMyLeads: (species: string[]) => void;
+  setOpponentLeads: (species: string[]) => void;
+  proceedToBattle: () => void;
+  endBattle: (result: BattleResult) => void;
+  setOpponentName: (name: string) => void;
+  setNotes: (notes: string) => void;
+  reset: () => void;
+  getMatchData: () => MatchData | null;
+
+  // Turn management actions (new)
+  initializeBattle: () => void;
+  addAction: (action: TurnAction) => void;
+  removeAction: (index: number) => void;
+  commitTurn: () => void;
+  setFieldState: (field: Partial<FieldState>) => void;
+  updateActivePokemon: (
+    side: Side,
+    slot: Slot,
+    updates: Partial<ActivePokemon>,
+  ) => void;
+  handleKo: (side: Side, slot: Slot) => void;
+  handleSwitch: (side: Side, slot: Slot, newSpecies: string) => void;
+}
+
+const initialState = {
+  phase: "idle" as BattlePhase,
+  mode: null as BattleMode | null,
+  myTeam: [] as TeamPokemon[],
+  opponentTeam: [] as Partial<TeamPokemon>[],
+  myTeamId: null as string | null,
+  myBrought: [] as string[],
+  opponentBrought: [] as string[],
+  myLeads: [] as string[],
+  opponentLeads: [] as string[],
+  turns: [] as Turn[],
+  result: null as BattleResult | null,
+  format: "champions-reg-m-a",
+  opponentName: "",
+  notes: "",
+  // Turn management initial state
+  currentTurn: 1,
+  fieldState: { ...DEFAULT_FIELD_STATE } as FieldState,
+  activeP1: [] as ActivePokemon[],
+  activeP2: [] as ActivePokemon[],
+  currentTurnActions: [] as TurnAction[],
+  faintedP1: [] as string[],
+  faintedP2: [] as string[],
+};
+
+function makeActivePokemon(species: string): ActivePokemon {
+  return {
+    species,
+    hpPercent: 100,
+    status: null,
+    isMega: false,
+    boosts: {},
+  };
+}
+
+export const useBattleLogger = create<BattleLoggerState>()(
+  persist(
+    (set, get) => ({
+      ...initialState,
+
+      startBattle: (mode) =>
+        set({
+          ...initialState,
+          phase: "teamEntry",
+          mode,
+        }),
+
+      setMyTeam: (team, teamId) =>
+        set({
+          myTeam: team,
+          myTeamId: teamId ?? null,
+        }),
+
+      setOpponentTeam: (team) =>
+        set({
+          opponentTeam: team,
+        }),
+
+      proceedToTeamPreview: () => {
+        const { myTeam, opponentTeam } = get();
+        if (myTeam.length > 0 && opponentTeam.length > 0) {
+          set({ phase: "teamPreview" });
+        }
+      },
+
+      setMyBrought: (species) => {
+        if (species.length !== 4) return;
+        const teamSpecies = get().myTeam.map((p) => p.species);
+        if (species.every((s) => teamSpecies.includes(s))) {
+          set({ myBrought: species });
+        }
+      },
+
+      setOpponentBrought: (species) => {
+        if (species.length !== 4) return;
+        const teamSpecies = get().opponentTeam.map((p) => p.species!);
+        if (species.every((s) => teamSpecies.includes(s))) {
+          set({ opponentBrought: species });
+        }
+      },
+
+      setMyLeads: (species) => {
+        if (species.length !== 2) return;
+        const brought = get().myBrought;
+        if (species.every((s) => brought.includes(s))) {
+          set({ myLeads: species });
+        }
+      },
+
+      setOpponentLeads: (species) => {
+        if (species.length !== 2) return;
+        const brought = get().opponentBrought;
+        if (species.every((s) => brought.includes(s))) {
+          set({ opponentLeads: species });
+        }
+      },
+
+      proceedToBattle: () => {
+        const { myBrought, myLeads, opponentBrought, opponentLeads } = get();
+        if (
+          myBrought.length === 4 &&
+          myLeads.length === 2 &&
+          opponentBrought.length === 4 &&
+          opponentLeads.length === 2
+        ) {
+          set({ phase: "inProgress" });
+        }
+      },
+
+      endBattle: (result) =>
+        set({
+          phase: "complete",
+          result,
+        }),
+
+      setOpponentName: (name) => set({ opponentName: name }),
+      setNotes: (notes) => set({ notes }),
+
+      reset: () => set({ ...initialState }),
+
+      getMatchData: () => {
+        const state = get();
+        if (!state.result || !state.mode) return null;
+        return {
+          format: state.format,
+          mode: state.mode,
+          result: state.result,
+          myTeam: state.myTeam,
+          myTeamId: state.myTeamId,
+          opponentTeam: state.opponentTeam,
+          myBrought: state.myBrought,
+          opponentBrought: state.opponentBrought,
+          myLeads: state.myLeads,
+          opponentLeads: state.opponentLeads,
+          turns: state.turns,
+          opponentName: state.opponentName,
+          notes: state.notes,
+        };
+      },
+
+      // --- Turn management actions ---
+
+      initializeBattle: () => {
+        const { myLeads, opponentLeads } = get();
+        set({
+          currentTurn: 1,
+          fieldState: { ...DEFAULT_FIELD_STATE },
+          activeP1: myLeads.map(makeActivePokemon),
+          activeP2: opponentLeads.map(makeActivePokemon),
+          currentTurnActions: [],
+        });
+      },
+
+      addAction: (action) => {
+        set((state) => ({
+          currentTurnActions: [...state.currentTurnActions, action],
+        }));
+      },
+
+      removeAction: (index) => {
+        set((state) => ({
+          currentTurnActions: state.currentTurnActions.filter(
+            (_, i) => i !== index,
+          ),
+        }));
+      },
+
+      commitTurn: () => {
+        const { currentTurn, currentTurnActions, fieldState, activeP1, activeP2, turns } = get();
+        const turn: Turn = {
+          number: currentTurn,
+          actions: [...currentTurnActions],
+          fieldState: { ...fieldState },
+          activeP1: activeP1.map((p) => ({ ...p })),
+          activeP2: activeP2.map((p) => ({ ...p })),
+        };
+        set({
+          turns: [...turns, turn],
+          currentTurn: currentTurn + 1,
+          currentTurnActions: [],
+        });
+      },
+
+      setFieldState: (field) => {
+        set((state) => ({
+          fieldState: { ...state.fieldState, ...field },
+        }));
+      },
+
+      updateActivePokemon: (side, slot, updates) => {
+        const key = side === "p1" ? "activeP1" : "activeP2";
+        set((state) => {
+          const list = [...state[key]];
+          const idx = slot - 1;
+          if (list[idx]) {
+            list[idx] = { ...list[idx], ...updates };
+          }
+          return { [key]: list };
+        });
+      },
+
+      handleKo: (side, slot) => {
+        const activeKey = side === "p1" ? "activeP1" : "activeP2";
+        const faintedKey = side === "p1" ? "faintedP1" : "faintedP2";
+        set((state) => {
+          const list = [...state[activeKey]];
+          const idx = slot - 1;
+          const fainted = [...state[faintedKey]];
+          if (list[idx]) {
+            const species = list[idx].species;
+            list[idx] = { ...list[idx], hpPercent: 0 };
+            if (!fainted.includes(species)) {
+              fainted.push(species);
+            }
+          }
+          return { [activeKey]: list, [faintedKey]: fainted };
+        });
+      },
+
+      handleSwitch: (side, slot, newSpecies) => {
+        const key = side === "p1" ? "activeP1" : "activeP2";
+        set((state) => {
+          const list = [...state[key]];
+          const idx = slot - 1;
+          list[idx] = makeActivePokemon(newSpecies);
+          return { [key]: list };
+        });
+      },
+    }),
+    {
+      name: "metagross-battle-logger",
+      partialize: (state) => ({
+        phase: state.phase,
+        mode: state.mode,
+        myTeam: state.myTeam,
+        opponentTeam: state.opponentTeam,
+        myTeamId: state.myTeamId,
+        myBrought: state.myBrought,
+        opponentBrought: state.opponentBrought,
+        myLeads: state.myLeads,
+        opponentLeads: state.opponentLeads,
+        turns: state.turns,
+        result: state.result,
+        format: state.format,
+        opponentName: state.opponentName,
+        notes: state.notes,
+        // Persist turn management state
+        currentTurn: state.currentTurn,
+        fieldState: state.fieldState,
+        activeP1: state.activeP1,
+        activeP2: state.activeP2,
+        currentTurnActions: state.currentTurnActions,
+        faintedP1: state.faintedP1,
+        faintedP2: state.faintedP2,
+      }),
+    },
+  ),
+);
