@@ -1,4 +1,4 @@
-import { StateGraph, START, END, Command } from "@langchain/langgraph";
+import { StateGraph, START, END } from "@langchain/langgraph";
 import { AgentState } from "./state";
 import { createCheckpointSaver } from "./checkpoint";
 import { loadContextNode } from "./nodes/load-context";
@@ -7,8 +7,10 @@ import { agentNode } from "./nodes/agent";
 import { toolExecutorNode } from "./nodes/tool-executor";
 import { checkForWrite } from "./nodes/check-for-write";
 import { reviewWriteNode } from "./nodes/review-write";
+import { validateResponseNode } from "./nodes/validate-response";
 import { HumanMessage } from "@langchain/core/messages";
 import type { WriteActionProposal } from "@/lib/types/agent";
+import type { Command } from "@langchain/langgraph";
 
 /**
  * Build the compiled agent graph.
@@ -17,7 +19,7 @@ import type { WriteActionProposal } from "@/lib/types/agent";
  *   START -> load_context -> retrieve_memory -> agent -> (conditional)
  *     - if tool_calls -> tool_executor -> agent (loop)
  *     - if pendingAction -> review_write -> agent (loop)
- *     - else -> END
+ *     - else -> validate -> END
  */
 function buildGraph() {
   const checkpointer = createCheckpointSaver();
@@ -28,6 +30,7 @@ function buildGraph() {
     .addNode("agent", agentNode)
     .addNode("tool_executor", toolExecutorNode)
     .addNode("review_write", reviewWriteNode)
+    .addNode("validate", validateResponseNode)
     // Edges: START -> load_context -> retrieve_memory -> agent
     .addEdge(START, "load_context")
     .addEdge("load_context", "retrieve_memory")
@@ -36,12 +39,14 @@ function buildGraph() {
     .addConditionalEdges("agent", checkForWrite, [
       "tool_executor",
       "review_write",
-      END,
+      "validate", // was END — now goes through validation first
     ])
-    // After tool execution: ALWAYS go back to agent for further reasoning/final response
+    // After tool execution: ALWAYS go back to agent
     .addEdge("tool_executor", "agent")
-    // After write review (approval/rejection): go back to agent
-    .addEdge("review_write", "agent");
+    // After write review: go back to agent
+    .addEdge("review_write", "agent")
+    // After validation: END
+    .addEdge("validate", END);
 
   return graph.compile({ checkpointer });
 }
@@ -103,8 +108,9 @@ export async function resumeAgent(
   };
 
   const resumeValue = { action, editedPayload };
+  const { Command: CommandClass } = await import("@langchain/langgraph");
 
-  return graph.stream(new Command({ resume: resumeValue }), {
+  return graph.stream(new CommandClass({ resume: resumeValue }), {
     ...config,
     streamMode: "values",
   });
@@ -124,7 +130,6 @@ export async function getThreadState(threadId: string) {
  */
 export async function getThreadInterrupts(threadId: string) {
   const state = await getThreadState(threadId);
-  // StateSnapshot.tasks contains interrupt info
   if (state && state.tasks) {
     for (const task of state.tasks) {
       if ("interrupts" in task && Array.isArray(task.interrupts) && task.interrupts.length > 0) {

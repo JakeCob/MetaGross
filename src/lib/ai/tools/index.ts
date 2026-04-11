@@ -8,6 +8,7 @@ import { getEvBenchmarksTool } from "./read/get-ev-benchmarks";
 import { searchWebTool } from "./read/search-web";
 import { lookupPokemonTool } from "./read/lookup-pokemon";
 import { lookupMoveTool } from "./read/lookup-move";
+import { getPokemonSetsTool } from "./read/get-pokemon-sets";
 
 import { proposeMatchNoteTool } from "./write/propose-match-note";
 import { proposeTeamNoteTool } from "./write/propose-team-note";
@@ -26,6 +27,7 @@ export const readTools = [
   searchWebTool,
   lookupPokemonTool,
   lookupMoveTool,
+  getPokemonSetsTool,
 ];
 
 // Write tools — return proposals that require user approval before execution

@@ -80,7 +80,7 @@ export function AgentMessageList({
                 </div>
                 <div className="space-y-2">
                   <div className="rounded-2xl rounded-bl-md bg-card ring-1 ring-foreground/10 px-3 py-2 text-sm text-card-foreground">
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-headings:text-foreground prose-strong:text-foreground prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded">
+                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:mt-4 prose-headings:mb-1 prose-headings:first:mt-0 prose-h3:text-base prose-h3:font-bold prose-h3:text-primary prose-h3:border-b prose-h3:border-primary/20 prose-h3:pb-1 prose-h4:text-sm prose-h4:font-semibold prose-h4:text-foreground prose-strong:text-foreground prose-strong:font-semibold prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded">
                       <ReactMarkdown>{msg.content || ""}</ReactMarkdown>
                     </div>
                     <p className="mt-1 text-[10px] text-muted-foreground">

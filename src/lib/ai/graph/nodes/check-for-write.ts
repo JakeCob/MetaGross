@@ -28,5 +28,5 @@ export function checkForWrite(state: AgentStateType): string {
     }
   }
 
-  return "__end__";
+  return "validate";
 }
