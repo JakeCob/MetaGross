@@ -1,7 +1,8 @@
 import type { AgentStateType, AgentStateUpdate } from "../state";
 import { isChampionsPokemon, isConfirmedNotInChampions, CHAMPIONS_ITEMS_CONFIRMED, CHAMPIONS_ITEMS_UNCERTAIN } from "@/lib/data/champions";
 import { AIMessage, SystemMessage, RemoveMessage } from "@langchain/core/messages";
-import { createModel, detectProvider } from "../model";
+import { createModel, detectProvider, getModelName } from "../model";
+import { logAgentEvent } from "@/lib/ai/logger";
 
 /**
  * Validation node that checks the agent's response for accuracy issues
@@ -103,8 +104,28 @@ export async function validateResponseNode(
   }
 
   if (issues.length === 0) {
+    logAgentEvent({
+      sessionId: state.threadId || "unknown",
+      agent: "metagross-main",
+      node: "validate",
+      model: getModelName(detectProvider()),
+      provider: detectProvider(),
+      action: "validation",
+      metadata: { passed: true, issueCount: 0 },
+    });
     return {}; // No issues, response is fine
   }
+
+  // Log validation failures
+  logAgentEvent({
+    sessionId: state.threadId || "unknown",
+    agent: "metagross-main",
+    node: "validate",
+    model: getModelName(detectProvider()),
+    provider: detectProvider(),
+    action: "validation",
+    metadata: { passed: false, issues },
+  });
 
   // Issues found — regenerate a corrected response and REPLACE the bad one
   const correctionPrompt = `VALIDATION FAILED. Fix these issues and regenerate the COMPLETE response:

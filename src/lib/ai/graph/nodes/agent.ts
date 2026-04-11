@@ -2,9 +2,10 @@ import type { AgentStateType, AgentStateUpdate } from "../state";
 import type { AgentPersona } from "@/lib/types/agent";
 import { AGENT_PERSONAS } from "@/lib/types/agent";
 import { allTools } from "@/lib/ai/tools";
-import { createModel, detectProvider } from "../model";
+import { createModel, detectProvider, getModelName } from "../model";
 import type { BaseMessage } from "@langchain/core/messages";
 import { SystemMessage } from "@langchain/core/messages";
+import { logAgentEvent } from "@/lib/ai/logger";
 
 const BASE_SYSTEM_PROMPT = `You are MetaGross, an expert Pokemon VGC doubles copilot for Champions Regulation M-A.
 
@@ -105,7 +106,28 @@ export async function agentNode(
     ...state.messages,
   ];
 
+  const startTime = Date.now();
   const response = await modelWithTools.invoke(allMessages);
+  const durationMs = Date.now() - startTime;
+
+  // Log the LLM call
+  const tokenUsage = response.usage_metadata;
+  logAgentEvent({
+    sessionId: state.threadId || "unknown",
+    agent: "metagross-main",
+    node: "agent",
+    model: getModelName(provider),
+    provider,
+    action: "llm_call",
+    inputTokens: tokenUsage?.input_tokens ?? 0,
+    outputTokens: tokenUsage?.output_tokens ?? 0,
+    durationMs,
+    output: typeof response.content === "string"
+      ? response.content.slice(0, 300)
+      : Array.isArray(response.content)
+        ? JSON.stringify(response.content).slice(0, 300)
+        : "",
+  });
 
   return { messages: [response] };
 }

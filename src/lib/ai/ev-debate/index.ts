@@ -7,6 +7,8 @@ import { cybertronReviewNode } from "./nodes/cybertron-review";
 import { simulateNode } from "./nodes/simulate";
 import { finalizeNode } from "./nodes/finalize";
 import type { TeamPokemon, EVSpread } from "@/lib/types/pokemon";
+import { createSessionLogger } from "@/lib/ai/logger";
+import { detectProvider, getModelName } from "@/lib/ai/graph/model";
 
 // ---------------------------------------------------------------------------
 // Conditional edge: after finalize, loop back or end
@@ -84,6 +86,10 @@ export async function optimizeEVSpread(
   team: TeamPokemon[],
   format: string = "champions-reg-m-a",
 ): Promise<EVDebateResult> {
+  const provider = detectProvider();
+  const logger = createSessionLogger("ev-debate", provider, getModelName(provider));
+  logger.start({ species: pokemon.species, format });
+
   const graph = getDebateGraph();
 
   const input = {
@@ -96,9 +102,11 @@ export async function optimizeEVSpread(
     maxIterations: 2,
   };
 
+  const startTime = Date.now();
   const finalState = await graph.invoke(input);
+  const durationMs = Date.now() - startTime;
 
-  return {
+  const result = {
     spread: finalState.finalSpread ?? finalState.currentSpread,
     nature: finalState.finalNature ?? finalState.currentNature,
     reasoning: finalState.finalReasoning ?? "Optimization complete.",
@@ -107,6 +115,17 @@ export async function optimizeEVSpread(
     benchmarks: finalState.simulationResults ?? [],
     iterations: finalState.iterations,
   };
+
+  logger.end({
+    species: pokemon.species,
+    iterations: result.iterations,
+    durationMs,
+    finalSpread: result.spread,
+    wolfe: result.wolfeComment.slice(0, 200),
+    cybertron: result.cybertronComment.slice(0, 200),
+  });
+
+  return result;
 }
 
 /**
