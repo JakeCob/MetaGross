@@ -6,6 +6,7 @@ import type {
   AgentPersona,
   WriteActionProposal,
 } from "@/lib/types/agent";
+import type { CardActions } from "./PokemonCardRenderer";
 import { PersonaSelector } from "./PersonaSelector";
 import { AgentMessageList } from "./AgentMessageList";
 import { AgentComposer } from "./AgentComposer";
@@ -14,6 +15,8 @@ import { Separator } from "@/components/ui/separator";
 interface AgentPanelProps {
   contextType: "match" | "team" | "general";
   contextId?: string;
+  cardActions?: CardActions;
+  onSendMessage?: (message: string) => void;
 }
 
 interface StreamEvent {
@@ -28,7 +31,7 @@ interface StreamEvent {
   message?: string;
 }
 
-export function AgentPanel({ contextType, contextId }: AgentPanelProps) {
+export function AgentPanel({ contextType, contextId, cardActions }: AgentPanelProps) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -337,6 +340,15 @@ export function AgentPanel({ contextType, contextId }: AgentPanelProps) {
         onApprove={handleApprove}
         onReject={handleReject}
         onEdit={handleEdit}
+        cardActions={{
+          ...cardActions,
+          onResuggest: cardActions?.onResuggest ?? ((species: string) => {
+            sendMessage(`Suggest a different Pokemon to replace ${species} on the team`);
+          }),
+          onChangeField: cardActions?.onChangeField ?? ((species: string, _field: string, prompt: string) => {
+            sendMessage(prompt);
+          }),
+        }}
       />
 
       {/* Error display */}

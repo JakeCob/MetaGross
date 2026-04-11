@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { AgentChatMessage, WriteActionProposal } from "@/lib/types/agent";
-import { PokemonCardRenderer } from "./PokemonCardRenderer";
+import { PokemonCardRenderer, type CardActions } from "./PokemonCardRenderer";
 import { AgentApprovalCard } from "./AgentApprovalCard";
 import { AgentToolTrace } from "./AgentToolTrace";
 import { BotIcon, UserIcon } from "lucide-react";
@@ -15,6 +15,7 @@ interface AgentMessageListProps {
   onReject: () => void;
   onEdit: (editedPayload: unknown) => void;
   pendingApproval: WriteActionProposal | null;
+  cardActions?: CardActions;
 }
 
 function formatTime(timestamp: number): string {
@@ -31,6 +32,7 @@ export function AgentMessageList({
   onReject,
   onEdit,
   pendingApproval,
+  cardActions,
 }: AgentMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -80,7 +82,7 @@ export function AgentMessageList({
                 </div>
                 <div className="space-y-2">
                   <div className="rounded-2xl rounded-bl-md bg-card ring-1 ring-foreground/10 px-3 py-2 text-sm text-card-foreground">
-                    <PokemonCardRenderer content={msg.content || ""} />
+                    <PokemonCardRenderer content={msg.content || ""} actions={cardActions} />
                     <p className="mt-1 text-[10px] text-muted-foreground">
                       {formatTime(msg.timestamp)}
                     </p>

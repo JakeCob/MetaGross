@@ -93,9 +93,10 @@ function emptyPokemon(): Partial<TeamPokemon> {
 
 export interface TeamBuilderProps {
   teamId?: string;
+  onAddFromAgent?: (addFn: (pokemon: Partial<TeamPokemon>) => void) => void;
 }
 
-export function TeamBuilder({ teamId }: TeamBuilderProps) {
+export function TeamBuilder({ teamId, onAddFromAgent }: TeamBuilderProps) {
   const router = useRouter();
   const isEditing = Boolean(teamId);
 
@@ -109,6 +110,21 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
   const [loadingTeam, setLoadingTeam] = useState(false);
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+  // Register the add-from-agent callback
+  useEffect(() => {
+    if (onAddFromAgent) {
+      onAddFromAgent((newPokemon: Partial<TeamPokemon>) => {
+        setPokemon((prev) => {
+          const next = [...prev];
+          const emptyIdx = next.findIndex((p) => !p.species?.trim());
+          if (emptyIdx === -1) return next; // no empty slots
+          next[emptyIdx] = { ...emptyPokemon(), ...newPokemon };
+          return next;
+        });
+      });
+    }
+  }, [onAddFromAgent]);
 
   // Load existing team data when editing
   useEffect(() => {
