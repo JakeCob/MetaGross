@@ -72,16 +72,23 @@ export async function validateResponseNode(
   }
 
   // Check stat point totals (must equal 66, max 32 per stat)
-  const pointMatches = content.matchAll(/\*\*Points\*\*:\s*HP\s*(\d+)\s*\/\s*Atk\s*(\d+)\s*\/\s*Def\s*(\d+)\s*\/\s*SpA\s*(\d+)\s*\/\s*SpD\s*(\d+)\s*\/\s*Spe\s*(\d+)/g);
+  // Also catch if the model output EVs (252/510) instead of Points (32/66)
+  const pointMatches = content.matchAll(/\*\*(?:Points|EVs)\*\*:\s*HP\s*(\d+)\s*\/\s*Atk\s*(\d+)\s*\/\s*Def\s*(\d+)\s*\/\s*SpA\s*(\d+)\s*\/\s*SpD\s*(\d+)\s*\/\s*Spe\s*(\d+)/g);
   for (const match of pointMatches) {
     const stats = [1, 2, 3, 4, 5, 6].map((i) => parseInt(match[i]));
     const total = stats.reduce((sum, v) => sum + v, 0);
     const maxStat = Math.max(...stats);
-    if (maxStat > 32) {
-      issues.push(`A Pokemon has a stat at ${maxStat} points — maximum is 32 per stat. Reduce to 32 and redistribute the excess.`);
+
+    // Detect if model used traditional EVs (252/510) instead of Champions Points (32/66)
+    if (total > 100 || maxStat > 32) {
+      issues.push(
+        `WRONG SYSTEM: You used traditional EVs (total=${total}, max=${maxStat}). Champions uses STAT POINTS: 66 total, 32 max per stat. Convert by dividing EVs by 8. Re-output using Points, not EVs. Example: 252 EVs = 32 Points, 128 EVs = 16 Points.`
+      );
+      break; // One error is enough
     }
+
     if (total !== 66) {
-      issues.push(`A Pokemon has ${total}/66 stat points. Must be EXACTLY 66.`);
+      issues.push(`A Pokemon has ${total}/66 stat points. Must be EXACTLY 66. Redistribute to total 66.`);
     }
   }
 
