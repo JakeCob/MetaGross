@@ -3,8 +3,14 @@ import { z } from "zod";
 import { getMetaThreats, getMetaSpreads } from "@/lib/ev/meta-lookup";
 import {
   CHAMPIONS_POKEMON,
-  CHAMPIONS_ITEMS,
+  CHAMPIONS_ITEMS_CONFIRMED,
+  CHAMPIONS_ITEMS_UNCERTAIN,
+  NOT_IN_CHAMPIONS,
+  CHAMPIONS_MEGAS,
+  NO_MEGA_DESPITE_BASE,
   isChampionsPokemon,
+  isConfirmedNotInChampions,
+  canMegaEvolve,
 } from "@/lib/data/champions";
 
 export const getMetaDataTool = new DynamicStructuredTool({
@@ -38,9 +44,9 @@ export const getMetaDataTool = new DynamicStructuredTool({
     if (query === "available_items") {
       return JSON.stringify({
         format: "Champions Reg M-A",
-        totalAvailable: CHAMPIONS_ITEMS.length,
-        items: CHAMPIONS_ITEMS,
-        note: "Includes Mega Stones. This list is from competitive usage data.",
+        confirmed: CHAMPIONS_ITEMS_CONFIRMED,
+        uncertain: CHAMPIONS_ITEMS_UNCERTAIN,
+        note: "Items in 'uncertain' appear in Showdown preview but may not be on cartridge (Life Orb, Choice Band, Choice Specs, Assault Vest reportedly cut). Recommend confirmed items when possible.",
       });
     }
 
@@ -48,12 +54,22 @@ export const getMetaDataTool = new DynamicStructuredTool({
       if (!species) {
         return JSON.stringify({ error: "species is required for check_pokemon" });
       }
+      const available = isChampionsPokemon(species);
+      const confirmedAbsent = isConfirmedNotInChampions(species);
+      const mega = canMegaEvolve(species);
+      const noMega = NO_MEGA_DESPITE_BASE.includes(species);
       return JSON.stringify({
         species,
-        availableInChampions: isChampionsPokemon(species),
-        note: isChampionsPokemon(species)
-          ? `${species} is confirmed available in Champions Reg M-A.`
-          : `${species} is NOT confirmed in Champions Reg M-A. Do not recommend it.`,
+        availableInChampions: available,
+        confirmedNotAvailable: confirmedAbsent,
+        canMegaEvolve: mega,
+        megaStoneInfo: mega ? CHAMPIONS_MEGAS[species] : null,
+        noMegaDespiteBase: noMega,
+        note: confirmedAbsent
+          ? `${species} is CONFIRMED NOT in Champions. Do NOT recommend it.`
+          : available
+            ? `${species} is available in Champions.${mega ? " Can Mega Evolve." : ""}${noMega ? " BUT cannot Mega Evolve (Mega Stone not in game)." : ""}`
+            : `${species} is not in our confirmed list. Use search_web to verify before recommending.`,
       });
     }
 

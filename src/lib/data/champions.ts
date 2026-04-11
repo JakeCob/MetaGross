@@ -1,146 +1,234 @@
 /**
  * Pokemon Champions Regulation M-A game data.
  *
- * Sourced from Pikalytics competitive usage data (championspreview format).
- * This is the confirmed pool of Pokemon and items used in competitive play.
- * Not exhaustive — only includes Pokemon/items with competitive usage.
+ * Sources:
+ * - Pikalytics (competitive usage): pikalytics.com/ai/pokedex/championspreview
+ * - Serebii: serebii.net/pokemonchampions/
+ * - Bulbapedia: bulbapedia.bulbagarden.net/wiki/Regulation_Set_M-A
+ * - Victory Road: victoryroad.pro/champions-regulations/
+ * - Game8: game8.co/games/Pokemon-Champions
+ *
+ * Last updated: 2026-04-11
  */
 
-/** Pokemon confirmed available in Champions Reg M-A (from Pikalytics top 50) */
-export const CHAMPIONS_POKEMON: string[] = [
-  "Incineroar",
-  "Sneasler",
-  "Sinistcha",
-  "Sinistcha-Masterpiece",
-  "Archaludon",
-  "Whimsicott",
-  "Pelipper",
-  "Garchomp",
-  "Farigiraf",
-  "Dragonite",
-  "Charizard",
-  "Basculegion",
-  "Tyranitar",
-  "Kingambit",
-  "Gengar",
-  "Metagross",
-  "Froslass",
-  "Venusaur",
-  "Primarina",
-  "Rotom-Wash",
-  "Corviknight",
-  "Excadrill",
-  "Gardevoir",
-  "Milotic",
-  "Dragapult",
-  "Talonflame",
-  "Torkoal",
-  "Dondozo",
-  "Clefable",
-  "Arcanine-Hisui",
-  "Maushold",
-  "Maushold-Four",
-  "Gyarados",
-  "Salamence",
-  "Meganium",
-  "Meowscarada",
-  "Politoed",
-  "Meowstic-F",
-  "Volcarona",
-  "Tatsugiri",
-  "Ninetales-Alola",
-  "Grimmsnarl",
-  "Aegislash",
-  "Delphox",
-  "Kommo-o",
-  "Kangaskhan",
-  "Glimmora",
-  "Palafin-Hero",
-  "Raichu",
-  "Sylveon",
-];
-
-/** Items confirmed available in Champions Reg M-A (from Pikalytics usage) */
-export const CHAMPIONS_ITEMS: string[] = [
-  "Adrenaline Orb",
-  "Aguav Berry",
-  "Air Balloon",
-  "Assault Vest",
-  "Black Glasses",
-  "Black Sludge",
-  "Charizardite X",
-  "Charizardite Y",
-  "Choice Band",
-  "Choice Scarf",
-  "Choice Specs",
-  "Chople Berry",
-  "Clear Amulet",
-  "Colbur Berry",
-  "Covert Cloak",
-  "Damp Rock",
-  "Dragoninite", // Dragonite's Mega Stone
-  "Eject Button",
-  "Eject Pack",
-  "Figy Berry",
-  "Focus Sash",
-  "Garchompite",
-  "Gengarite",
-  "Leftovers",
-  "Life Orb",
-  "Loaded Dice",
-  "Lum Berry",
-  "Mental Herb",
-  "Metagrossite",
-  "Mirror Herb",
-  "Muscle Band",
-  "Normal Gem",
-  "Occa Berry",
-  "Power Herb",
-  "Psychic Seed",
-  "Razor Fang",
-  "Rocky Helmet",
-  "Room Service",
-  "Safety Goggles",
-  "Shuca Berry",
-  "Sitrus Berry",
-  "Throat Spray",
-  "Toxic Orb",
-  "Tyranitarite",
-  "Venusaurite",
-  "Weakness Policy",
-  "White Herb",
-  "Wide Lens",
-];
-
-/** Mega Stones and their Pokemon */
-export const CHAMPIONS_MEGA_STONES: Record<string, string> = {
-  Charizardite_X: "Charizard",
-  Charizardite_Y: "Charizard",
-  Dragoninite: "Dragonite",
-  Garchompite: "Garchomp",
-  Gengarite: "Gengar",
-  Metagrossite: "Metagross",
-  Tyranitarite: "Tyranitar",
-  Venusaurite: "Venusaur",
+// ---------------------------------------------------------------------------
+// Format Rules
+// ---------------------------------------------------------------------------
+export const CHAMPIONS_RULES = {
+  format: "Doubles (VGC)",
+  teamSize: 6,
+  bring: 4,
+  level: 50,
+  megaEvolution: true,
+  terastallization: false,
+  speciesClause: true,
+  itemClause: true,
+  legendaries: false,
+  restricted: false,
+  period: "April 8 - June 17, 2026",
+  ivsFixed: true, // IVs are always 31 in Champions
+  ivValue: 31,
 };
 
-/** Champions point system (replaces traditional EVs) */
+// ---------------------------------------------------------------------------
+// Point System (replaces EVs)
+// ---------------------------------------------------------------------------
 export const CHAMPIONS_POINTS = {
   totalMax: 66,
   perStatMax: 32,
   label: "Points",
+  evConversion: 8, // 1 Stat Point = 8 EVs for damage calc
+  vpCostPerPoint: 5, // 5 VP to set 1 stat point
 };
 
-/** Check if a Pokemon is available in Champions */
+// ---------------------------------------------------------------------------
+// Pokemon — confirmed available from multiple sources
+// ---------------------------------------------------------------------------
+
+/**
+ * Pokemon confirmed in Champions Reg M-A.
+ * Top 50 from Pikalytics competitive usage + additional confirmed from
+ * Serebii/Bulbapedia full game Pokedex (187 total species in game).
+ */
+export const CHAMPIONS_POKEMON: string[] = [
+  // Top competitive usage (Pikalytics top 50)
+  "Incineroar", "Sneasler", "Sinistcha", "Sinistcha-Masterpiece",
+  "Archaludon", "Whimsicott", "Pelipper", "Garchomp", "Farigiraf",
+  "Dragonite", "Charizard", "Basculegion", "Tyranitar", "Kingambit",
+  "Gengar", "Metagross", "Froslass", "Venusaur", "Primarina",
+  "Rotom-Wash", "Corviknight", "Excadrill", "Gardevoir", "Milotic",
+  "Dragapult", "Talonflame", "Torkoal", "Dondozo", "Clefable",
+  "Arcanine-Hisui", "Maushold", "Maushold-Four", "Gyarados", "Salamence",
+  "Meganium", "Meowscarada", "Politoed", "Meowstic-F", "Volcarona",
+  "Tatsugiri", "Ninetales-Alola", "Grimmsnarl", "Aegislash", "Delphox",
+  "Kommo-o", "Kangaskhan", "Glimmora", "Palafin-Hero", "Raichu", "Sylveon",
+  // Additional confirmed from Serebii/Bulbapedia (partial list of 187 total)
+  "Blastoise", "Beedrill", "Pidgeot", "Arbok", "Pikachu", "Arcanine",
+  "Alakazam", "Machamp", "Slowbro", "Pinsir", "Tauros", "Snorlax",
+  "Vaporeon", "Jolteon", "Flareon", "Aerodactyl", "Starmie",
+  "Typhlosion", "Feraligatr", "Ampharos", "Azumarill", "Espeon",
+  "Umbreon", "Slowking", "Forretress", "Steelix", "Scizor", "Heracross",
+  "Skarmory", "Houndoom", "Altaria", "Absol", "Sableye",
+  "Empoleon", "Lopunny", "Lucario", "Hippowdon", "Rhyperior",
+  "Leafeon", "Glaceon", "Gliscor",
+  "Serperior", "Emboar", "Samurott", "Krookodile", "Zoroark",
+  "Hydreigon", "Audino",
+  "Chesnaught", "Greninja", "Diggersby", "Meowstic", "Hawlucha",
+  "Goodra", "Noivern", "Klefki",
+  "Decidueye", "Toxapex", "Mudsdale", "Araquanid", "Salazzle",
+  "Tsareena", "Oranguru", "Passimian", "Mimikyu", "Drampa",
+  "Hatterene", "Polteageist", "Alcremie", "Morpeko",
+  "Skeledirge", "Quaquaval", "Garganacl", "Armarouge", "Ceruledge",
+  "Bellibolt", "Tinkaton", "Orthworm", "Hydrapple",
+  "Wyrdeer", "Kleavor",
+];
+
+/**
+ * Pokemon NOT in Champions (commonly suggested by AI incorrectly)
+ */
+export const NOT_IN_CHAMPIONS: string[] = [
+  "Kingdra", "Ludicolo", "Amoonguss", "Rillaboom", "Flutter Mane",
+  "Iron Hands", "Urshifu", "Urshifu-Rapid-Strike", "Calyrex-Ice",
+  "Calyrex-Shadow", "Zacian", "Zamazenta", "Eternatus",
+  "Koraidon", "Miraidon", "Ogerpon", "Raging Bolt", "Iron Crown",
+  "Landorus", "Thundurus", "Tornadus", "Chien-Pao",
+  // All Paradox Pokemon
+  "Great Tusk", "Scream Tail", "Brute Bonnet", "Sandy Shocks",
+  "Iron Treads", "Iron Bundle", "Iron Moth", "Iron Thorns",
+  "Roaring Moon", "Iron Valiant", "Walking Wake", "Iron Leaves",
+  "Gouging Fire", "Raging Bolt", "Iron Boulder", "Iron Crown",
+];
+
+// ---------------------------------------------------------------------------
+// Items
+// ---------------------------------------------------------------------------
+
+/**
+ * Items confirmed in Champions from competitive usage (Pikalytics).
+ * NOTE: Some items (Life Orb, Choice Specs) appear in Showdown Champions Preview
+ * but may be unavailable on cartridge. Flagged as "unverified_cartridge".
+ */
+export const CHAMPIONS_ITEMS_CONFIRMED: string[] = [
+  // Berries
+  "Sitrus Berry", "Lum Berry", "Figy Berry", "Aguav Berry",
+  "Shuca Berry", "Chople Berry", "Occa Berry", "Colbur Berry",
+  // Competitive staples
+  "Focus Sash", "Choice Scarf", "Leftovers", "Rocky Helmet",
+  "Safety Goggles", "Clear Amulet", "Covert Cloak", "Mental Herb",
+  "White Herb", "Mirror Herb", "Weakness Policy", "Eject Button",
+  "Throat Spray", "Psychic Seed", "Room Service",
+  "Normal Gem", "Power Herb", "Wide Lens", "Razor Fang",
+  "Toxic Orb", "Air Balloon", "Muscle Band", "Adrenaline Orb",
+  "Black Glasses", "Black Sludge",
+  // Mega Stones
+  "Charizardite X", "Charizardite Y", "Venusaurite", "Blastoisinite",
+  "Garchompite", "Gengarite", "Tyranitarite", "Kangaskhanite",
+  "Gyaradosite", "Scizorite", "Heracronite", "Houndoominite",
+  "Aerodactylite", "Alakazite", "Ampharosite", "Absolite",
+  "Altarianite", "Banettite", "Beedrillite", "Cameruptite",
+  "Lopunnite", "Lucarionite", "Mawilite", "Medichamite",
+  "Pidgeotite", "Pinsirite", "Sablenite", "Sharpedonite",
+  "Slowbronite", "Steelixite", "Audinite",
+  // New Champions Mega Stones
+  "Meganiumite", "Typhlosionite", "Feraligatrite",
+  "Dragoninite", "Excadrillinite", "Delphoxite",
+  "Greninjaite", "Hawluchite", "Froslasite",
+];
+
+/**
+ * Items that may NOT be in Champions (reportedly cut, but appear in Showdown preview).
+ * Use these with caution — Pikalytics Showdown data may include them.
+ */
+export const CHAMPIONS_ITEMS_UNCERTAIN: string[] = [
+  "Life Orb", "Choice Band", "Choice Specs", "Assault Vest",
+  "Eject Pack", "Loaded Dice", "Damp Rock",
+];
+
+// ---------------------------------------------------------------------------
+// Mega Evolutions
+// ---------------------------------------------------------------------------
+
+/**
+ * Available Mega Evolutions in Champions.
+ * NOTE: Some base Pokemon exist but their Mega Stone is NOT available.
+ */
+export const CHAMPIONS_MEGAS: Record<string, { stone: string; confirmed: boolean }> = {
+  // Returning Megas (Gen 6/7)
+  "Venusaur": { stone: "Venusaurite", confirmed: true },
+  "Charizard-Mega-X": { stone: "Charizardite X", confirmed: true },
+  "Charizard-Mega-Y": { stone: "Charizardite Y", confirmed: true },
+  "Blastoise": { stone: "Blastoisinite", confirmed: true },
+  "Beedrill": { stone: "Beedrillite", confirmed: true },
+  "Pidgeot": { stone: "Pidgeotite", confirmed: true },
+  "Alakazam": { stone: "Alakazite", confirmed: true },
+  "Slowbro": { stone: "Slowbronite", confirmed: true },
+  "Gengar": { stone: "Gengarite", confirmed: true },
+  "Kangaskhan": { stone: "Kangaskhanite", confirmed: true },
+  "Pinsir": { stone: "Pinsirite", confirmed: true },
+  "Gyarados": { stone: "Gyaradosite", confirmed: true },
+  "Aerodactyl": { stone: "Aerodactylite", confirmed: true },
+  "Steelix": { stone: "Steelixite", confirmed: true },
+  "Scizor": { stone: "Scizorite", confirmed: true },
+  "Heracross": { stone: "Heracronite", confirmed: true },
+  "Houndoom": { stone: "Houndoominite", confirmed: true },
+  "Tyranitar": { stone: "Tyranitarite", confirmed: true },
+  "Gardevoir": { stone: "Gardevoirite", confirmed: true },
+  "Sableye": { stone: "Sablenite", confirmed: true },
+  "Altaria": { stone: "Altarianite", confirmed: true },
+  "Absol": { stone: "Absolite", confirmed: true },
+  "Garchomp": { stone: "Garchompite", confirmed: true },
+  "Lucario": { stone: "Lucarionite", confirmed: true },
+  "Lopunny": { stone: "Lopunnite", confirmed: true },
+  "Audino": { stone: "Audinite", confirmed: true },
+  "Ampharos": { stone: "Ampharosite", confirmed: true },
+  // New Champions Megas (Legends Z-A)
+  "Meganium": { stone: "Meganiumite", confirmed: true },
+  "Typhlosion": { stone: "Typhlosionite", confirmed: true },
+  "Feraligatr": { stone: "Feraligatrite", confirmed: true },
+  "Dragonite": { stone: "Dragoninite", confirmed: true },
+  "Excadrill": { stone: "Excadrillinite", confirmed: true },
+  "Froslass": { stone: "Froslasite", confirmed: true },
+  "Delphox": { stone: "Delphoxite", confirmed: true },
+  "Greninja": { stone: "Greninjaite", confirmed: true },
+  "Hawlucha": { stone: "Hawluchite", confirmed: true },
+};
+
+/**
+ * Pokemon that exist in Champions but CANNOT Mega Evolve
+ * (their Mega Stone is not in the game).
+ */
+export const NO_MEGA_DESPITE_BASE: string[] = [
+  "Metagross", // Metagrossite NOT in game
+  "Salamence", // Salamencite NOT in game
+];
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 export function isChampionsPokemon(species: string): boolean {
   return CHAMPIONS_POKEMON.some(
     (p) => p.toLowerCase() === species.toLowerCase(),
   );
 }
 
-/** Check if an item is available in Champions */
 export function isChampionsItem(item: string): boolean {
-  return CHAMPIONS_ITEMS.some(
-    (i) => i.toLowerCase() === item.toLowerCase(),
+  return (
+    CHAMPIONS_ITEMS_CONFIRMED.some(
+      (i) => i.toLowerCase() === item.toLowerCase(),
+    ) ||
+    CHAMPIONS_ITEMS_UNCERTAIN.some(
+      (i) => i.toLowerCase() === item.toLowerCase(),
+    )
   );
+}
+
+export function isConfirmedNotInChampions(species: string): boolean {
+  return NOT_IN_CHAMPIONS.some(
+    (p) => p.toLowerCase() === species.toLowerCase(),
+  );
+}
+
+export function canMegaEvolve(species: string): boolean {
+  return species in CHAMPIONS_MEGAS;
 }

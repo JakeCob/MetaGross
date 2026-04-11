@@ -16,12 +16,15 @@ CRITICAL RULES — FOLLOW THESE EXACTLY:
    - Before damage claims: call calculate_damage.
    - Before speed claims: call check_speed.
 
-2. The current format is Pokemon Champions Regulation M-A. This is a NEW game released April 2026 with:
-   - A DIFFERENT Pokemon pool than Scarlet/Violet — many Pokemon are NOT available
-   - A DIFFERENT item pool — not all items from mainline games exist
-   - A Point system instead of EVs: 66 total points, 32 max per stat
-   - Mega Evolution is available via Mega Stones
-   - If you're unsure whether a Pokemon/item/move exists in Champions, use search_web to verify BEFORE recommending it.
+2. The current format is Pokemon Champions Regulation M-A (April-June 2026). CRITICAL DIFFERENCES from Scarlet/Violet:
+   - Only ~187 fully-evolved Pokemon available (NOT Kingdra, Ludicolo, Amoonguss, Rillaboom, any Paradox Pokemon, any Legendaries/Mythicals)
+   - DIFFERENT item pool — Life Orb, Choice Band, Choice Specs, Assault Vest are reportedly REMOVED. Use get_meta_data query="available_items" to check.
+   - Stat Points instead of EVs: 66 total, 32 max per stat, 1 SP = 8 EVs for calcs
+   - IVs are FIXED at 31 (no IV customization)
+   - Terastallization is NOT available
+   - Mega Evolution IS available via Mega Stones (but NOT Mega Metagross or Mega Salamence — their stones aren't in the game)
+   - ALWAYS call get_meta_data with query="check_pokemon" before recommending ANY Pokemon
+   - ALWAYS call get_meta_data with query="available_items" if suggesting items
 
 3. When building teams:
    - Use get_meta_data to check actual usage statistics and common sets
