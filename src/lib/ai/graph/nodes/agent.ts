@@ -54,15 +54,35 @@ CRITICAL RULES — FOLLOW THESE EXACTLY:
    - **Nature**: NatureName
    - **Points**: HP X / Atk X / Def X / SpA X / SpD X / Spe X
 
-   POINTS RULES:
-   - Each Pokemon gets EXACTLY 66 total stat points. Must add up to 66 — not 64, not 62.
+   POINTS RULES (CRITICAL — follow exactly):
+   - Each Pokemon gets EXACTLY 66 total stat points. Must add up to 66 — not 64, not 62, not 68.
    - Maximum 32 per stat. NEVER exceed 32 on any single stat.
-   - Do NOT just max 2 stats and dump 2 somewhere. That's lazy and suboptimal.
-   - STRATEGIZE the spread: use calculate_damage and check_speed tools to determine key benchmarks.
-     Example: "Archaludon needs 20 SpD to survive X from Y, 28 SpA to OHKO Z, 18 Spe to outspeed W"
-   - Spread points to hit specific survival/KO/speed benchmarks against the meta, not arbitrary maxing.
-   - A good spread looks like: HP 12 / Atk 0 / Def 8 / SpA 28 / SpD 4 / Spe 14 = 66 (benchmark-driven)
-   - A BAD spread looks like: HP 0 / Atk 32 / Def 0 / SpA 0 / SpD 2 / Spe 32 = 66 (lazy maxing)
+   - Do NOT just max 2 stats and dump 2 somewhere. That is BANNED. Spread points strategically.
+   - Use calculate_damage and check_speed to determine benchmarks, then allocate points to hit them.
+
+   FEW-SHOT EXAMPLES of GOOD competitive Champions spreads:
+
+   Example 1 — Archaludon (Special Attacker, Assault Vest, Stamina, Modest):
+   Points: HP 32 / Atk 0 / Def 0 / SpA 0 / SpD 28 / Spe 6 = 66
+   Reasoning: Max HP for bulk. 0 SpA because Modest nature + Electro Shot boost is enough damage. 28 SpD with Assault Vest survives Mega Gardevoir Moonblast. 6 Spe creeps mirror Archaludon.
+
+   Example 2 — Mega Dragonite (Special Attacker, Multiscale, Modest):
+   Points: HP 12 / Atk 0 / Def 4 / SpA 24 / SpD 8 / Spe 18 = 66
+   Reasoning: 12 HP + Multiscale = survives any single hit. 4 Def helps after Multiscale breaks. 24 SpA for Hurricane/Thunder damage. 8 SpD survives Archaludon Flash Cannon. 18 Spe outspeeds base-80 Pokemon; under Tailwind outspeeds everything.
+
+   Example 3 — Incineroar (Pivot, Intimidate, Safety Goggles, Careful):
+   Points: HP 32 / Atk 0 / Def 4 / SpA 0 / SpD 28 / Spe 2 = 66
+   Reasoning: Max HP for maximum switch-in bulk. 28 SpD + Careful = survives Archaludon Electro Shot in rain. 4 Def for physical hits after Intimidate. 2 Spe to creep other Incineroar for Fake Out priority.
+
+   Example 4 — Sneasler (Physical Sweeper, Unburden, Focus Sash, Jolly):
+   Points: HP 0 / Atk 32 / Def 0 / SpA 0 / SpD 2 / Spe 32 = 66
+   Reasoning: EXCEPTION — glass cannon attackers CAN max 2 stats. Sneasler wants max Atk for Close Combat OHKOs on Steel types and max Spe to outspeed the format. Unburden doubles speed after Sash breaks. 2 SpD prevents download SpA boost from Porygon-Z.
+
+   Example 5 — Sinistcha (Support, Hospitality, Sitrus Berry, Bold, 0 Spe):
+   Points: HP 32 / Atk 0 / Def 14 / SpA 0 / SpD 20 / Spe 0 = 66
+   Reasoning: Max HP for overall bulk. 14 Def + Bold survives Mega Dragonite Extreme Speed. 20 SpD survives Archaludon Flash Cannon. 0 Spe for Trick Room — wants to move LAST.
+
+   Notice: Only 1 out of 5 examples maxes 2 stats (Sneasler — a glass cannon). The other 4 spread across 4-5 stats based on SPECIFIC BENCHMARKS. This is correct competitive play.
 
    After listing all 6 Pokemon, add a brief **Team Summary** section explaining the overall strategy, win conditions, and key leads/back combinations.
 
