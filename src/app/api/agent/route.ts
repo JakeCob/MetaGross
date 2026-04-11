@@ -128,10 +128,36 @@ export async function POST(request: Request) {
                 });
               }
 
-              // Check for text content
-              if (aiMsg.content && typeof aiMsg.content === "string" && aiMsg.content.length > 0) {
-                send("text", { content: aiMsg.content });
+              // Check for text content — content can be string OR array of content blocks
+              const content = aiMsg.content;
+              if (content) {
+                let textContent = "";
+                if (typeof content === "string") {
+                  textContent = content;
+                } else if (Array.isArray(content)) {
+                  // Content blocks: [{ type: "text", text: "..." }, ...]
+                  textContent = content
+                    .filter((block): block is { type: "text"; text: string } =>
+                      typeof block === "object" && block !== null && "type" in block && block.type === "text" && "text" in block
+                    )
+                    .map((block) => block.text)
+                    .join("");
+                }
+                if (textContent.length > 0) {
+                  send("text", { content: textContent });
+                }
               }
+            }
+
+            // Also handle tool response messages (to show tool results)
+            if (lastMsg._getType() === "tool") {
+              const toolContent = typeof lastMsg.content === "string"
+                ? lastMsg.content
+                : JSON.stringify(lastMsg.content);
+              send("tool_result", {
+                name: (lastMsg as unknown as { name?: string }).name ?? "tool",
+                result: toolContent.slice(0, 500), // truncate large results
+              });
             }
 
             // Check for pending approval (interrupt)
