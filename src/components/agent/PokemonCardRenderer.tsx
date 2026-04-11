@@ -16,11 +16,8 @@ interface PokemonBlock {
 
 /**
  * Parse agent markdown into Pokemon card blocks + regular text blocks.
- * Detects the pattern:
- * ### Pokemon Name
- * - **Role**: ...
- * - **Ability**: ...
- * etc.
+ * Detects `### Pokemon Name` followed by `- **Key**: Value` lines.
+ * All field lines consumed by a card are REMOVED from text output to avoid duplication.
  */
 function parseContent(content: string): Array<{ type: "text"; text: string } | { type: "pokemon"; data: PokemonBlock }> {
   const blocks: Array<{ type: "text"; text: string } | { type: "pokemon"; data: PokemonBlock }> = [];
@@ -41,6 +38,7 @@ function parseContent(content: string): Array<{ type: "text"; text: string } | {
     const lines = part.split("\n").slice(1);
 
     const data: PokemonBlock = { name };
+    const extraLines: string[] = [];
 
     for (const line of lines) {
       const fieldMatch = line.match(/^\s*-\s*\*\*(.+?)\*\*:\s*(.+)/);
@@ -53,12 +51,20 @@ function parseContent(content: string): Array<{ type: "text"; text: string } | {
         else if (key === "moves") data.moves = val;
         else if (key === "nature") data.nature = val;
         else if (key === "points" || key === "evs") data.points = val;
+        else extraLines.push(line);
+      } else if (line.trim()) {
+        extraLines.push(line);
       }
     }
 
     // Only treat as a Pokemon card if it has at least ability or moves
     if (data.ability || data.moves) {
       blocks.push({ type: "pokemon", data });
+      // Any extra text after the card fields (not part of the card)
+      const extra = extraLines.join("\n").trim();
+      if (extra) {
+        blocks.push({ type: "text", text: extra });
+      }
     } else {
       blocks.push({ type: "text", text: part.trim() });
     }
@@ -69,7 +75,10 @@ function parseContent(content: string): Array<{ type: "text"; text: string } | {
 
 function PokemonCard({ data }: { data: PokemonBlock }) {
   const isMega = data.name.includes("Mega") || data.name.includes("(Mega)");
-  const spriteSpecies = data.name.replace(/\s*\(Mega\)/, "").replace(/Mega\s+/, "");
+  const spriteSpecies = data.name
+    .replace(/\s*\(Mega\)/, "")
+    .replace(/Mega\s+/, "")
+    .trim();
 
   return (
     <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-3 flex gap-3 items-start">

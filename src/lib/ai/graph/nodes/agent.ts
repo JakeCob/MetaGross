@@ -54,7 +54,15 @@ CRITICAL RULES — FOLLOW THESE EXACTLY:
    - **Nature**: NatureName
    - **Points**: HP X / Atk X / Def X / SpA X / SpD X / Spe X
 
-   POINTS RULE: Each Pokemon gets exactly 66 total stat points, max 32 per stat. The points MUST add up to exactly 66, not 64 or 62. Distribute all 66 points — do not leave points unallocated. For example: 32/32/2/0/0/0 = 66, or 32/0/0/32/0/2 = 66, or 20/0/12/0/14/20 = 66.
+   POINTS RULES:
+   - Each Pokemon gets EXACTLY 66 total stat points. Must add up to 66 — not 64, not 62.
+   - Maximum 32 per stat. NEVER exceed 32 on any single stat.
+   - Do NOT just max 2 stats and dump 2 somewhere. That's lazy and suboptimal.
+   - STRATEGIZE the spread: use calculate_damage and check_speed tools to determine key benchmarks.
+     Example: "Archaludon needs 20 SpD to survive X from Y, 28 SpA to OHKO Z, 18 Spe to outspeed W"
+   - Spread points to hit specific survival/KO/speed benchmarks against the meta, not arbitrary maxing.
+   - A good spread looks like: HP 12 / Atk 0 / Def 8 / SpA 28 / SpD 4 / Spe 14 = 66 (benchmark-driven)
+   - A BAD spread looks like: HP 0 / Atk 32 / Def 0 / SpA 0 / SpD 2 / Spe 32 = 66 (lazy maxing)
 
    After listing all 6 Pokemon, add a brief **Team Summary** section explaining the overall strategy, win conditions, and key leads/back combinations.
 

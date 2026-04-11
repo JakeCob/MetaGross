@@ -76,13 +76,17 @@ export async function validateResponseNode(
     }
   }
 
-  // Check stat point totals (must equal 66)
+  // Check stat point totals (must equal 66, max 32 per stat)
   const pointMatches = content.matchAll(/\*\*Points\*\*:\s*HP\s*(\d+)\s*\/\s*Atk\s*(\d+)\s*\/\s*Def\s*(\d+)\s*\/\s*SpA\s*(\d+)\s*\/\s*SpD\s*(\d+)\s*\/\s*Spe\s*(\d+)/g);
   for (const match of pointMatches) {
-    const total = [1, 2, 3, 4, 5, 6].reduce((sum, i) => sum + parseInt(match[i]), 0);
+    const stats = [1, 2, 3, 4, 5, 6].map((i) => parseInt(match[i]));
+    const total = stats.reduce((sum, v) => sum + v, 0);
+    const maxStat = Math.max(...stats);
+    if (maxStat > 32) {
+      issues.push(`A Pokemon has a stat at ${maxStat} points — maximum is 32 per stat. Reduce it to 32 and redistribute the excess to other stats.`);
+    }
     if (total !== 66) {
-      issues.push(`A Pokemon has ${total}/66 stat points allocated. Redistribute to use exactly 66 points (32 max per stat).`);
-      break; // One warning is enough
+      issues.push(`A Pokemon has ${total}/66 stat points. Redistribute to use EXACTLY 66 points total. Consider spreading points across more stats based on survival benchmarks instead of just maxing 2 stats.`);
     }
   }
 
