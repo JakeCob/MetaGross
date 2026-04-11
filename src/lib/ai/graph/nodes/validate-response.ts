@@ -1,12 +1,12 @@
 import type { AgentStateType, AgentStateUpdate } from "../state";
 import { isChampionsPokemon, isConfirmedNotInChampions, CHAMPIONS_ITEMS_CONFIRMED, CHAMPIONS_ITEMS_UNCERTAIN } from "@/lib/data/champions";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import { AIMessage, SystemMessage, RemoveMessage } from "@langchain/core/messages";
 import { createModel, detectProvider } from "../model";
 
 /**
  * Validation node that checks the agent's response for accuracy issues
- * BEFORE it reaches the user. If problems are found, it sends the response
- * back to the agent with correction instructions.
+ * BEFORE it reaches the user. If problems are found, it REPLACES the
+ * response with a corrected version (removes the bad one, adds the fix).
  */
 export async function validateResponseNode(
   state: AgentStateType,
@@ -37,11 +37,10 @@ export async function validateResponseNode(
 
   if (!content) return {};
 
-  // Check for common hallucination patterns
   const issues: string[] = [];
 
   // Check for Pokemon not in Champions
-  const pokemonMentions = content.match(/###\s+([A-Z][a-z]+(?:-[A-Za-z]+)?)/g);
+  const pokemonMentions = content.match(/###\s+([A-Z][a-z]+(?:[- ][A-Za-z]+)?)/g);
   if (pokemonMentions) {
     for (const match of pokemonMentions) {
       const species = match.replace(/^###\s+/, "").trim();
@@ -52,13 +51,9 @@ export async function validateResponseNode(
   }
 
   // Check for uncertain items being recommended
-  const uncertainItems = CHAMPIONS_ITEMS_UNCERTAIN;
-  for (const item of uncertainItems) {
+  for (const item of CHAMPIONS_ITEMS_UNCERTAIN) {
     if (content.includes(item)) {
-      const confirmedAlternative = CHAMPIONS_ITEMS_CONFIRMED.find(i =>
-        i.includes("Berry") || i === "Focus Sash" || i === "Safety Goggles"
-      );
-      issues.push(`${item} may NOT be available in Champions (unverified). Suggest a confirmed alternative like ${confirmedAlternative}.`);
+      issues.push(`${item} may NOT be available in Champions (unverified). Suggest a confirmed alternative.`);
     }
   }
 
@@ -71,7 +66,7 @@ export async function validateResponseNode(
   for (const [species, badAbilities] of Object.entries(wrongAbilities)) {
     for (const bad of badAbilities) {
       if (content.includes(species) && content.includes(`**Ability**: ${bad}`)) {
-        issues.push(`${species} should NOT use ${bad} in competitive VGC. Check get_pokemon_competitive_sets for the correct ability.`);
+        issues.push(`${species} should NOT use ${bad} in competitive VGC. Use the correct competitive ability.`);
       }
     }
   }
@@ -83,20 +78,20 @@ export async function validateResponseNode(
     const total = stats.reduce((sum, v) => sum + v, 0);
     const maxStat = Math.max(...stats);
     if (maxStat > 32) {
-      issues.push(`A Pokemon has a stat at ${maxStat} points — maximum is 32 per stat. Reduce it to 32 and redistribute the excess to other stats.`);
+      issues.push(`A Pokemon has a stat at ${maxStat} points — maximum is 32 per stat. Reduce to 32 and redistribute the excess.`);
     }
     if (total !== 66) {
-      issues.push(`A Pokemon has ${total}/66 stat points. Redistribute to use EXACTLY 66 points total. Consider spreading points across more stats based on survival benchmarks instead of just maxing 2 stats.`);
+      issues.push(`A Pokemon has ${total}/66 stat points. Must be EXACTLY 66.`);
     }
   }
 
   // Check if fewer than 6 Pokemon were suggested when it looks like a team
-  if (content.includes("### ") && pokemonMentions && pokemonMentions.length < 6) {
-    const count = pokemonMentions.length;
-    if (content.toLowerCase().includes("team") || state.messages.some(m =>
+  if (pokemonMentions && pokemonMentions.length < 6) {
+    const isTeamRequest = state.messages.some(m =>
       typeof m.content === "string" && m.content.toLowerCase().includes("team")
-    )) {
-      issues.push(`Only ${count} Pokemon were suggested. A VGC team needs exactly 6 Pokemon. Add ${6 - count} more to complete the team.`);
+    );
+    if (isTeamRequest) {
+      issues.push(`Only ${pokemonMentions.length} Pokemon suggested. A VGC team needs exactly 6. Add ${6 - pokemonMentions.length} more.`);
     }
   }
 
@@ -104,12 +99,12 @@ export async function validateResponseNode(
     return {}; // No issues, response is fine
   }
 
-  // Issues found — ask the agent to fix its response
-  const correctionPrompt = `VALIDATION FAILED. Fix these issues in your response before it reaches the user:
+  // Issues found — regenerate a corrected response and REPLACE the bad one
+  const correctionPrompt = `VALIDATION FAILED. Fix these issues and regenerate the COMPLETE response:
 
 ${issues.map((i, idx) => `${idx + 1}. ${i}`).join("\n")}
 
-Regenerate your COMPLETE response with these corrections. Use get_pokemon_competitive_sets to verify any uncertain data. Do NOT apologize for the errors — just provide the corrected response.`;
+Output the corrected FULL response. Do NOT repeat or reference the previous attempt.`;
 
   const provider = detectProvider();
   const model = createModel(provider);
@@ -119,10 +114,13 @@ Regenerate your COMPLETE response with these corrections. Use get_pokemon_compet
     new SystemMessage(correctionPrompt),
   ];
 
-  const response = await model.invoke(correctionMessages);
+  const correctedResponse = await model.invoke(correctionMessages);
 
-  // Replace the last AI message with the corrected one
+  // REMOVE the bad message, then ADD the corrected one
+  // This prevents duplication in the stream
+  const removeMsg = new RemoveMessage({ id: aiMsg.id! });
+
   return {
-    messages: [response],
+    messages: [removeMsg, correctedResponse],
   };
 }
