@@ -5,6 +5,6 @@ export default defineConfig({
   out: './drizzle',
   dialect: 'sqlite',
   dbCredentials: {
-    url: './metagross.db',
+    url: './data/db/metagross.db',
   },
 });

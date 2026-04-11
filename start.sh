@@ -49,8 +49,11 @@ echo "🗄️  Setting up database..."
 npx drizzle-kit push 2>&1 | tail -1
 echo "✅ Database ready"
 
+# Ensure data directory exists
+mkdir -p data/db
+
 # Seed if database is empty
-DB_FILE="metagross.db"
+DB_FILE="data/db/metagross.db"
 if [ -f "$DB_FILE" ]; then
   ROW_COUNT=$(node -e "
     const Database = require('better-sqlite3');

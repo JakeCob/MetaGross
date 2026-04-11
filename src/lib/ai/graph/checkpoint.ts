@@ -1,6 +1,6 @@
 import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite';
 
-const CHECKPOINT_DB_PATH = './metagross-agent-checkpoints.db';
+const CHECKPOINT_DB_PATH = './data/db/metagross-agent-checkpoints.db';
 
 /**
  * Create a SqliteSaver checkpoint store for LangGraph agent threads.
