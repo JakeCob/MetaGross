@@ -14,6 +14,7 @@ export interface PokemonBlock {
   moves?: string;
   nature?: string;
   points?: string;
+  spreadReasoning?: string;
 }
 
 export interface CardActions {
@@ -70,6 +71,7 @@ function parseContent(content: string): Array<{ type: "text"; text: string } | {
         else if (key === "moves") data.moves = val;
         else if (key === "nature") data.nature = val;
         else if (key === "points" || key === "evs") data.points = val;
+        else if (key === "spread reasoning" || key === "reasoning" || key === "ev reasoning") data.spreadReasoning = val;
         else extraLines.push(line);
       } else if (line.trim()) {
         extraLines.push(line);
@@ -192,6 +194,13 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
           {data.points && (
             <div className="text-[10px] text-muted-foreground mt-1 font-mono">
               {data.points}
+            </div>
+          )}
+
+          {/* Spread Reasoning */}
+          {data.spreadReasoning && (
+            <div className="text-[10px] text-muted-foreground mt-1 italic leading-relaxed border-l-2 border-primary/20 pl-2">
+              {data.spreadReasoning}
             </div>
           )}
         </div>

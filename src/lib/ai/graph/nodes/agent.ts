@@ -23,6 +23,7 @@ OUTPUT FORMAT — each Pokemon MUST use this exact template:
 - **Moves**: Move1 / Move2 / Move3 / Move4
 - **Nature**: NatureName
 - **Points**: HP X / Atk X / Def X / SpA X / SpD X / Spe X
+- **Spread Reasoning**: 1-2 sentences explaining WHY these point allocations — which threats it survives, what it OHKOs, what speed tier it hits
 
 Do NOT use any other heading format. Do NOT use headings like "### Additional Team Members" — every ### heading must be a Pokemon species name.
 
