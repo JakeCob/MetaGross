@@ -74,17 +74,19 @@ function parseContent(content: string): Array<{ type: "text"; text: string } | {
 }
 
 function PokemonCard({ data }: { data: PokemonBlock }) {
-  const isMega = data.name.includes("Mega") || data.name.includes("(Mega)");
+  const isMega = data.name.includes("Mega") || data.name.includes("(Mega)")
+    || Boolean(data.item && data.item.toLowerCase().endsWith("ite"))
+    || Boolean(data.item && data.item.toLowerCase() === "dragoninite");
   const spriteSpecies = data.name
     .replace(/\s*\(Mega\)/, "")
     .replace(/Mega\s+/, "")
     .trim();
 
   return (
-    <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-3 flex gap-3 items-start">
-      {/* Sprite */}
+    <div className={`rounded-xl border bg-card/80 backdrop-blur-sm p-3 flex gap-3 items-start ${isMega ? "border-purple-500/30" : "border-border"}`}>
+      {/* Sprite — use mega version if applicable */}
       <div className="shrink-0 flex flex-col items-center gap-1">
-        <PokemonSprite species={spriteSpecies} size={56} />
+        <PokemonSprite species={spriteSpecies} mega={isMega} size={56} />
         {isMega && (
           <Badge variant="info" className="text-[9px] px-1 py-0">
             MEGA
