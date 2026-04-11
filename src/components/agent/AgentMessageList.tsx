@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import type { AgentChatMessage, WriteActionProposal } from "@/lib/types/agent";
 import { AgentApprovalCard } from "./AgentApprovalCard";
 import { AgentToolTrace } from "./AgentToolTrace";
@@ -79,7 +80,9 @@ export function AgentMessageList({
                 </div>
                 <div className="space-y-2">
                   <div className="rounded-2xl rounded-bl-md bg-card ring-1 ring-foreground/10 px-3 py-2 text-sm text-card-foreground">
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-headings:text-foreground prose-strong:text-foreground prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded">
+                      <ReactMarkdown>{msg.content || ""}</ReactMarkdown>
+                    </div>
                     <p className="mt-1 text-[10px] text-muted-foreground">
                       {formatTime(msg.timestamp)}
                     </p>

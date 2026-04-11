@@ -17,13 +17,15 @@ interface AgentPanelProps {
 }
 
 interface StreamEvent {
-  type: "text" | "tool_call" | "tool_result" | "approval_required" | "done" | "error";
+  type: "text" | "tool_call" | "tool_calls" | "tool_result" | "approval_required" | "pending_approval" | "done" | "error" | "thread" | "interrupted";
   content?: string;
   name?: string;
   args?: unknown;
   result?: unknown;
+  calls?: { name: string; args: unknown; id?: string }[];
   proposal?: WriteActionProposal;
   threadId?: string;
+  message?: string;
 }
 
 export function AgentPanel({ contextType, contextId }: AgentPanelProps) {
@@ -78,22 +80,47 @@ export function AgentPanel({ contextType, contextId }: AgentPanelProps) {
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          // Keep the last incomplete line in buffer
-          buffer = lines.pop() ?? "";
+          // SSE format: "event: X\ndata: Y\n\n"
+          // Split on double newlines to get complete events
+          const blocks = buffer.split("\n\n");
+          // Keep last incomplete block in buffer
+          buffer = blocks.pop() ?? "";
 
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
+          for (const block of blocks) {
+            const blockLines = block.split("\n");
+            let eventType = "";
+            let dataStr = "";
 
-            let event: StreamEvent;
+            for (const line of blockLines) {
+              if (line.startsWith("event: ")) {
+                eventType = line.slice(7).trim();
+              } else if (line.startsWith("data: ")) {
+                dataStr = line.slice(6);
+              }
+            }
+
+            if (!eventType || !dataStr) continue;
+
+            let data: Record<string, unknown>;
             try {
-              event = JSON.parse(trimmed) as StreamEvent;
+              data = JSON.parse(dataStr);
             } catch {
               continue;
             }
 
+            // Map SSE event name to StreamEvent type
+            const event: StreamEvent = { type: eventType as StreamEvent["type"], ...data } as StreamEvent;
+
             switch (event.type) {
+              case "thread":
+                if (data.threadId) {
+                  newThreadId = data.threadId as string;
+                  setThreadId(newThreadId);
+                }
+                break;
+
+              case "interrupted":
+                break;
               case "text":
                 assistantContent += event.content ?? "";
                 // Update the assistant message in real-time
@@ -128,6 +155,18 @@ export function AgentPanel({ contextType, contextId }: AgentPanelProps) {
                 ];
                 break;
 
+              case "tool_calls":
+                // Server sends tool_calls with a calls array
+                if (event.calls && Array.isArray(event.calls)) {
+                  for (const tc of event.calls) {
+                    toolCallsRef.current = [
+                      ...toolCallsRef.current,
+                      { name: tc.name, args: tc.args },
+                    ];
+                  }
+                }
+                break;
+
               case "tool_result":
                 toolCallsRef.current = toolCallsRef.current.map((tc) =>
                   tc.name === event.name && tc.result === undefined
@@ -145,15 +184,20 @@ export function AgentPanel({ contextType, contextId }: AgentPanelProps) {
                 break;
 
               case "approval_required":
-                if (event.proposal) {
-                  setPendingApproval(event.proposal);
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === `assistant-${newThreadId ?? "pending"}`
-                        ? { ...m, pendingApproval: event.proposal }
-                        : m
-                    )
-                  );
+              case "pending_approval":
+                {
+                  // Server sends pending_approval with the proposal directly as data
+                  const proposal = event.proposal ?? (data as unknown as WriteActionProposal);
+                  if (proposal && typeof proposal === "object" && "actionType" in proposal) {
+                    setPendingApproval(proposal as WriteActionProposal);
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === `assistant-${newThreadId ?? "pending"}`
+                          ? { ...m, pendingApproval: proposal as WriteActionProposal }
+                          : m
+                      )
+                    );
+                  }
                 }
                 break;
 
@@ -173,7 +217,7 @@ export function AgentPanel({ contextType, contextId }: AgentPanelProps) {
                 break;
 
               case "error":
-                setError(event.content ?? "An error occurred");
+                setError(event.content ?? event.message ?? "An error occurred");
                 break;
             }
           }

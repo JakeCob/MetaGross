@@ -12,7 +12,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,8 @@ import {
 import { PokemonForm } from "./PokemonForm";
 import { PokemonSlotCard } from "./PokemonSlotCard";
 import { TeamImport } from "./TeamImport";
+import { AITeamSuggestions } from "./AITeamSuggestions";
+import { SlotAISuggestions } from "./SlotAISuggestions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
 
@@ -35,6 +37,46 @@ const FORMATS = [
   "Battle Stadium Doubles",
   "Other",
 ];
+
+// Team archetype presets for Champions Reg M-A
+const TEAM_PRESETS = [
+  {
+    name: "Rain",
+    emoji: "🌧️",
+    core: ["Pelipper", "Dragonite", "Kingambit"],
+    description: "Drizzle + Swift Swim / rain abusers",
+  },
+  {
+    name: "Sun",
+    emoji: "☀️",
+    core: ["Charizard", "Whimsicott", "Incineroar"],
+    description: "Drought + Chlorophyll / sun attackers",
+  },
+  {
+    name: "Sand",
+    emoji: "🏜️",
+    core: ["Tyranitar", "Garchomp", "Incineroar"],
+    description: "Sand Stream + Sand Rush",
+  },
+  {
+    name: "Trick Room",
+    emoji: "🔮",
+    core: ["Sinistcha", "Farigiraf", "Incineroar"],
+    description: "Trick Room setters + slow attackers",
+  },
+  {
+    name: "Hyper Offense",
+    emoji: "⚔️",
+    core: ["Sneasler", "Dragonite", "Garchomp"],
+    description: "Fast, aggressive, KO-focused",
+  },
+  {
+    name: "Goodstuffs",
+    emoji: "⭐",
+    core: ["Incineroar", "Sneasler", "Archaludon"],
+    description: "Top meta picks, balanced",
+  },
+] as const;
 
 function emptyPokemon(): Partial<TeamPokemon> {
   return {
@@ -179,6 +221,23 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
     setImportDialogOpen(false);
     setEditingSlot(null);
   }, []);
+
+  const handleSuggestionAdd = useCallback((species: string) => {
+    setPokemon((prev) => {
+      const next = [...prev];
+      // Find the first empty slot
+      const emptyIdx = next.findIndex((p) => !p.species?.trim());
+      if (emptyIdx === -1) return next; // no empty slots
+      next[emptyIdx] = { ...emptyPokemon(), species };
+      return next;
+    });
+  }, []);
+
+  // Derive current filled species for suggestions
+  const filledSpecies = pokemon
+    .filter((p) => p.species?.trim())
+    .map((p) => p.species!.trim());
+  const hasEmptySlots = pokemon.some((p) => !p.species?.trim());
 
   const handleSave = useCallback(async () => {
     setErrors([]);
@@ -344,6 +403,41 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
         </CardContent>
       </Card>
 
+      {/* Team Archetype Presets */}
+      {!isEditing && format === "Champions Reg M-A" && (
+        <div>
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
+            Quick Start — pick an archetype to pre-fill core Pokemon
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {TEAM_PRESETS.map((preset) => (
+              <Button
+                key={preset.name}
+                variant="outline"
+                size="sm"
+                title={preset.description}
+                onClick={() => {
+                  const slots: Partial<TeamPokemon>[] = Array.from(
+                    { length: 6 },
+                    () => emptyPokemon(),
+                  );
+                  preset.core.forEach((species, i) => {
+                    slots[i] = { ...emptyPokemon(), species };
+                  });
+                  setPokemon(slots);
+                  if (!teamName.trim()) {
+                    setTeamName(`${preset.name} Team`);
+                  }
+                }}
+              >
+                <span className="mr-1">{preset.emoji}</span>
+                {preset.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Pokemon Slot Cards Grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {pokemon.map((mon, i) => (
@@ -359,6 +453,16 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
           />
         ))}
       </div>
+
+      {/* AI Team Suggestions */}
+      {filledSpecies.length >= 1 && hasEmptySlots && (
+        <AITeamSuggestions
+          pokemon={filledSpecies}
+          format={format}
+          onAdd={handleSuggestionAdd}
+          hasEmptySlots={hasEmptySlots}
+        />
+      )}
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
@@ -398,32 +502,49 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
         </div>
       )}
 
-      {/* Editing Form (below grid) */}
-      {editingSlot !== null && editingPokemon && (
-        <Card className="overflow-visible">
-          <CardHeader>
-            <CardTitle>
-              Editing: Slot {editingSlot + 1}
-              {editingPokemon.species
-                ? ` \u2014 ${editingPokemon.species}`
-                : ""}
-            </CardTitle>
-            <CardDescription>
-              {editingPokemon.species
-                ? "Modify this Pokemon's details below"
-                : "Search for a Pokemon to add to this slot"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="overflow-visible">
-            <PokemonForm
-              value={editingPokemon}
-              onChange={(updated) => updateSlot(editingSlot, updated)}
-              slot={editingSlot + 1}
-              format={format}
-            />
-          </CardContent>
-        </Card>
-      )}
+      {/* Editing Form (floating modal) */}
+      <Dialog
+        open={editingSlot !== null}
+        onOpenChange={(open: boolean) => {
+          if (!open) setEditingSlot(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto overflow-x-visible !top-[40%]">
+          <DialogHeader>
+            <DialogTitle>
+              {editingPokemon?.species
+                ? `Editing: ${editingPokemon.species}`
+                : `Slot ${(editingSlot ?? 0) + 1} — Add Pokemon`}
+            </DialogTitle>
+          </DialogHeader>
+          {editingSlot !== null && editingPokemon && (
+            <div className="overflow-visible">
+              {/* AI suggestions for this slot */}
+              {filledSpecies.length >= 1 && (
+                <SlotAISuggestions
+                  currentTeam={filledSpecies.filter(
+                    (s) => s !== editingPokemon.species,
+                  )}
+                  slot={editingSlot + 1}
+                  format={format}
+                  onSelect={(species) => {
+                    updateSlot(editingSlot, {
+                      ...editingPokemon,
+                      species,
+                    });
+                  }}
+                />
+              )}
+              <PokemonForm
+                value={editingPokemon}
+                onChange={(updated) => updateSlot(editingSlot, updated)}
+                slot={editingSlot + 1}
+                format={format}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Import Paste Dialog */}
       <Dialog
