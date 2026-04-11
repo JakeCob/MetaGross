@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 interface AgentMessageListProps {
   messages: AgentChatMessage[];
   isStreaming: boolean;
+  statusMessage?: string | null;
   onApprove: () => void;
   onReject: () => void;
   onEdit: (editedPayload: unknown) => void;
@@ -33,6 +34,7 @@ export function AgentMessageList({
   onEdit,
   pendingApproval,
   cardActions,
+  statusMessage,
 }: AgentMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -134,7 +136,7 @@ export function AgentMessageList({
           </div>
         )}
 
-      {/* Streaming indicator */}
+      {/* Streaming indicator with status */}
       {isStreaming && (
         <div className="flex justify-start">
           <div className="flex items-end gap-2">
@@ -142,10 +144,17 @@ export function AgentMessageList({
               <BotIcon className="size-3.5 text-muted-foreground" />
             </div>
             <div className="rounded-2xl rounded-bl-md bg-card ring-1 ring-foreground/10 px-3 py-2">
-              <div className="flex items-center gap-1">
-                <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "0ms" }} />
-                <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "150ms" }} />
-                <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "300ms" }} />
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "0ms" }} />
+                  <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "150ms" }} />
+                  <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "300ms" }} />
+                </div>
+                {statusMessage && (
+                  <span className="text-[11px] text-muted-foreground animate-pulse">
+                    {statusMessage}
+                  </span>
+                )}
               </div>
             </div>
           </div>

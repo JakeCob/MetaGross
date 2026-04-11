@@ -83,13 +83,42 @@ export async function validateResponseNode(
     // Detect if model used traditional EVs (252/510) instead of Champions Points (32/66)
     if (total > 100 || maxStat > 32) {
       issues.push(
-        `WRONG SYSTEM: You used traditional EVs (total=${total}, max=${maxStat}). Champions uses STAT POINTS: 66 total, 32 max per stat. Convert by dividing EVs by 8. Re-output using Points, not EVs. Example: 252 EVs = 32 Points, 128 EVs = 16 Points.`
+        `WRONG SYSTEM: You used traditional EVs (total=${total}, max=${maxStat}). Champions uses STAT POINTS: 66 total, 32 max per stat. COPY the spread from the optimize_ev_spread tool result EXACTLY.`
       );
-      break; // One error is enough
+      break;
     }
 
     if (total !== 66) {
-      issues.push(`A Pokemon has ${total}/66 stat points. Must be EXACTLY 66. Redistribute to total 66.`);
+      issues.push(`A Pokemon has ${total}/66 stat points. Must be EXACTLY 66. COPY the spread from the optimize_ev_spread tool result.`);
+    }
+  }
+
+  // Check for nature/stat mismatches (e.g., Adamant with max SpA, or special attacker with max Atk)
+  const pokemonSections = content.split(/(?=^### )/m).filter((s) => s.startsWith("### "));
+  for (const section of pokemonSections) {
+    const natureMatch = section.match(/\*\*Nature\*\*:\s*(\w+)/);
+    const pointsMatch = section.match(/\*\*Points\*\*:\s*HP\s*(\d+)\s*\/\s*Atk\s*(\d+)\s*\/\s*Def\s*(\d+)\s*\/\s*SpA\s*(\d+)\s*\/\s*SpD\s*(\d+)\s*\/\s*Spe\s*(\d+)/);
+    const roleMatch = section.match(/\*\*Role\*\*:\s*(.+)/);
+    const speciesMatch = section.match(/^### (.+)/);
+
+    if (natureMatch && pointsMatch && roleMatch && speciesMatch) {
+      const nature = natureMatch[1];
+      const atk = parseInt(pointsMatch[2]);
+      const spa = parseInt(pointsMatch[4]);
+      const role = roleMatch[1].toLowerCase();
+      const species = speciesMatch[1].trim();
+
+      const isSpecialRole = role.includes("special") || role.includes("rain setter");
+      const isPhysicalRole = role.includes("physical");
+
+      // Special attacker with Adamant (boosts Atk, reduces SpA) and max Atk = wrong
+      if (isSpecialRole && (nature === "Adamant" || nature === "Jolly") && atk > spa) {
+        issues.push(`${species}: ${nature} nature with ${atk} Atk is wrong for a special attacker. Use Modest/Timid and invest in SpA, not Atk. COPY the spread from optimize_ev_spread.`);
+      }
+      // Physical attacker with Modest (boosts SpA, reduces Atk) and max SpA = wrong
+      if (isPhysicalRole && (nature === "Modest" || nature === "Timid") && spa > atk) {
+        issues.push(`${species}: ${nature} nature with ${spa} SpA is wrong for a physical attacker. Use Adamant/Jolly and invest in Atk, not SpA.`);
+      }
     }
   }
 

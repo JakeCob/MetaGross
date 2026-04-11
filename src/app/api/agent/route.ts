@@ -126,6 +126,19 @@ export async function POST(request: Request) {
               if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
                 const newCalls = aiMsg.tool_calls.slice(toolCallsSent);
                 if (newCalls.length > 0) {
+                  // Send human-readable status for each tool call
+                  for (const tc of newCalls) {
+                    const statusMsg =
+                      tc.name === "get_pokemon_competitive_sets" ? `Looking up ${(tc.args as Record<string,string>).species} competitive data...` :
+                      tc.name === "optimize_ev_spread" ? `Running EV debate for ${(tc.args as Record<string,string>).species} (Wolfe + Cybertron)...` :
+                      tc.name === "get_meta_data" ? "Checking Champions meta data..." :
+                      tc.name === "calculate_damage" ? "Running damage calc..." :
+                      tc.name === "check_speed" ? "Comparing speed tiers..." :
+                      tc.name === "search_web" ? "Searching web..." :
+                      `Using ${tc.name}...`;
+                    send("status", { message: statusMsg });
+                  }
+
                   send("tool_calls", {
                     calls: newCalls.map((tc) => ({
                       name: tc.name,
