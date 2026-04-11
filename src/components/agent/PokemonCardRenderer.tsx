@@ -31,10 +31,12 @@ export interface CardActions {
 function parseContent(content: string): Array<{ type: "text"; text: string } | { type: "pokemon"; data: PokemonBlock }> {
   const blocks: Array<{ type: "text"; text: string } | { type: "pokemon"; data: PokemonBlock }> = [];
 
-  const parts = content.split(/(?=^### )/m);
+  // Split on ### headers OR **Bold Name** followed by field lines
+  const parts = content.split(/(?=^### )|(?=^\*\*[A-Z][a-z]+(?:[- ][A-Za-z]+)*(?:\s*\(Mega\))?\*\*\s*$)/m);
 
   for (const part of parts) {
-    const headerMatch = part.match(/^### (.+)/);
+    // Try ### header first, then **Bold Name**
+    const headerMatch = part.match(/^### (.+)/) || part.match(/^\*\*([A-Z][a-z]+(?:[- ][A-Za-z]+)*(?:\s*\(Mega\))?)\*\*/);
     if (!headerMatch) {
       if (part.trim()) {
         blocks.push({ type: "text", text: part.trim() });
