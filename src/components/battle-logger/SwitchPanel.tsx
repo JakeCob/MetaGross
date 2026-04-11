@@ -19,20 +19,20 @@ export function SwitchPanel({
 }: SwitchPanelProps) {
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-t-2xl border border-card-border bg-card p-4 pb-8 space-y-4">
+      <div className="w-full max-w-lg rounded-t-2xl border border-border bg-card p-4 pb-8 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-foreground">
               Switch In (Slot {slot})
             </h3>
-            <p className="text-xs text-muted mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Select a bench Pokemon to switch in
             </p>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md p-1 text-muted hover:text-foreground transition-colors cursor-pointer"
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             aria-label="Cancel"
           >
             <svg
@@ -54,7 +54,7 @@ export function SwitchPanel({
 
         {benchPokemon.length === 0 ? (
           <div className="py-6 text-center">
-            <p className="text-sm text-muted">No bench Pokemon available.</p>
+            <p className="text-sm text-muted-foreground">No bench Pokemon available.</p>
           </div>
         ) : (
           <div className="grid gap-2">
@@ -68,7 +68,7 @@ export function SwitchPanel({
               >
                 <span className="font-semibold">{mon.species}</span>
                 {mon.item && (
-                  <span className="text-xs text-muted">@ {mon.item}</span>
+                  <span className="text-xs text-muted-foreground">@ {mon.item}</span>
                 )}
               </Button>
             ))}

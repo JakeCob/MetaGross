@@ -2,14 +2,24 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SpeciesSearch } from "./SpeciesSearch";
 import { MoveSelector } from "./MoveSelector";
 import { EVEditor } from "./EVEditor";
-import { getSpecies, type SpeciesData } from "@/lib/pokemon/species";
-import { getAbilitiesForSpecies } from "@/lib/pokemon/abilities";
+import { EVSuggestionsPanel } from "./EVSuggestionsPanel";
+import { UsageQuickView } from "@/components/meta/UsageQuickView";
+import type { SpeciesData } from "@/lib/pokemon/species";
+import type { AbilityData } from "@/lib/pokemon/abilities";
 import type { TeamPokemon, EVSpread, IVSpread, StatName } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
 
@@ -83,37 +93,70 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
 
   // Load species data when value.species changes (e.g., from import)
   useEffect(() => {
-    if (value.species) {
-      const data = getSpecies(value.species);
-      if (data) {
-        setSpeciesData(data);
-        const abilityList = getAbilitiesForSpecies(value.species);
-        setAbilities(abilityList.map((a) => a.name));
-      }
-    } else {
+    if (!value.species) {
       setSpeciesData(null);
       setAbilities([]);
+      return;
     }
+
+    let cancelled = false;
+
+    Promise.all([
+      fetch(`/api/pokemon/${encodeURIComponent(value.species)}`).then((r) => r.json()),
+      fetch(`/api/pokemon/abilities?species=${encodeURIComponent(value.species)}`).then((r) => r.json()),
+    ]).then(([specData, abilityList]: [SpeciesData | null, AbilityData[]]) => {
+      if (cancelled) return;
+      if (specData && 'name' in specData) {
+        setSpeciesData(specData);
+        setAbilities(abilityList.map((a) => a.name));
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setSpeciesData(null);
+        setAbilities([]);
+      }
+    });
+
+    return () => { cancelled = true; };
   }, [value.species]);
 
   const handleSpeciesSelect = useCallback(
     (species: SpeciesData) => {
-      const abilityList = getAbilitiesForSpecies(species.name);
-      const abilityNames = abilityList.map((a) => a.name);
       setSpeciesData(species);
-      setAbilities(abilityNames);
 
-      onChange({
-        ...value,
-        species: species.name,
-        ability: abilityNames[0] ?? "",
-        moves: value.moves ?? ["", "", "", ""],
-        evs: value.evs ?? { ...DEFAULT_EVS },
-        ivs: value.ivs ?? { ...DEFAULT_IVS },
-        nature: value.nature ?? "Hardy",
-        level: value.level ?? 50,
-        item: value.item ?? "",
-      });
+      // Fetch abilities for the selected species via API
+      fetch(`/api/pokemon/abilities?species=${encodeURIComponent(species.name)}`)
+        .then((r) => r.json())
+        .then((abilityList: AbilityData[]) => {
+          const abilityNames = abilityList.map((a) => a.name);
+          setAbilities(abilityNames);
+
+          onChange({
+            ...value,
+            species: species.name,
+            ability: abilityNames[0] ?? "",
+            moves: value.moves ?? ["", "", "", ""],
+            evs: value.evs ?? { ...DEFAULT_EVS },
+            ivs: value.ivs ?? { ...DEFAULT_IVS },
+            nature: value.nature ?? "Hardy",
+            level: value.level ?? 50,
+            item: value.item ?? "",
+          });
+        })
+        .catch(() => {
+          setAbilities([]);
+          onChange({
+            ...value,
+            species: species.name,
+            ability: "",
+            moves: value.moves ?? ["", "", "", ""],
+            evs: value.evs ?? { ...DEFAULT_EVS },
+            ivs: value.ivs ?? { ...DEFAULT_IVS },
+            nature: value.nature ?? "Hardy",
+            level: value.level ?? 50,
+            item: value.item ?? "",
+          });
+        });
     },
     [value, onChange],
   );
@@ -139,7 +182,7 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
           Species
         </div>
         {value.species && speciesData ? (
-          <div className="flex items-center gap-3 rounded-lg border border-card-border bg-card px-4 py-2.5">
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5">
             <span className="font-medium text-foreground">
               {speciesData.name}
             </span>
@@ -164,7 +207,7 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
                   ability: "",
                 });
               }}
-              className="ml-auto text-xs text-muted hover:text-destructive transition-colors cursor-pointer"
+              className="ml-auto text-xs text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
             >
               Change
             </button>
@@ -184,66 +227,81 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
             {STAT_LABELS.map(({ key, label }) => (
               <div
                 key={key}
-                className="flex flex-col items-center rounded-lg border border-card-border bg-card px-3 py-1.5"
+                className="flex flex-col items-center rounded-lg border border-border bg-card px-3 py-1.5"
               >
-                <span className="text-[10px] text-muted">{label}</span>
+                <span className="text-[10px] text-muted-foreground">{label}</span>
                 <span className="text-sm font-mono font-medium text-foreground">
                   {speciesData.baseStats[key]}
                 </span>
               </div>
             ))}
-            <div className="flex flex-col items-center rounded-lg border border-card-border bg-card px-3 py-1.5">
-              <span className="text-[10px] text-muted">BST</span>
-              <span className="text-sm font-mono font-medium text-accent">
+            <div className="flex flex-col items-center rounded-lg border border-border bg-card px-3 py-1.5">
+              <span className="text-[10px] text-muted-foreground">BST</span>
+              <span className="text-sm font-mono font-medium text-primary">
                 {Object.values(speciesData.baseStats).reduce((a, b) => a + b, 0)}
               </span>
             </div>
           </div>
 
+          {/* Meta Usage Quick View */}
+          <UsageQuickView species={value.species ?? ""} />
+
           {/* Ability, Item, Nature, Level Row */}
           <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Ability"
-              value={value.ability ?? ""}
-              onChange={(e) => update({ ability: e.target.value })}
-            >
-              {abilities.map((ability) => (
-                <option key={ability} value={ability}>
-                  {ability}
-                </option>
-              ))}
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label>Ability</Label>
+              <Select value={value.ability ?? ""} onValueChange={(val: string | null) => { if (val) update({ ability: val }); }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {abilities.map((ability) => (
+                    <SelectItem key={ability} value={ability}>
+                      {ability}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Input
-              label="Item"
-              value={value.item ?? ""}
-              onChange={(e) => update({ item: e.target.value })}
-              placeholder="e.g., Choice Band"
-            />
+            <div className="flex flex-col gap-1.5">
+              <Label>Item</Label>
+              <Input
+                value={value.item ?? ""}
+                onChange={(e) => update({ item: e.target.value })}
+                placeholder="e.g., Choice Band"
+              />
+            </div>
 
-            <Select
-              label="Nature"
-              value={currentNature}
-              onChange={(e) => update({ nature: e.target.value })}
-            >
-              {NATURES.map((n) => (
-                <option key={n.name} value={n.name}>
-                  {n.label}
-                </option>
-              ))}
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label>Nature</Label>
+              <Select value={currentNature} onValueChange={(val: string | null) => { if (val) update({ nature: val }); }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {NATURES.map((n) => (
+                    <SelectItem key={n.name} value={n.name}>
+                      {n.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Input
-              label="Level"
-              type="number"
-              min={1}
-              max={100}
-              value={currentLevel}
-              onChange={(e) => {
-                const v = parseInt(e.target.value, 10);
-                if (!isNaN(v)) update({ level: Math.max(1, Math.min(100, v)) });
-              }}
-            />
+            <div className="flex flex-col gap-1.5">
+              <Label>Level</Label>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={currentLevel}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v)) update({ level: Math.max(1, Math.min(100, v)) });
+                }}
+              />
+            </div>
           </div>
 
           {/* Moves */}
@@ -264,13 +322,30 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
             onChange={(evs) => update({ evs })}
           />
 
+          {/* EV Suggestions */}
+          <EVSuggestionsPanel
+            pokemon={{
+              species: value.species ?? "",
+              ability: value.ability ?? "",
+              item: value.item ?? "",
+              nature: currentNature,
+              level: currentLevel,
+              moves: currentMoves,
+              evs: currentEvs,
+              ivs: currentIvs,
+            }}
+            onApplySpread={(evs, nature) => {
+              update({ evs, nature });
+            }}
+          />
+
           {/* IVs */}
           <div className="flex flex-col gap-3">
             <div className="text-sm font-medium text-foreground">IVs</div>
             <div className="grid grid-cols-6 gap-2">
               {STAT_LABELS.map(({ key, label }) => (
                 <div key={key} className="flex flex-col gap-1">
-                  <span className="text-[10px] text-muted text-center">
+                  <span className="text-[10px] text-muted-foreground text-center">
                     {label}
                   </span>
                   <input
@@ -289,7 +364,7 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
                         });
                       }
                     }}
-                    className="h-8 w-full rounded-lg border border-card-border bg-card px-2 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+                    className="h-8 w-full rounded-lg border border-border bg-card px-2 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
               ))}

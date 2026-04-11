@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { importTeamFromPaste } from "@/lib/pokemon/sets";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 
 export interface TeamImportProps {
@@ -13,7 +12,9 @@ export function TeamImport({ onImport }: TeamImportProps) {
   const [paste, setPaste] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const handleImport = useCallback(() => {
+  const [importing, setImporting] = useState(false);
+
+  const handleImport = useCallback(async () => {
     setError(null);
 
     if (!paste.trim()) {
@@ -21,8 +22,20 @@ export function TeamImport({ onImport }: TeamImportProps) {
       return;
     }
 
+    setImporting(true);
     try {
-      const pokemon = importTeamFromPaste(paste);
+      const res = await fetch("/api/pokemon/parse-paste", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paste }),
+      });
+
+      if (!res.ok) {
+        setError("Failed to parse team. Check the format and try again.");
+        return;
+      }
+
+      const pokemon: TeamPokemon[] = await res.json();
 
       if (pokemon.length === 0) {
         setError(
@@ -39,6 +52,8 @@ export function TeamImport({ onImport }: TeamImportProps) {
           ? err.message
           : "Failed to parse team. Check the format and try again.",
       );
+    } finally {
+      setImporting(false);
     }
   }, [paste, onImport]);
 
@@ -47,7 +62,7 @@ export function TeamImport({ onImport }: TeamImportProps) {
       <div className="text-sm font-medium text-foreground">
         Import from PokePaste
       </div>
-      <p className="text-xs text-muted">
+      <p className="text-xs text-muted-foreground">
         Paste a team in Showdown export format. Each Pokemon should include
         species, ability, item, nature, moves, EVs, and IVs.
       </p>
@@ -60,7 +75,7 @@ export function TeamImport({ onImport }: TeamImportProps) {
         }}
         placeholder={`Metagross @ Choice Band\nAbility: Clear Body\nLevel: 50\nEVs: 252 Atk / 4 SpD / 252 Spe\nAdamant Nature\n- Iron Head\n- Zen Headbutt\n- Bullet Punch\n- Ice Punch`}
         rows={12}
-        className="w-full rounded-lg border border-card-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-y font-mono"
+        className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y font-mono"
       />
 
       {error && (
@@ -68,8 +83,8 @@ export function TeamImport({ onImport }: TeamImportProps) {
       )}
 
       <div className="flex gap-2">
-        <Button type="button" onClick={handleImport}>
-          Import
+        <Button type="button" onClick={handleImport} disabled={importing}>
+          {importing ? "Importing..." : "Import"}
         </Button>
         <Button
           type="button"

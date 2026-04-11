@@ -6,7 +6,7 @@ export interface MetaSpread {
   evs: EVSpread;
   nature: string;
   usagePercent: number;
-  source: 'pikalytics' | 'smogon' | 'manual';
+  source: 'pikalytics' | 'smogon' | 'manual' | 'search';
   rank: number;
 }
 

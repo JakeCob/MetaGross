@@ -111,7 +111,7 @@ export function ActionMenu({
         <h3 className="text-base font-semibold text-foreground">
           {pokemon.species}
           {phase !== "moves" && (
-            <span className="ml-2 text-sm font-normal text-muted">
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
               {phase === "target" && `- ${selectedMove}`}
               {phase === "damage" && `- ${selectedMove}`}
               {phase === "switch" && "- Switch"}
@@ -121,7 +121,7 @@ export function ActionMenu({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md p-1 text-muted hover:text-foreground transition-colors cursor-pointer"
+          className="rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           aria-label="Close"
         >
           <svg
@@ -164,7 +164,7 @@ export function ActionMenu({
           {/* Mega + Move (if available) */}
           {canMega && (
             <div>
-              <p className="text-xs text-muted mb-2">Mega Evolve + Move:</p>
+              <p className="text-xs text-muted-foreground mb-2">Mega Evolve + Move:</p>
               <div className="grid grid-cols-2 gap-2">
                 {pokemon.moves.map((move) => {
                   if (!move) return null;
@@ -199,7 +199,7 @@ export function ActionMenu({
       {/* Phase: Target selection */}
       {phase === "target" && (
         <div className="space-y-3">
-          <p className="text-sm text-muted">Select target:</p>
+          <p className="text-sm text-muted-foreground">Select target:</p>
           <div className="grid grid-cols-2 gap-2">
             {opponentActive.map((opp, i) => (
               <Button

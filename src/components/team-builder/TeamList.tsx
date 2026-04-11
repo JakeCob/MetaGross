@@ -73,7 +73,7 @@ export function TeamList() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <span className="text-sm text-muted">Loading teams...</span>
+        <span className="text-sm text-muted-foreground">Loading teams...</span>
       </div>
     );
   }
@@ -85,7 +85,7 @@ export function TeamList() {
         <button
           type="button"
           onClick={fetchTeams}
-          className="mt-2 text-sm text-accent hover:underline cursor-pointer"
+          className="mt-2 text-sm text-primary hover:underline cursor-pointer"
         >
           Retry
         </button>
@@ -98,7 +98,7 @@ export function TeamList() {
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="text-4xl mb-4">&#9881;</div>
         <h2 className="text-xl font-semibold">No teams yet</h2>
-        <p className="mt-2 max-w-md text-sm text-muted">
+        <p className="mt-2 max-w-md text-sm text-muted-foreground">
           Create your first team to start tracking performance, running EV
           calculations, and getting AI-powered suggestions.
         </p>

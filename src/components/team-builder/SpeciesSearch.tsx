@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { searchSpecies, type SpeciesData } from "@/lib/pokemon/species";
+import type { SpeciesData } from "@/lib/pokemon/species";
 
 /** Color map for Pokemon types. */
 const TYPE_COLORS: Record<string, string> = {
@@ -49,10 +49,16 @@ export function SpeciesSearch({
       setIsOpen(false);
       return;
     }
-    const matches = searchSpecies(q, 20);
-    setResults(matches);
-    setIsOpen(matches.length > 0 || q.trim().length > 0);
-    setHighlightIndex(-1);
+    fetch(`/api/pokemon/search?q=${encodeURIComponent(q)}&limit=20`)
+      .then((res) => res.json())
+      .then((data: SpeciesData[]) => {
+        setResults(data);
+        setIsOpen(data.length > 0 || q.trim().length > 0);
+        setHighlightIndex(-1);
+      })
+      .catch(() => {
+        setResults([]);
+      });
   }, []);
 
   const handleInputChange = useCallback(
@@ -140,9 +146,9 @@ export function SpeciesSearch({
       />
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-card-border bg-card shadow-xl">
+        <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
           {results.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-muted">No results</div>
+            <div className="px-4 py-3 text-sm text-muted-foreground">No results</div>
           ) : (
             results.map((species, i) => (
               <button
@@ -153,7 +159,7 @@ export function SpeciesSearch({
                 className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
                   i === highlightIndex
                     ? "bg-accent/20 text-foreground"
-                    : "text-foreground hover:bg-card-border/30"
+                    : "text-foreground hover:bg-border/30"
                 }`}
               >
                 <span className="font-medium">{species.name}</span>

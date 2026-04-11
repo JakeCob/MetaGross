@@ -264,7 +264,7 @@ export default function NewBattlePage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">New Battle</h1>
-          <p className="mt-1 text-muted">
+          <p className="mt-1 text-muted-foreground">
             Log a new match result step by step.
           </p>
         </div>
@@ -282,8 +282,8 @@ export default function NewBattlePage() {
                 i === currentIdx
                   ? "bg-accent text-white"
                   : i < currentIdx
-                    ? "bg-accent/20 text-accent"
-                    : "bg-card-border/30 text-muted"
+                    ? "bg-accent/20 text-primary"
+                    : "bg-border/30 text-muted-foreground"
               }`}
             >
               {s.label}
@@ -291,7 +291,7 @@ export default function NewBattlePage() {
             {i < STEPS.length - 1 && (
               <div
                 className={`mx-1 h-px w-4 ${
-                  i < currentIdx ? "bg-accent/40" : "bg-card-border"
+                  i < currentIdx ? "bg-accent/40" : "bg-border"
                 }`}
               />
             )}
@@ -312,14 +312,14 @@ export default function NewBattlePage() {
                 <h2 className="text-xl font-semibold text-foreground">
                   Select Your Team
                 </h2>
-                <p className="mt-1 text-sm text-muted">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Choose which team you used for this battle.
                 </p>
               </div>
 
               {teamsLoading && (
                 <div className="flex items-center justify-center py-8">
-                  <span className="text-sm text-muted">
+                  <span className="text-sm text-muted-foreground">
                     Loading teams...
                   </span>
                 </div>
@@ -327,7 +327,7 @@ export default function NewBattlePage() {
 
               {!teamsLoading && teams.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <p className="text-sm text-muted">
+                  <p className="text-sm text-muted-foreground">
                     No teams found. Create a team first in the Team Builder.
                   </p>
                   <Button
@@ -349,7 +349,7 @@ export default function NewBattlePage() {
                       onClick={() => handleTeamSelect(team)}
                       className="cursor-pointer text-left w-full"
                     >
-                      <Card className="transition-all hover:border-accent/50 hover:bg-card-border/10">
+                      <Card className="transition-all hover:border-primary/50 hover:bg-border/10">
                         <CardContent>
                           <div className="flex items-center justify-between">
                             <div>
@@ -370,7 +370,7 @@ export default function NewBattlePage() {
                                 {team.pokemon.map((mon, i) => (
                                   <span
                                     key={i}
-                                    className="inline-flex items-center rounded-md border border-card-border bg-background px-1.5 py-0.5 text-xs text-foreground"
+                                    className="inline-flex items-center rounded-md border border-border bg-background px-1.5 py-0.5 text-xs text-foreground"
                                   >
                                     {mon.species}
                                   </span>
@@ -387,7 +387,7 @@ export default function NewBattlePage() {
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              className="text-muted shrink-0"
+                              className="text-muted-foreground shrink-0"
                             >
                               <polyline points="9 18 15 12 9 6" />
                             </svg>

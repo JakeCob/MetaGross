@@ -64,13 +64,13 @@ export function StatsOverview({ matches }: StatsOverviewProps) {
       {stats.map((stat) => (
         <Card key={stat.label}>
           <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted uppercase tracking-wide">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               {stat.label}
             </p>
             <p className="mt-1 text-2xl font-bold text-foreground">
               {stat.value}
             </p>
-            <p className="mt-1 text-xs text-muted">{stat.secondary}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{stat.secondary}</p>
           </CardContent>
         </Card>
       ))}

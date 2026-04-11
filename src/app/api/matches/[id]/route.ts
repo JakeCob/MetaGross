@@ -3,6 +3,27 @@ import {
   updateMatch,
   deleteMatch,
 } from '@/lib/db/queries/matches';
+import { z } from 'zod';
+
+const matchUpdateSchema = z.object({
+  format: z.string().min(1).optional(),
+  mode: z.string().min(1).optional(),
+  result: z.enum(['win', 'loss']).optional(),
+  myTeam: z.unknown().optional(),
+  opponentTeam: z.unknown().optional(),
+  myBrought: z.unknown().optional(),
+  opponentBrought: z.unknown().optional(),
+  myLeads: z.unknown().optional(),
+  opponentLeads: z.unknown().optional(),
+  opponentName: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  teamId: z.string().nullable().optional(),
+  archetypeSelf: z.string().nullable().optional(),
+  archetypeOpponent: z.string().nullable().optional(),
+  ruleAnalysisJson: z.unknown().optional(),
+  aiAnalysisJson: z.unknown().optional(),
+  analyzedAt: z.number().nullable().optional(),
+});
 
 export async function GET(
   _request: Request,
@@ -34,24 +55,34 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
+    const parsed = matchUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      const errors = parsed.error.issues.map((i) => i.message);
+      return Response.json(
+        { error: 'Validation failed', details: errors },
+        { status: 400 },
+      );
+    }
+
+    const data = parsed.data;
     const updated = updateMatch(id, {
-      format: body.format,
-      mode: body.mode,
-      result: body.result,
-      myTeam: body.myTeam,
-      opponentTeam: body.opponentTeam,
-      myBrought: body.myBrought,
-      opponentBrought: body.opponentBrought,
-      myLeads: body.myLeads,
-      opponentLeads: body.opponentLeads,
-      opponentName: body.opponentName,
-      notes: body.notes,
-      teamId: body.teamId,
-      archetypeSelf: body.archetypeSelf,
-      archetypeOpponent: body.archetypeOpponent,
-      ruleAnalysisJson: body.ruleAnalysisJson,
-      aiAnalysisJson: body.aiAnalysisJson,
-      analyzedAt: body.analyzedAt,
+      format: data.format,
+      mode: data.mode,
+      result: data.result,
+      myTeam: data.myTeam,
+      opponentTeam: data.opponentTeam,
+      myBrought: data.myBrought,
+      opponentBrought: data.opponentBrought,
+      myLeads: data.myLeads,
+      opponentLeads: data.opponentLeads,
+      opponentName: data.opponentName,
+      notes: data.notes,
+      teamId: data.teamId,
+      archetypeSelf: data.archetypeSelf,
+      archetypeOpponent: data.archetypeOpponent,
+      ruleAnalysisJson: data.ruleAnalysisJson,
+      aiAnalysisJson: data.aiAnalysisJson,
+      analyzedAt: data.analyzedAt,
     });
 
     if (!updated) {

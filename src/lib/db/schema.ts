@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // users
@@ -198,5 +198,84 @@ export const analysisCache = sqliteTable(
   },
   (table) => [
     uniqueIndex('analysis_cache_cache_key_idx').on(table.cacheKey),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// agent_threads
+// ---------------------------------------------------------------------------
+export const agentThreads = sqliteTable(
+  'agent_threads',
+  {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    title: text('title'),
+    contextType: text('context_type'), // 'match' | 'team' | 'general'
+    contextId: text('context_id'),
+    provider: text('provider'),
+    model: text('model'),
+    persona: text('persona'), // e.g. 'wolfe_glick', 'cybertron', 'default'
+    createdAt: integer('created_at').$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at').$defaultFn(() => Date.now()),
+  },
+);
+
+// ---------------------------------------------------------------------------
+// agent_feedback_events
+// ---------------------------------------------------------------------------
+export const agentFeedbackEvents = sqliteTable(
+  'agent_feedback_events',
+  {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    threadId: text('thread_id').references(() => agentThreads.id),
+    messageId: text('message_id'),
+    eventType: text('event_type'), // 'approve' | 'reject' | 'edit' | 'correct' | 'note'
+    targetType: text('target_type'), // 'tool_call' | 'answer' | 'memory' | 'write_action'
+    payloadJson: text('payload_json', { mode: 'json' }),
+    createdAt: integer('created_at').$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('agent_feedback_thread_id_idx').on(table.threadId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// agent_memories
+// ---------------------------------------------------------------------------
+export const agentMemories = sqliteTable(
+  'agent_memories',
+  {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    scope: text('scope'), // 'global' | 'team' | 'matchup' | 'thread'
+    scopeRef: text('scope_ref'),
+    kind: text('kind'), // 'preference' | 'strategy' | 'correction' | 'team_style' | 'opponent_pattern'
+    summary: text('summary'),
+    content: text('content'),
+    confidence: real('confidence').default(0.5),
+    sourceFeedbackId: text('source_feedback_id').references(
+      (): AnySQLiteColumn => agentFeedbackEvents.id,
+    ),
+    createdAt: integer('created_at').$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at').$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('agent_memories_scope_kind_idx').on(table.scope, table.kind),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// agent_artifacts
+// ---------------------------------------------------------------------------
+export const agentArtifacts = sqliteTable(
+  'agent_artifacts',
+  {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    threadId: text('thread_id').references(() => agentThreads.id),
+    artifactType: text('artifact_type'), // 'team_draft' | 'battle_report' | 'note_bundle'
+    title: text('title'),
+    contentJson: text('content_json', { mode: 'json' }),
+    createdAt: integer('created_at').$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('agent_artifacts_thread_id_idx').on(table.threadId),
   ],
 );

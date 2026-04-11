@@ -36,7 +36,7 @@ export function RecentMatches({ matches }: RecentMatchesProps) {
           <CardTitle>Recent Matches</CardTitle>
           <Link
             href="/battles"
-            className="text-sm text-accent hover:underline"
+            className="text-sm text-primary hover:underline"
           >
             View All
           </Link>
@@ -44,7 +44,7 @@ export function RecentMatches({ matches }: RecentMatchesProps) {
       </CardHeader>
       <CardContent>
         {recent.length === 0 ? (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-muted-foreground">
             No matches recorded yet. Start logging battles to see results here.
           </p>
         ) : (
@@ -53,7 +53,7 @@ export function RecentMatches({ matches }: RecentMatchesProps) {
               <Link
                 key={m.id}
                 href={`/battles/${m.id}`}
-                className="flex items-center justify-between rounded-lg border border-card-border p-3 transition-colors hover:border-accent/40"
+                className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:border-primary/40"
               >
                 <div className="flex items-center gap-3">
                   <Badge
@@ -68,13 +68,13 @@ export function RecentMatches({ matches }: RecentMatchesProps) {
                       </p>
                     )}
                     {m.opponentLeads.length > 0 && (
-                      <p className="text-xs text-muted">
+                      <p className="text-xs text-muted-foreground">
                         Opp leads: {m.opponentLeads.join(", ")}
                       </p>
                     )}
                   </div>
                 </div>
-                <span className="text-xs text-muted">
+                <span className="text-xs text-muted-foreground">
                   {formatDate(m.playedAt)}
                 </span>
               </Link>

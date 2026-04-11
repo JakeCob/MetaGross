@@ -2,7 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 export interface MatchFilterState {
   result: "all" | "win" | "loss";
@@ -60,9 +67,9 @@ export function MatchFilters({
       </div>
 
       {/* Pokemon filter */}
-      <div className="min-w-[180px]">
+      <div className="min-w-[180px] flex flex-col gap-1.5">
+        <Label>Pokemon</Label>
         <Input
-          label="Pokemon"
           placeholder="Filter by Pokemon..."
           value={filters.pokemon}
           onChange={(e) =>
@@ -72,39 +79,49 @@ export function MatchFilters({
       </div>
 
       {/* Date range */}
-      <div className="min-w-[150px]">
+      <div className="min-w-[150px] flex flex-col gap-1.5">
+        <Label>Date Range</Label>
         <Select
-          label="Date Range"
           value={filters.dateRange}
-          onChange={(e) =>
-            onFilterChange({
+          onValueChange={(val: string | null) => {
+            if (val) onFilterChange({
               ...filters,
-              dateRange: e.target.value as MatchFilterState["dateRange"],
-            })
-          }
+              dateRange: val as MatchFilterState["dateRange"],
+            });
+          }}
         >
-          <option value="all">All Time</option>
-          <option value="7">Last 7 Days</option>
-          <option value="30">Last 30 Days</option>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Time</SelectItem>
+            <SelectItem value="7">Last 7 Days</SelectItem>
+            <SelectItem value="30">Last 30 Days</SelectItem>
+          </SelectContent>
         </Select>
       </div>
 
       {/* Format filter */}
       {formats.length > 0 && (
-        <div className="min-w-[180px]">
+        <div className="min-w-[180px] flex flex-col gap-1.5">
+          <Label>Format</Label>
           <Select
-            label="Format"
             value={filters.format}
-            onChange={(e) =>
-              onFilterChange({ ...filters, format: e.target.value })
-            }
+            onValueChange={(val: string | null) => {
+              if (val) onFilterChange({ ...filters, format: val });
+            }}
           >
-            <option value="all">All Formats</option>
-            {formats.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Formats</SelectItem>
+              {formats.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {f}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
       )}

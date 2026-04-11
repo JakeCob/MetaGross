@@ -36,14 +36,14 @@ function ToggleChip({
 }) {
   const colorMap = {
     accent: active
-      ? "bg-accent/20 text-accent border-accent/40"
-      : "bg-card text-muted border-card-border hover:border-muted",
+      ? "bg-accent/20 text-primary border-primary/40"
+      : "bg-card text-muted-foreground border-border hover:border-muted",
     warning: active
       ? "bg-warning/20 text-warning border-warning/40"
-      : "bg-card text-muted border-card-border hover:border-muted",
+      : "bg-card text-muted-foreground border-border hover:border-muted",
     info: active
       ? "bg-info/20 text-info border-info/40"
-      : "bg-card text-muted border-card-border hover:border-muted",
+      : "bg-card text-muted-foreground border-border hover:border-muted",
   };
 
   return (
@@ -59,10 +59,10 @@ function ToggleChip({
 
 export function FieldStateBar({ fieldState, onChange }: FieldStateBarProps) {
   return (
-    <div className="space-y-2 rounded-xl border border-card-border bg-card p-3">
+    <div className="space-y-2 rounded-xl border border-border bg-card p-3">
       {/* Weather row */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[10px] uppercase tracking-widest text-muted w-12 shrink-0">
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground w-12 shrink-0">
           Weath
         </span>
         {WEATHER_OPTIONS.map((opt) => (
@@ -78,7 +78,7 @@ export function FieldStateBar({ fieldState, onChange }: FieldStateBarProps) {
 
       {/* Terrain row */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[10px] uppercase tracking-widest text-muted w-12 shrink-0">
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground w-12 shrink-0">
           Terra
         </span>
         {TERRAIN_OPTIONS.map((opt) => (
@@ -94,7 +94,7 @@ export function FieldStateBar({ fieldState, onChange }: FieldStateBarProps) {
 
       {/* Trick Room + Tailwind */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[10px] uppercase tracking-widest text-muted w-12 shrink-0">
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground w-12 shrink-0">
           Buffs
         </span>
         <ToggleChip

@@ -77,7 +77,7 @@ export function OpponentTeamEntry({ onComplete }: OpponentTeamEntryProps) {
         <h2 className="text-xl font-semibold text-foreground">
           Opponent Team (OTS)
         </h2>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-sm text-muted-foreground">
           Enter the 6 Pokemon visible on your opponent&apos;s team sheet.
         </p>
       </div>
@@ -86,10 +86,10 @@ export function OpponentTeamEntry({ onComplete }: OpponentTeamEntryProps) {
         {slots.map((slot, i) => (
           <div
             key={i}
-            className="rounded-lg border border-card-border bg-card p-3"
+            className="rounded-lg border border-border bg-card p-3"
           >
             <div className="flex items-center gap-2 mb-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-background text-xs font-medium text-muted">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-background text-xs font-medium text-muted-foreground">
                 {i + 1}
               </span>
               {slot.species ? (
@@ -100,7 +100,7 @@ export function OpponentTeamEntry({ onComplete }: OpponentTeamEntryProps) {
                   <button
                     type="button"
                     onClick={() => clearSlot(i)}
-                    className="ml-auto text-xs text-muted hover:text-destructive cursor-pointer"
+                    className="ml-auto text-xs text-muted-foreground hover:text-destructive cursor-pointer"
                   >
                     Clear
                   </button>
@@ -136,7 +136,7 @@ export function OpponentTeamEntry({ onComplete }: OpponentTeamEntryProps) {
       </div>
 
       <div className="flex items-center justify-between pt-2">
-        <span className="text-sm text-muted">
+        <span className="text-sm text-muted-foreground">
           {filledCount}/6 Pokemon entered
         </span>
         <Button onClick={handleContinue} disabled={!allFilled}>

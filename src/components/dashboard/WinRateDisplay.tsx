@@ -25,7 +25,7 @@ export function WinRateDisplay({ matches }: WinRateDisplayProps) {
       </CardHeader>
       <CardContent>
         {total === 0 ? (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-muted-foreground">
             No match data yet. Log battles to see your win rate.
           </p>
         ) : (
@@ -39,7 +39,7 @@ export function WinRateDisplay({ matches }: WinRateDisplayProps) {
               >
                 {winRate}%
               </span>
-              <span className="text-sm text-muted">win rate</span>
+              <span className="text-sm text-muted-foreground">win rate</span>
             </div>
 
             {/* Win/Loss bar */}
@@ -56,7 +56,7 @@ export function WinRateDisplay({ matches }: WinRateDisplayProps) {
                   title={`${losses} losses`}
                 />
               </div>
-              <div className="mt-1 flex justify-between text-xs text-muted">
+              <div className="mt-1 flex justify-between text-xs text-muted-foreground">
                 <span className="text-emerald-400">{wins}W</span>
                 <span className="text-red-400">{losses}L</span>
               </div>
@@ -65,12 +65,12 @@ export function WinRateDisplay({ matches }: WinRateDisplayProps) {
             {/* Stats row */}
             <div className="flex items-center gap-6 text-sm">
               <div>
-                <span className="text-muted">Total:</span>{" "}
+                <span className="text-muted-foreground">Total:</span>{" "}
                 <span className="font-medium text-foreground">{total}</span>
               </div>
               {streak.currentStreak > 0 && (
                 <div>
-                  <span className="text-muted">Streak:</span>{" "}
+                  <span className="text-muted-foreground">Streak:</span>{" "}
                   <span
                     className={`font-medium ${
                       streak.streakType === "win"
@@ -85,7 +85,7 @@ export function WinRateDisplay({ matches }: WinRateDisplayProps) {
               )}
               {streak.longestWinStreak > 0 && (
                 <div>
-                  <span className="text-muted">Best:</span>{" "}
+                  <span className="text-muted-foreground">Best:</span>{" "}
                   <span className="font-medium text-emerald-400">
                     {streak.longestWinStreak}W
                   </span>

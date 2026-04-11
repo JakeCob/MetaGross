@@ -109,7 +109,7 @@ export function MatchList() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <span className="text-sm text-muted">Loading matches...</span>
+        <span className="text-sm text-muted-foreground">Loading matches...</span>
       </div>
     );
   }
@@ -121,7 +121,7 @@ export function MatchList() {
         <button
           type="button"
           onClick={fetchMatches}
-          className="mt-2 text-sm text-accent hover:underline cursor-pointer"
+          className="mt-2 text-sm text-primary hover:underline cursor-pointer"
         >
           Retry
         </button>
@@ -134,7 +134,7 @@ export function MatchList() {
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="text-4xl mb-4">&#9876;</div>
         <h2 className="text-xl font-semibold">No matches recorded</h2>
-        <p className="mt-2 max-w-md text-sm text-muted">
+        <p className="mt-2 max-w-md text-sm text-muted-foreground">
           Log your first battle to start building your match history. You can
           manually enter results or import from a replay.
         </p>
@@ -150,12 +150,12 @@ export function MatchList() {
         formats={availableFormats}
       />
 
-      <p className="text-sm text-muted">
+      <p className="text-sm text-muted-foreground">
         Showing {filteredMatches.length} of {matches.length} matches
       </p>
 
       {filteredMatches.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No matches match the current filters.
         </p>
       ) : (

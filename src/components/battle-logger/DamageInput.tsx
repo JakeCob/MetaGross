@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 
 export interface DamageInputProps {
@@ -31,22 +32,24 @@ export function DamageInput({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted">
+      <p className="text-sm text-muted-foreground">
         Damage to <span className="font-medium text-foreground">{targetName}</span>
       </p>
 
       {/* Slider */}
-      <Slider
-        label="Damage"
-        min={0}
-        max={100}
-        value={damage}
-        onChange={(e) => {
-          const val = Number(e.target.value);
-          setDamage(val);
-          if (val < 100 && isKo) setIsKo(false);
-        }}
-      />
+      <div className="flex flex-col gap-1.5">
+        <Label>Damage ({damage}%)</Label>
+        <Slider
+          min={0}
+          max={100}
+          value={[damage]}
+          onValueChange={(val: number | readonly number[]) => {
+            const v = Array.isArray(val) ? val[0] : val;
+            setDamage(v);
+            if (v < 100 && isKo) setIsKo(false);
+          }}
+        />
+      </div>
 
       {/* Preset buttons */}
       <div className="flex gap-2">

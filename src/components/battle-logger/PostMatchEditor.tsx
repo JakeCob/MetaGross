@@ -3,7 +3,14 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { useBattleLogger } from "@/stores/use-battle-logger";
 import type { TurnAction, ActionType, Side, Slot } from "@/lib/types/battle";
@@ -128,7 +135,7 @@ export function PostMatchEditor({ onEndBattle }: PostMatchEditorProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-foreground">Post-Match Editor</h2>
-          <p className="text-xs text-muted">Add turns from your battle replay</p>
+          <p className="text-xs text-muted-foreground">Add turns from your battle replay</p>
         </div>
         <Button variant="destructive" size="sm" onClick={onEndBattle}>
           Done
@@ -138,7 +145,7 @@ export function PostMatchEditor({ onEndBattle }: PostMatchEditorProps) {
       {/* Completed turns summary */}
       {turnEntries.length > 0 && (
         <div className="space-y-1">
-          <p className="text-xs font-medium text-muted uppercase tracking-wider">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Logged Turns
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -152,12 +159,12 @@ export function PostMatchEditor({ onEndBattle }: PostMatchEditorProps) {
       )}
 
       {/* Current turn being built */}
-      <div className="rounded-xl border border-card-border bg-card p-4 space-y-4">
+      <div className="rounded-xl border border-border bg-card p-4 space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground">
             Turn {turnEntries.length + 1}
           </p>
-          <span className="text-xs text-muted">
+          <span className="text-xs text-muted-foreground">
             {editingTurn.actions.length} action{editingTurn.actions.length !== 1 ? "s" : ""}
           </span>
         </div>
@@ -183,7 +190,7 @@ export function PostMatchEditor({ onEndBattle }: PostMatchEditorProps) {
                 <button
                   type="button"
                   onClick={() => handleRemoveAction(i)}
-                  className="text-muted hover:text-destructive transition-colors cursor-pointer p-1"
+                  className="text-muted-foreground hover:text-destructive transition-colors cursor-pointer p-1"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -206,38 +213,50 @@ export function PostMatchEditor({ onEndBattle }: PostMatchEditorProps) {
         )}
 
         {/* Action builder form */}
-        <div className="space-y-3 border-t border-card-border pt-3">
-          <p className="text-xs font-medium text-muted">Add Action</p>
+        <div className="space-y-3 border-t border-border pt-3">
+          <p className="text-xs font-medium text-muted-foreground">Add Action</p>
 
           <div className="grid grid-cols-3 gap-2">
-            <Select
-              label="Side"
-              value={actionSide}
-              onChange={(e) => setActionSide(e.target.value as Side)}
-            >
-              <option value="p1">My</option>
-              <option value="p2">Opp</option>
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label>Side</Label>
+              <Select value={actionSide} onValueChange={(val: string | null) => { if (val) setActionSide(val as Side); }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="p1">My</SelectItem>
+                  <SelectItem value="p2">Opp</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select
-              label="Slot"
-              value={actionSlot}
-              onChange={(e) => setActionSlot(Number(e.target.value) as Slot)}
-            >
-              <option value={1}>Slot 1</option>
-              <option value={2}>Slot 2</option>
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label>Slot</Label>
+              <Select value={String(actionSlot)} onValueChange={(val: string | null) => { if (val) setActionSlot(Number(val) as Slot); }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Slot 1</SelectItem>
+                  <SelectItem value="2">Slot 2</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select
-              label="Type"
-              value={actionType}
-              onChange={(e) => setActionType(e.target.value as ActionType)}
-            >
-              <option value="move">Move</option>
-              <option value="mega_move">Mega+Move</option>
-              <option value="switch">Switch</option>
-              <option value="nothing">Nothing</option>
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label>Type</Label>
+              <Select value={actionType} onValueChange={(val: string | null) => { if (val) setActionType(val as ActionType); }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="move">Move</SelectItem>
+                  <SelectItem value="mega_move">Mega+Move</SelectItem>
+                  <SelectItem value="switch">Switch</SelectItem>
+                  <SelectItem value="nothing">Nothing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Move fields */}
@@ -245,62 +264,71 @@ export function PostMatchEditor({ onEndBattle }: PostMatchEditorProps) {
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 {actionSide === "p1" && moveOptions.length > 0 ? (
-                  <Select
-                    label="Move"
-                    value={moveName}
-                    onChange={(e) => setMoveName(e.target.value)}
-                  >
-                    <option value="">Select move</option>
-                    {moveOptions.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </Select>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Move</Label>
+                    <Select value={moveName} onValueChange={(val: string | null) => { if (val) setMoveName(val); }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select move" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {moveOptions.map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {m}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 ) : (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium text-foreground">
-                      Move
-                    </label>
+                    <Label>Move</Label>
                     <input
                       type="text"
                       value={moveName}
                       onChange={(e) => setMoveName(e.target.value)}
                       placeholder="Move name"
-                      className="h-10 w-full rounded-lg border border-card-border bg-card px-3 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-2">
-                  <Select
-                    label="Target"
-                    value={targetSide}
-                    onChange={(e) => setTargetSide(e.target.value as Side)}
-                  >
-                    <option value="p1">My</option>
-                    <option value="p2">Opp</option>
-                  </Select>
-                  <Select
-                    label="Slot"
-                    value={targetSlot}
-                    onChange={(e) =>
-                      setTargetSlot(Number(e.target.value) as Slot)
-                    }
-                  >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                  </Select>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Target</Label>
+                    <Select value={targetSide} onValueChange={(val: string | null) => { if (val) setTargetSide(val as Side); }}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="p1">My</SelectItem>
+                        <SelectItem value="p2">Opp</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Slot</Label>
+                    <Select value={String(targetSlot)} onValueChange={(val: string | null) => { if (val) setTargetSlot(Number(val) as Slot); }}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
-              <Slider
-                label="Damage %"
-                min={0}
-                max={100}
-                value={damage}
-                onChange={(e) => setDamage(Number(e.target.value))}
-              />
+              <div className="flex flex-col gap-1.5">
+                <Label>Damage % ({damage})</Label>
+                <Slider
+                  min={0}
+                  max={100}
+                  value={[damage]}
+                  onValueChange={(val: number | readonly number[]) => setDamage(Array.isArray(val) ? val[0] : val)}
+                />
+              </div>
 
               <div className="flex gap-2">
                 <Button
@@ -328,18 +356,21 @@ export function PostMatchEditor({ onEndBattle }: PostMatchEditorProps) {
 
           {/* Switch fields */}
           {actionType === "switch" && (
-            <Select
-              label="Switch to"
-              value={switchIn}
-              onChange={(e) => setSwitchIn(e.target.value)}
-            >
-              <option value="">Select Pokemon</option>
-              {(actionSide === "p1" ? myBrought : oppBrought).map((species) => (
-                <option key={species} value={species}>
-                  {species}
-                </option>
-              ))}
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label>Switch to</Label>
+              <Select value={switchIn} onValueChange={(val: string | null) => { if (val) setSwitchIn(val); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Pokemon" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(actionSide === "p1" ? myBrought : oppBrought).map((species) => (
+                    <SelectItem key={species} value={species}>
+                      {species}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           <Button

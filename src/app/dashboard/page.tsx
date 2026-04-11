@@ -3,8 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { StatsOverview } from "@/components/dashboard/StatsOverview";
 import { WinRateDisplay } from "@/components/dashboard/WinRateDisplay";
+import { WinRateTrendChart } from "@/components/dashboard/WinRateTrendChart";
+import { WinLossBarChart } from "@/components/dashboard/WinLossBarChart";
+import { MatchupHeatmap } from "@/components/dashboard/MatchupHeatmap";
+import { MoveQualityChart } from "@/components/dashboard/MoveQualityChart";
 import { PokemonUsageTable } from "@/components/dashboard/PokemonUsageTable";
 import { RecentMatches } from "@/components/dashboard/RecentMatches";
+import { APIUsageCard } from "@/components/dashboard/APIUsageCard";
 
 interface MatchData {
   id: string;
@@ -15,9 +20,35 @@ interface MatchData {
   myLeads: string[];
   opponentLeads: string[];
   archetypeOpponent: string | null;
+  ruleAnalysis?: {
+    moveGrading?: {
+      optimal?: number;
+      good?: number;
+      inaccuracy?: number;
+      mistake?: number;
+      blunder?: number;
+    };
+  } | null;
 }
 
 function parseMatch(raw: Record<string, unknown>): MatchData {
+  const ruleAnalysisRaw = raw.ruleAnalysis as Record<string, unknown> | null | undefined;
+  let ruleAnalysis: MatchData["ruleAnalysis"] = null;
+  if (ruleAnalysisRaw && typeof ruleAnalysisRaw === "object") {
+    const mg = ruleAnalysisRaw.moveGrading as Record<string, unknown> | undefined;
+    if (mg && typeof mg === "object") {
+      ruleAnalysis = {
+        moveGrading: {
+          optimal: typeof mg.optimal === "number" ? mg.optimal : undefined,
+          good: typeof mg.good === "number" ? mg.good : undefined,
+          inaccuracy: typeof mg.inaccuracy === "number" ? mg.inaccuracy : undefined,
+          mistake: typeof mg.mistake === "number" ? mg.mistake : undefined,
+          blunder: typeof mg.blunder === "number" ? mg.blunder : undefined,
+        },
+      };
+    }
+  }
+
   return {
     id: raw.id as string,
     result: (raw.result as string) ?? "loss",
@@ -29,6 +60,7 @@ function parseMatch(raw: Record<string, unknown>): MatchData {
       ? (raw.opponentLeads as string[])
       : [],
     archetypeOpponent: (raw.archetypeOpponent as string) ?? null,
+    ruleAnalysis,
   };
 }
 
@@ -61,12 +93,14 @@ export default function DashboardPage() {
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-muted">Your VGC performance at a glance.</p>
+        <p className="mt-1 text-muted-foreground">
+          Your VGC performance at a glance.
+        </p>
       </div>
 
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <span className="text-sm text-muted">Loading dashboard...</span>
+          <span className="text-sm text-muted-foreground">Loading dashboard...</span>
         </div>
       )}
 
@@ -76,7 +110,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={fetchMatches}
-            className="mt-2 text-sm text-accent hover:underline cursor-pointer"
+            className="mt-2 text-sm text-primary hover:underline cursor-pointer"
           >
             Retry
           </button>
@@ -85,14 +119,32 @@ export default function DashboardPage() {
 
       {!loading && !error && (
         <div className="flex flex-col gap-6">
+          {/* Row 1: Stat cards */}
           <StatsOverview matches={matches} />
 
+          {/* Row 2: Win rate trend (full width) */}
+          <WinRateTrendChart matches={matches} />
+
+          {/* Row 3: Win/Loss bar chart + Matchup heatmap */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <WinLossBarChart matches={matches} />
+            <MatchupHeatmap matches={matches} />
+          </div>
+
+          {/* Row 4: Win rate summary + Move quality */}
           <div className="grid gap-6 lg:grid-cols-2">
             <WinRateDisplay matches={matches} />
+            <MoveQualityChart matches={matches} />
+          </div>
+
+          {/* Row 5: Pokemon usage + Recent matches */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <PokemonUsageTable matches={matches} />
             <RecentMatches matches={matches} />
           </div>
 
-          <PokemonUsageTable matches={matches} />
+          {/* Row 6: API Usage */}
+          <APIUsageCard />
         </div>
       )}
     </div>

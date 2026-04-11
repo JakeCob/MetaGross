@@ -31,21 +31,21 @@ export function TargetSelector({
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-t-2xl border border-card-border bg-card p-4 pb-8 space-y-4 animate-in slide-in-from-bottom">
+      <div className="w-full max-w-lg rounded-t-2xl border border-border bg-card p-4 pb-8 space-y-4 animate-in slide-in-from-bottom">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-foreground">
               Select Target
             </h3>
-            <p className="text-xs text-muted mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {moveName} &mdash; tap a target
             </p>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md p-1 text-muted hover:text-foreground transition-colors cursor-pointer"
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             aria-label="Cancel"
           >
             <svg
@@ -94,7 +94,7 @@ export function TargetSelector({
 
         {/* Ally target (for moves like Heal Pulse, Follow Me redirect, etc.) */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-accent/70 mb-1.5">
+          <p className="text-[10px] uppercase tracking-widest text-primary/70 mb-1.5">
             Ally
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -119,7 +119,7 @@ export function TargetSelector({
                   key={`ally-${i}`}
                   variant="outline"
                   size="lg"
-                  className="w-full justify-center border-accent/30 hover:bg-accent/10 hover:border-accent/60 min-h-[48px]"
+                  className="w-full justify-center border-primary/30 hover:bg-accent/10 hover:border-primary/60 min-h-[48px]"
                   disabled={ally.hpPercent <= 0}
                   onClick={() => onSelectTarget(attackerSide, slot)}
                 >

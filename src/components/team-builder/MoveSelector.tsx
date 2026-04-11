@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { getMove, getMovesForSpecies, type MoveData } from "@/lib/pokemon/moves";
+import type { MoveData } from "@/lib/pokemon/moves";
 
 const TYPE_COLORS: Record<string, string> = {
   Normal: "bg-gray-500 text-white",
@@ -58,19 +58,21 @@ export function MoveSelector({ species, value, onChange }: MoveSelectorProps) {
     let cancelled = false;
     setLoading(true);
 
-    getMovesForSpecies(species).then((names) => {
-      if (cancelled) return;
-      setLegalMoveNames(names);
-
-      // Cache move data for display
-      const cache: Record<string, MoveData> = {};
-      for (const name of names) {
-        const data = getMove(name);
-        if (data) cache[name] = data;
-      }
-      setMoveDataCache(cache);
-      setLoading(false);
-    });
+    fetch(`/api/pokemon/${encodeURIComponent(species)}/moves?detail=true`)
+      .then((res) => res.json())
+      .then((result: { names: string[]; data: Record<string, MoveData> }) => {
+        if (cancelled) return;
+        setLegalMoveNames(result.names);
+        setMoveDataCache(result.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLegalMoveNames([]);
+          setMoveDataCache({});
+          setLoading(false);
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -172,7 +174,7 @@ export function MoveSelector({ species, value, onChange }: MoveSelectorProps) {
                 <button
                   type="button"
                   onClick={() => handleRemoveMove(i)}
-                  className="flex w-full items-center gap-2 rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-left transition-colors hover:border-destructive hover:bg-red-950/20 cursor-pointer"
+                  className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-left transition-colors hover:border-destructive hover:bg-red-950/20 cursor-pointer"
                   title="Click to remove"
                 >
                   <span className="flex-1 font-medium truncate">
@@ -194,7 +196,7 @@ export function MoveSelector({ species, value, onChange }: MoveSelectorProps) {
                   )}
                 </button>
               ) : (
-                <div className="flex h-[38px] items-center justify-center rounded-lg border border-dashed border-card-border text-xs text-muted">
+                <div className="flex h-[38px] items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
                   Slot {i + 1}
                 </div>
               )}
@@ -221,9 +223,9 @@ export function MoveSelector({ species, value, onChange }: MoveSelectorProps) {
           />
 
           {isDropdownOpen && (
-            <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-card-border bg-card shadow-xl">
+            <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
               {filteredMoves.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-muted">
+                <div className="px-4 py-3 text-sm text-muted-foreground">
                   {loading ? "Loading..." : "No matching moves"}
                 </div>
               ) : (
@@ -242,7 +244,7 @@ export function MoveSelector({ species, value, onChange }: MoveSelectorProps) {
                           ? "opacity-40 cursor-not-allowed"
                           : i === highlightIndex
                             ? "bg-accent/20 text-foreground"
-                            : "text-foreground hover:bg-card-border/30"
+                            : "text-foreground hover:bg-border/30"
                       }`}
                     >
                       <span className="flex-1 truncate">{moveName}</span>
@@ -259,7 +261,7 @@ export function MoveSelector({ species, value, onChange }: MoveSelectorProps) {
                             {data.category}
                           </Badge>
                           {data.basePower > 0 && (
-                            <span className="text-[10px] text-muted font-mono">
+                            <span className="text-[10px] text-muted-foreground font-mono">
                               {data.basePower}BP
                             </span>
                           )}

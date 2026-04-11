@@ -101,7 +101,7 @@ export function EVEditor({
         </div>
         <div className="flex items-center gap-3">
           <span
-            className={`text-sm font-mono ${isOverLimit ? "text-destructive font-bold" : "text-muted"}`}
+            className={`text-sm font-mono ${isOverLimit ? "text-destructive font-bold" : "text-muted-foreground"}`}
           >
             {total}/{MAX_TOTAL_EVS}
           </span>
@@ -143,7 +143,7 @@ export function EVEditor({
 
           return (
             <div key={key} className="flex items-center gap-2">
-              <span className="w-8 text-xs font-medium text-muted text-right shrink-0">
+              <span className="w-8 text-xs font-medium text-muted-foreground text-right shrink-0">
                 {short}
               </span>
 
@@ -165,7 +165,7 @@ export function EVEditor({
                 step={4}
                 value={evValue}
                 onChange={(e) => updateStat(key, parseInt(e.target.value, 10))}
-                className="flex-1 h-2 rounded-full appearance-none cursor-pointer bg-card-border accent-accent"
+                className="flex-1 h-2 rounded-full appearance-none cursor-pointer bg-border accent-primary"
               />
 
               <Button
@@ -184,7 +184,7 @@ export function EVEditor({
               </span>
 
               {species && (
-                <span className="w-10 text-xs font-mono text-accent text-right shrink-0">
+                <span className="w-10 text-xs font-mono text-primary text-right shrink-0">
                   {finalStat}
                 </span>
               )}

@@ -1,62 +1,51 @@
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { StrategyGenerator } from "@/components/strategy/StrategyGenerator";
+import { db } from "@/lib/db";
+import { teams, teamPokemon } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import type { TeamPokemon } from "@/lib/types/pokemon";
+
+function getTeamsWithPokemon() {
+  const allTeams = db.select().from(teams).all();
+
+  return allTeams.map((team) => {
+    const pokemon = db
+      .select()
+      .from(teamPokemon)
+      .where(eq(teamPokemon.teamId, team.id))
+      .all();
+
+    return {
+      id: team.id,
+      name: team.name,
+      pokemon: pokemon.map((p) => ({
+        species: p.species,
+        ability: p.ability,
+        item: p.item ?? "",
+        nature: p.nature ?? "Hardy",
+        level: p.level ?? 50,
+        megaEvolution: p.megaEvolution ?? undefined,
+        teraType: p.teraType ?? undefined,
+        moves: (p.moves as string[]) ?? ["", "", "", ""],
+        evs: (p.evs as TeamPokemon["evs"]) ?? { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+        ivs: (p.ivs as TeamPokemon["ivs"]) ?? { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
+      })) as TeamPokemon[],
+    };
+  });
+}
 
 export default function StrategyPage() {
+  const savedTeams = getTeamsWithPokemon();
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Pre-Match Strategy</h1>
-        <p className="mt-1 text-muted">Plan your game before it starts. Get lead and play-style recommendations.</p>
+        <p className="mt-1 text-muted-foreground">
+          Plan your game before it starts. Get lead and play-style recommendations powered by AI.
+        </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Team Selection</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted">
-              Select your team and your opponent&apos;s team preview to get
-              lead recommendations and matchup analysis.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Lead Recommendations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted">
-              AI-suggested leads with reasoning based on speed tiers,
-              type matchups, and common opponent strategies.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Game Plan</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted">
-              Win conditions, key threats to manage, and optimal
-              positioning for your team composition.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Threat Assessment</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted">
-              Identify the biggest threats on the opponent&apos;s team and
-              which of your Pokemon handle them best.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <StrategyGenerator savedTeams={savedTeams} />
     </div>
   );
 }

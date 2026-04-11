@@ -3,22 +3,29 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabList, Tab, TabPanel } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PokemonForm } from "./PokemonForm";
 import { TeamImport } from "./TeamImport";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
-import { exportTeamToPaste } from "@/lib/pokemon/sets";
 
 const FORMATS = [
+  "Champions Reg M-A",
+  "VGC 2026 Reg I",
+  "VGC 2026 Reg F",
   "VGC 2025 Reg H",
   "VGC 2025 Reg G",
   "VGC 2024 Reg F",
-  "VGC 2024 Reg E",
-  "Battle Stadium Singles",
   "Battle Stadium Doubles",
   "Other",
 ];
@@ -201,7 +208,7 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
       ivs: p.ivs ?? { ...DEFAULT_IVS },
     }));
 
-    // Generate pokepaste for storage
+    // Generate pokepaste for storage via API
     const fullPokemon = payloadPokemon.map((p) => ({
       ...p,
       moves: [
@@ -209,7 +216,20 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
         ...Array(4 - p.moves.length).fill(""),
       ] as [string, string, string, string],
     }));
-    const pokepaste = exportTeamToPaste(fullPokemon as TeamPokemon[]);
+    let pokepaste = "";
+    try {
+      const pasteRes = await fetch("/api/pokemon/export-paste", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ team: fullPokemon }),
+      });
+      if (pasteRes.ok) {
+        const pasteData = await pasteRes.json();
+        pokepaste = pasteData.paste ?? "";
+      }
+    } catch {
+      // Non-critical: pokepaste generation failed, continue with empty
+    }
 
     const payload = {
       name: teamName.trim(),
@@ -253,7 +273,7 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
   if (loadingTeam) {
     return (
       <div className="flex items-center justify-center py-12">
-        <span className="text-sm text-muted">Loading team...</span>
+        <span className="text-sm text-muted-foreground">Loading team...</span>
       </div>
     );
   }
@@ -269,23 +289,29 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
       <Card>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input
-              label="Team Name"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              placeholder="My VGC Team"
-            />
-            <Select
-              label="Format"
-              value={format}
-              onChange={(e) => setFormat(e.target.value)}
-            >
-              {FORMATS.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label>Team Name</Label>
+              <Input
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="My VGC Team"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Format</Label>
+              <Select value={format} onValueChange={(val: string | null) => { if (val) setFormat(val); }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FORMATS.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {f}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -293,29 +319,29 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
       {/* Pokemon Tabs */}
       <Card>
         <CardContent>
-          <Tabs defaultTab="slot-0">
-            <TabList className="overflow-x-auto">
+          <Tabs defaultValue="slot-0">
+            <TabsList className="overflow-x-auto">
               {tabLabels.map((label, i) => (
-                <Tab key={i} value={`slot-${i}`}>
+                <TabsTrigger key={i} value={`slot-${i}`}>
                   {label}
-                </Tab>
+                </TabsTrigger>
               ))}
-              <Tab value="import">Import</Tab>
-            </TabList>
+              <TabsTrigger value="import">Import</TabsTrigger>
+            </TabsList>
 
             {pokemon.map((mon, i) => (
-              <TabPanel key={i} value={`slot-${i}`}>
+              <TabsContent key={i} value={`slot-${i}`}>
                 <PokemonForm
                   value={mon}
                   onChange={(updated) => updateSlot(i, updated)}
                   slot={i + 1}
                 />
-              </TabPanel>
+              </TabsContent>
             ))}
 
-            <TabPanel value="import">
+            <TabsContent value="import">
               <TeamImport onImport={handleImport} />
-            </TabPanel>
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>

@@ -12,7 +12,7 @@ export default function BattlesPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Match History</h1>
-          <p className="mt-1 text-muted">
+          <p className="mt-1 text-muted-foreground">
             Review past battles and track your progress.
           </p>
         </div>

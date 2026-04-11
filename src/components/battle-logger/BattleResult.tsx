@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { BattleResult as BattleResultType } from "@/lib/types/battle";
 
 export interface BattleResultProps {
@@ -35,7 +36,7 @@ export function BattleResult({
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-foreground">Match Result</h2>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-sm text-muted-foreground">
           Record the outcome of this battle.
         </p>
       </div>
@@ -48,7 +49,7 @@ export function BattleResult({
           className={`cursor-pointer flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-8 text-center transition-all ${
             selectedResult === "win"
               ? "border-success bg-success/10 ring-2 ring-success/30"
-              : "border-card-border bg-card hover:border-success/50"
+              : "border-border bg-card hover:border-success/50"
           }`}
         >
           <span className="text-4xl">W</span>
@@ -67,7 +68,7 @@ export function BattleResult({
           className={`cursor-pointer flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-8 text-center transition-all ${
             selectedResult === "loss"
               ? "border-destructive bg-destructive/10 ring-2 ring-destructive/30"
-              : "border-card-border bg-card hover:border-destructive/50"
+              : "border-border bg-card hover:border-destructive/50"
           }`}
         >
           <span className="text-4xl">L</span>
@@ -82,12 +83,14 @@ export function BattleResult({
       </div>
 
       {/* Opponent name */}
-      <Input
-        label="Opponent Name"
-        placeholder="Enter opponent's name (optional)"
-        value={opponentName}
-        onChange={(e) => onOpponentNameChange(e.target.value)}
-      />
+      <div className="flex flex-col gap-1.5">
+        <Label>Opponent Name</Label>
+        <Input
+          placeholder="Enter opponent's name (optional)"
+          value={opponentName}
+          onChange={(e) => onOpponentNameChange(e.target.value)}
+        />
+      </div>
 
       {/* Notes */}
       <div className="flex flex-col gap-1.5">
@@ -103,7 +106,7 @@ export function BattleResult({
           value={notes}
           onChange={(e) => onNotesChange(e.target.value)}
           rows={4}
-          className="w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-y"
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
         />
       </div>
 

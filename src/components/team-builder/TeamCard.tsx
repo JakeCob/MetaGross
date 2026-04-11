@@ -24,7 +24,7 @@ export function TeamCard({ team, onDelete, onSetActive }: TeamCardProps) {
 
   return (
     <Card
-      className={`transition-colors ${isActive ? "border-accent/50" : ""}`}
+      className={`transition-colors ${isActive ? "border-primary/50" : ""}`}
     >
       <CardContent>
         <div className="flex flex-col gap-3">
@@ -51,13 +51,13 @@ export function TeamCard({ team, onDelete, onSetActive }: TeamCardProps) {
               team.pokemon.map((mon, i) => (
                 <span
                   key={i}
-                  className="inline-flex items-center rounded-md border border-card-border bg-background px-2 py-0.5 text-xs text-foreground"
+                  className="inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-xs text-foreground"
                 >
                   {mon.species}
                 </span>
               ))
             ) : (
-              <span className="text-xs text-muted">No Pokemon</span>
+              <span className="text-xs text-muted-foreground">No Pokemon</span>
             )}
           </div>
 

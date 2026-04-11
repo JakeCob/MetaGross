@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { db } from '../index';
 import { teams, teamPokemon } from '../schema';
 import type { TeamPokemonInput } from '../../validation/team';
@@ -51,16 +51,28 @@ export function getAllTeams(userId: string = DEFAULT_USER_ID): TeamWithPokemon[]
     .where(eq(teams.userId, userId))
     .all();
 
-  return teamRows.map((team) => {
-    const pokemon = db
-      .select()
-      .from(teamPokemon)
-      .where(eq(teamPokemon.teamId, team.id))
-      .orderBy(teamPokemon.slot)
-      .all();
+  if (teamRows.length === 0) return [];
 
-    return { ...team, pokemon };
-  });
+  const teamIds = teamRows.map((t) => t.id);
+  const allPokemon = db
+    .select()
+    .from(teamPokemon)
+    .where(inArray(teamPokemon.teamId, teamIds))
+    .orderBy(teamPokemon.slot)
+    .all();
+
+  // Group pokemon by team_id
+  const pokemonByTeam = new Map<string, TeamPokemonRow[]>();
+  for (const mon of allPokemon) {
+    const tid = mon.teamId ?? '';
+    if (!pokemonByTeam.has(tid)) pokemonByTeam.set(tid, []);
+    pokemonByTeam.get(tid)!.push(mon);
+  }
+
+  return teamRows.map((team) => ({
+    ...team,
+    pokemon: pokemonByTeam.get(team.id) ?? [],
+  }));
 }
 
 // ---------------------------------------------------------------------------

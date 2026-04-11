@@ -2,7 +2,12 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useBattleLogger } from "@/stores/use-battle-logger";
 import { BattleField } from "./BattleField";
 import { FieldStateBar } from "./FieldStateBar";
@@ -150,7 +155,7 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
         <button
           type="button"
           onClick={() => setShowTurnLog(!showTurnLog)}
-          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-muted hover:text-foreground transition-colors cursor-pointer"
+          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
           <span>
             Turn History ({store.turns.length} turn{store.turns.length !== 1 ? "s" : ""})
@@ -182,21 +187,25 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
       {/* Action Menu Dialog */}
       <Dialog
         open={selectedSlot != null && selectedPokemon != null}
-        onClose={() => setSelectedSlot(null)}
-        title="Choose Action"
+        onOpenChange={(open: boolean) => { if (!open) setSelectedSlot(null); }}
       >
-        {selectedPokemon && selectedSlot != null && (
-          <ActionMenu
-            pokemon={selectedPokemon}
-            slot={selectedSlot}
-            opponentActive={store.activeP2}
-            myBrought={myBroughtPokemon}
-            myActive={store.activeP1}
-            hasMegaEvolved={selectedActivePokemon?.isMega ?? false}
-            onAction={handleAction}
-            onClose={() => setSelectedSlot(null)}
-          />
-        )}
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Choose Action</DialogTitle>
+          </DialogHeader>
+          {selectedPokemon && selectedSlot != null && (
+            <ActionMenu
+              pokemon={selectedPokemon}
+              slot={selectedSlot}
+              opponentActive={store.activeP2}
+              myBrought={myBroughtPokemon}
+              myActive={store.activeP1}
+              hasMegaEvolved={selectedActivePokemon?.isMega ?? false}
+              onAction={handleAction}
+              onClose={() => setSelectedSlot(null)}
+            />
+          )}
+        </DialogContent>
       </Dialog>
     </div>
   );

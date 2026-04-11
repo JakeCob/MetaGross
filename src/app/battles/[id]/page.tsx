@@ -89,7 +89,7 @@ export default async function MatchDetailPage({
               {isWin ? "Win" : "Loss"}
             </Badge>
           </div>
-          <p className="mt-1 text-muted">{formatDate(match.playedAt)}</p>
+          <p className="mt-1 text-muted-foreground">{formatDate(match.playedAt)}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href={`/battles/${id}/analysis`}>
@@ -110,7 +110,7 @@ export default async function MatchDetailPage({
             <CardContent>
               <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
                 <div>
-                  <span className="text-muted">Result</span>
+                  <span className="text-muted-foreground">Result</span>
                   <div className="mt-1">
                     <Badge variant={isWin ? "success" : "error"}>
                       {isWin ? "Win" : "Loss"}
@@ -118,20 +118,20 @@ export default async function MatchDetailPage({
                   </div>
                 </div>
                 <div>
-                  <span className="text-muted">Mode</span>
+                  <span className="text-muted-foreground">Mode</span>
                   <p className="mt-1 font-medium text-foreground">
                     {modeLabel(match.mode)}
                   </p>
                 </div>
                 <div>
-                  <span className="text-muted">Format</span>
+                  <span className="text-muted-foreground">Format</span>
                   <p className="mt-1 font-medium text-foreground">
                     {match.format ?? "Unknown"}
                   </p>
                 </div>
                 {match.opponentName && (
                   <div>
-                    <span className="text-muted">Opponent</span>
+                    <span className="text-muted-foreground">Opponent</span>
                     <p className="mt-1 font-medium text-foreground">
                       {match.opponentName}
                     </p>
@@ -156,8 +156,8 @@ export default async function MatchDetailPage({
                       key={i}
                       className={`relative flex flex-col rounded-lg border p-3 transition-colors ${
                         wasBrought
-                          ? "border-accent/40 bg-accent/5"
-                          : "border-card-border bg-card opacity-50"
+                          ? "border-primary/40 bg-accent/5"
+                          : "border-border bg-card opacity-50"
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -174,12 +174,12 @@ export default async function MatchDetailPage({
                         )}
                       </div>
                       {mon.item && (
-                        <span className="text-xs text-muted mt-0.5">
+                        <span className="text-xs text-muted-foreground mt-0.5">
                           {mon.item}
                         </span>
                       )}
                       {!wasBrought && (
-                        <span className="text-[10px] text-muted mt-0.5">
+                        <span className="text-[10px] text-muted-foreground mt-0.5">
                           Not brought
                         </span>
                       )}
@@ -206,7 +206,7 @@ export default async function MatchDetailPage({
                       className={`relative flex flex-col rounded-lg border p-3 transition-colors ${
                         wasBrought
                           ? "border-destructive/40 bg-destructive/5"
-                          : "border-card-border bg-card opacity-50"
+                          : "border-border bg-card opacity-50"
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -223,17 +223,17 @@ export default async function MatchDetailPage({
                         )}
                       </div>
                       {mon.item && (
-                        <span className="text-xs text-muted mt-0.5">
+                        <span className="text-xs text-muted-foreground mt-0.5">
                           {mon.item}
                         </span>
                       )}
                       {mon.ability && (
-                        <span className="text-xs text-muted mt-0.5">
+                        <span className="text-xs text-muted-foreground mt-0.5">
                           {mon.ability}
                         </span>
                       )}
                       {!wasBrought && (
-                        <span className="text-[10px] text-muted mt-0.5">
+                        <span className="text-[10px] text-muted-foreground mt-0.5">
                           Not brought
                         </span>
                       )}
@@ -258,12 +258,12 @@ export default async function MatchDetailPage({
                   {match.turns.map((turn) => (
                     <div
                       key={turn.id}
-                      className="rounded-md border border-card-border bg-background p-2 text-xs"
+                      className="rounded-md border border-border bg-background p-2 text-xs"
                     >
                       <span className="font-medium">
                         Turn {turn.turnNumber}
                       </span>
-                      <span className="text-muted ml-2">
+                      <span className="text-muted-foreground ml-2">
                         {turn.actions.length} action
                         {turn.actions.length !== 1 ? "s" : ""}
                       </span>
@@ -271,7 +271,7 @@ export default async function MatchDetailPage({
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted">
+                <p className="text-sm text-muted-foreground">
                   No turn data recorded. Turn-by-turn logging will be
                   available in a future update.
                 </p>
@@ -290,7 +290,7 @@ export default async function MatchDetailPage({
                   {match.notes}
                 </p>
               ) : (
-                <p className="text-sm text-muted">
+                <p className="text-sm text-muted-foreground">
                   No notes recorded for this match.
                 </p>
               )}

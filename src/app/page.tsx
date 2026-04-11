@@ -30,9 +30,9 @@ export default function Home() {
       {/* Hero */}
       <section className="flex w-full flex-col items-center justify-center px-4 py-24 text-center">
         <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">
-          <span className="text-accent">Meta</span>Gross
+          <span className="text-primary">Meta</span>Gross
         </h1>
-        <p className="mt-4 max-w-xl text-lg text-muted">
+        <p className="mt-4 max-w-xl text-lg text-muted-foreground">
           Supercomputer-level team intelligence for Pokemon VGC.
           AI-powered battle analysis, team building, and coaching.
         </p>
@@ -42,12 +42,12 @@ export default function Home() {
       <section className="mx-auto grid w-full max-w-4xl gap-4 px-4 pb-24 sm:grid-cols-2">
         {features.map((feature) => (
           <Link key={feature.href} href={feature.href} className="group">
-            <Card className="h-full transition-colors group-hover:border-accent/50">
+            <Card className="h-full transition-colors group-hover:border-primary/50">
               <CardContent>
-                <h2 className="text-xl font-semibold text-foreground group-hover:text-accent transition-colors">
+                <h2 className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors">
                   {feature.title}
                 </h2>
-                <p className="mt-2 text-sm text-muted">{feature.description}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{feature.description}</p>
               </CardContent>
             </Card>
           </Link>

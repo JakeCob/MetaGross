@@ -84,6 +84,8 @@ export function calculateWinRateByPeriod(
 
 export interface RollingWinRatePoint {
   index: number;
+  /** Label for chart display, e.g. "Match 10" */
+  label: string;
   winRate: number;
 }
 
@@ -102,6 +104,7 @@ export function calculateRollingWinRate(
   }
   results.push({
     index: window - 1,
+    label: `Match ${window}`,
     winRate: Math.round((winsInWindow / window) * 10000) / 100,
   });
 
@@ -111,6 +114,7 @@ export function calculateRollingWinRate(
     if (matches[i - window].result === "win") winsInWindow--;
     results.push({
       index: i,
+      label: `Match ${i + 1}`,
       winRate: Math.round((winsInWindow / window) * 10000) / 100,
     });
   }

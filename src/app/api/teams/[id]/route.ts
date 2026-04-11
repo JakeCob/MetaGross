@@ -4,7 +4,8 @@ import {
   deleteTeam,
   setActiveTeam,
 } from '@/lib/db/queries/teams';
-import { validateTeam } from '@/lib/validation/team';
+import { validateTeam, teamPokemonSchema } from '@/lib/validation/team';
+import { z } from 'zod';
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -38,13 +39,27 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    // If a full pokemon array is provided alongside name/format, validate
-    // as a complete team. Otherwise treat as a partial field update.
+    // If a full team payload is provided (name+format+pokemon), validate as a
+    // complete team. Otherwise, if only pokemon is provided, still validate the
+    // pokemon array to prevent malformed data.
     if (body.pokemon && body.name && body.format) {
       const validation = validateTeam(body);
       if (!validation.success) {
         return Response.json(
           { error: 'Validation failed', details: validation.errors },
+          { status: 400 },
+        );
+      }
+    } else if (body.pokemon && Array.isArray(body.pokemon)) {
+      const pokemonArraySchema = z
+        .array(teamPokemonSchema)
+        .min(1, 'At least 1 Pokemon required')
+        .max(6, 'Maximum 6 Pokemon');
+      const result = pokemonArraySchema.safeParse(body.pokemon);
+      if (!result.success) {
+        const errors = result.error.issues.map((i) => i.message);
+        return Response.json(
+          { error: 'Validation failed', details: errors },
           { status: 400 },
         );
       }

@@ -80,7 +80,7 @@ export default async function TeamDetailPage({
               <Badge variant="success">Active</Badge>
             )}
           </div>
-          <p className="mt-1 text-muted">
+          <p className="mt-1 text-muted-foreground">
             {team.pokemon.length} Pokemon &middot; Created{" "}
             {team.createdAt
               ? new Date(team.createdAt).toLocaleDateString()
@@ -102,7 +102,7 @@ export default async function TeamDetailPage({
           <CardContent>
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <h2 className="text-xl font-semibold">No Pokemon</h2>
-              <p className="mt-2 text-sm text-muted">
+              <p className="mt-2 text-sm text-muted-foreground">
                 This team has no Pokemon yet.
               </p>
               <Link href={`/teams/${id}/edit`} className="mt-4">
@@ -155,7 +155,7 @@ export default async function TeamDetailPage({
                 <CardContent>
                   <div className="flex flex-col gap-3">
                     {/* Info row */}
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       {mon.ability && (
                         <span>
                           <span className="text-foreground">{mon.ability}</span>
@@ -176,7 +176,7 @@ export default async function TeamDetailPage({
                       {moves.filter(Boolean).map((move, j) => (
                         <span
                           key={j}
-                          className="inline-flex items-center rounded-md border border-card-border bg-background px-2 py-0.5 text-[11px] text-foreground"
+                          className="inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-foreground"
                         >
                           {move}
                         </span>
@@ -194,15 +194,15 @@ export default async function TeamDetailPage({
                           return (
                             <div
                               key={key}
-                              className="flex flex-col items-center rounded border border-card-border bg-background px-1 py-1"
+                              className="flex flex-col items-center rounded border border-border bg-background px-1 py-1"
                             >
-                              <span className="text-[9px] text-muted">
+                              <span className="text-[9px] text-muted-foreground">
                                 {STAT_LABELS[key]}
                               </span>
-                              <span className="text-xs font-mono font-medium text-accent">
+                              <span className="text-xs font-mono font-medium text-primary">
                                 {final}
                               </span>
-                              <span className="text-[9px] font-mono text-muted">
+                              <span className="text-[9px] font-mono text-muted-foreground">
                                 {ev > 0 ? `${ev}` : "-"}
                               </span>
                             </div>

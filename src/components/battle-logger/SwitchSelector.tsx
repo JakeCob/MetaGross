@@ -40,7 +40,7 @@ export function SwitchSelector({
   if (bench.length === 0) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-muted">No bench Pokemon available.</p>
+        <p className="text-sm text-muted-foreground">No bench Pokemon available.</p>
         <Button variant="outline" size="sm" onClick={onCancel}>
           Back
         </Button>
@@ -50,7 +50,7 @@ export function SwitchSelector({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted">
+      <p className="text-sm text-muted-foreground">
         Switch <span className="font-medium text-foreground">{switchOutSpecies}</span> for:
       </p>
       <div className="grid gap-2">

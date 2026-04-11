@@ -43,7 +43,7 @@ export function NewBattleDialog({ onSelect }: NewBattleDialogProps) {
         <h2 className="text-xl font-semibold text-foreground">
           Choose Logging Mode
         </h2>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-sm text-muted-foreground">
           How would you like to log this battle?
         </p>
       </div>
@@ -56,12 +56,12 @@ export function NewBattleDialog({ onSelect }: NewBattleDialogProps) {
             onClick={() => onSelect(mode)}
             className="cursor-pointer text-left"
           >
-            <Card className="transition-all hover:border-accent/50 hover:bg-card-border/10">
+            <Card className="transition-all hover:border-primary/50 hover:bg-border/10">
               <CardContent className="flex items-start gap-4">
                 <span className="text-2xl mt-0.5">{icon}</span>
                 <div className="flex-1">
                   <h3 className="font-semibold text-foreground">{title}</h3>
-                  <p className="mt-0.5 text-sm text-muted">{description}</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
                 </div>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -73,7 +73,7 @@ export function NewBattleDialog({ onSelect }: NewBattleDialogProps) {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="text-muted mt-1 shrink-0"
+                  className="text-muted-foreground mt-1 shrink-0"
                 >
                   <polyline points="9 18 15 12 9 6" />
                 </svg>

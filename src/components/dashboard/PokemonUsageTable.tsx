@@ -78,18 +78,18 @@ export function PokemonUsageTable({ matches }: PokemonUsageTableProps) {
       </CardHeader>
       <CardContent>
         {sorted.length === 0 ? (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-muted-foreground">
             No Pokemon usage data available yet.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-card-border">
+                <tr className="border-b border-border">
                   {columns.map((col) => (
                     <th
                       key={col.key}
-                      className={`px-3 py-2 text-xs font-medium text-muted uppercase tracking-wide cursor-pointer select-none hover:text-foreground transition-colors ${col.className ?? "text-right"}`}
+                      className={`px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer select-none hover:text-foreground transition-colors ${col.className ?? "text-right"}`}
                       onClick={() => handleSort(col.key)}
                     >
                       {col.label}
@@ -102,7 +102,7 @@ export function PokemonUsageTable({ matches }: PokemonUsageTableProps) {
                 {sorted.map((row) => (
                   <tr
                     key={row.species}
-                    className="border-b border-card-border/50 hover:bg-card-border/20 transition-colors"
+                    className="border-b border-border/50 hover:bg-border/20 transition-colors"
                   >
                     <td className="px-3 py-2 font-medium text-foreground">
                       {row.species}

@@ -44,22 +44,22 @@ export function PokemonSlot({
       disabled={!onClick}
       className={`relative flex w-full flex-col gap-1.5 rounded-xl border p-3 text-left transition-all min-h-[68px] ${
         isFainted
-          ? "border-card-border/50 bg-card/50 opacity-60"
+          ? "border-border/50 bg-card/50 opacity-60"
           : isSelected
-            ? "border-accent bg-accent/15 ring-2 ring-accent/40"
+            ? "border-primary bg-accent/15 ring-2 ring-accent/40"
             : isTargeting && !isMyPokemon
               ? "border-warning/50 bg-warning/5 hover:border-warning hover:bg-warning/10"
               : hasAction
                 ? "border-success/40 bg-success/5"
                 : isMyPokemon
-                  ? "border-accent/40 bg-accent/5 hover:border-accent hover:bg-accent/10"
+                  ? "border-primary/40 bg-accent/5 hover:border-primary hover:bg-accent/10"
                   : "border-destructive/30 bg-destructive/5 hover:border-destructive/50 hover:bg-destructive/10"
       } ${onClick ? "cursor-pointer" : "cursor-default"}`}
     >
       {/* Fainted overlay */}
       {isFainted && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/60">
-          <span className="text-xs font-bold uppercase tracking-wider text-muted">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Fainted
           </span>
         </div>
@@ -95,13 +95,13 @@ export function PokemonSlot({
 
       {/* HP Bar */}
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-2 rounded-full bg-card-border overflow-hidden">
+        <div className="flex-1 h-2 rounded-full bg-border overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-300 ${hpColor(pokemon.hpPercent)}`}
             style={{ width: `${Math.max(0, Math.min(100, pokemon.hpPercent))}%` }}
           />
         </div>
-        <span className="text-[11px] font-mono text-muted tabular-nums w-8 text-right">
+        <span className="text-[11px] font-mono text-muted-foreground tabular-nums w-8 text-right">
           {Math.round(pokemon.hpPercent)}%
         </span>
       </div>

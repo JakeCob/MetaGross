@@ -104,15 +104,15 @@ export function TeamPreview({
           onClick={() => toggleBring(species, side)}
           className={`cursor-pointer relative flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-all ${
             isBrought
-              ? "border-accent bg-accent/10 ring-1 ring-accent/30"
-              : "border-card-border bg-card hover:border-muted"
+              ? "border-primary bg-accent/10 ring-1 ring-accent/30"
+              : "border-border bg-card hover:border-muted"
           } ${!isBrought && broughtList.length >= 4 ? "opacity-40" : ""}`}
         >
           <span className="text-sm font-medium text-foreground">
             {species}
           </span>
           {extra?.item && (
-            <span className="text-[10px] text-muted">{extra.item}</span>
+            <span className="text-[10px] text-muted-foreground">{extra.item}</span>
           )}
           {isBrought && (
             <Badge variant="info" className="absolute -top-2 -right-2 text-[10px] px-1.5 py-0">
@@ -128,12 +128,12 @@ export function TeamPreview({
       return (
         <div
           key={species}
-          className="flex flex-col items-center gap-1 rounded-lg border border-card-border bg-card p-3 text-center opacity-30"
+          className="flex flex-col items-center gap-1 rounded-lg border border-border bg-card p-3 text-center opacity-30"
         >
           <span className="text-sm font-medium text-foreground">
             {species}
           </span>
-          <span className="text-[10px] text-muted">Not brought</span>
+          <span className="text-[10px] text-muted-foreground">Not brought</span>
         </div>
       );
     }
@@ -146,12 +146,12 @@ export function TeamPreview({
         className={`cursor-pointer relative flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-all ${
           isLead
             ? "border-success bg-success/10 ring-1 ring-success/30"
-            : "border-accent bg-accent/10 hover:border-accent"
+            : "border-primary bg-accent/10 hover:border-primary"
         }`}
       >
         <span className="text-sm font-medium text-foreground">{species}</span>
         {extra?.item && (
-          <span className="text-[10px] text-muted">{extra.item}</span>
+          <span className="text-[10px] text-muted-foreground">{extra.item}</span>
         )}
         {isLead && (
           <Badge variant="success" className="absolute -top-2 -right-2 text-[10px] px-1.5 py-0">
@@ -169,7 +169,7 @@ export function TeamPreview({
         <h2 className="text-xl font-semibold text-foreground">
           {phase === "bring" ? "Select Brought 4" : "Select Leads"}
         </h2>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-sm text-muted-foreground">
           {phase === "bring"
             ? "Click to select the 4 Pokemon each side brought to battle."
             : "Select the 2 lead Pokemon for each side."}
@@ -182,7 +182,7 @@ export function TeamPreview({
           <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
             My Team
           </h3>
-          <span className="text-xs text-muted">
+          <span className="text-xs text-muted-foreground">
             {phase === "bring"
               ? `${myBrought.length}/4 selected`
               : `${myLeads.length}/2 leads`}
@@ -203,7 +203,7 @@ export function TeamPreview({
           <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
             Opponent Team
           </h3>
-          <span className="text-xs text-muted">
+          <span className="text-xs text-muted-foreground">
             {phase === "bring"
               ? `${oppBrought.length}/4 selected`
               : `${oppLeads.length}/2 leads`}
@@ -222,7 +222,7 @@ export function TeamPreview({
       <div className="flex items-center justify-between pt-2">
         {phase === "bring" && (
           <>
-            <span className="text-sm text-muted">
+            <span className="text-sm text-muted-foreground">
               {bringReady ? "Ready to pick leads" : "Select 4 on each side"}
             </span>
             <Button onClick={handleProceedToLeads} disabled={!bringReady}>

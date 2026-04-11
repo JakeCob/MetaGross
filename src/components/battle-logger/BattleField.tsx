@@ -36,7 +36,7 @@ export function BattleField({
     <div className="space-y-3">
       {/* Opponent side (top) */}
       <div>
-        <p className="text-[10px] uppercase tracking-widest text-muted mb-1.5 px-1">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 px-1">
           Opponent
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -64,16 +64,16 @@ export function BattleField({
 
       {/* Divider */}
       <div className="flex items-center gap-2 px-2">
-        <div className="flex-1 h-px bg-card-border" />
-        <span className="text-[10px] text-muted uppercase tracking-widest">
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
           vs
         </span>
-        <div className="flex-1 h-px bg-card-border" />
+        <div className="flex-1 h-px bg-border" />
       </div>
 
       {/* My side (bottom) */}
       <div>
-        <p className="text-[10px] uppercase tracking-widest text-muted mb-1.5 px-1">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 px-1">
           My Pokemon
         </p>
         <div className="grid grid-cols-2 gap-2">

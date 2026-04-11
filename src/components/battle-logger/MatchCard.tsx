@@ -52,7 +52,7 @@ export function MatchCard({ match }: MatchCardProps) {
   return (
     <Link href={`/battles/${match.id}`}>
       <Card
-        className={`transition-all hover:border-accent/40 ${
+        className={`transition-all hover:border-primary/40 ${
           isWin ? "border-l-success border-l-2" : "border-l-destructive border-l-2"
         }`}
       >
@@ -66,7 +66,7 @@ export function MatchCard({ match }: MatchCardProps) {
                 </Badge>
                 <Badge>{modeLabel(match.mode)}</Badge>
               </div>
-              <span className="text-xs text-muted">
+              <span className="text-xs text-muted-foreground">
                 {formatDate(match.playedAt)}
               </span>
             </div>
@@ -82,22 +82,22 @@ export function MatchCard({ match }: MatchCardProps) {
             {(match.myLeads.length > 0 || match.opponentLeads.length > 0) && (
               <div className="flex items-center gap-2 text-xs">
                 <div className="flex items-center gap-1">
-                  <span className="text-muted">My leads:</span>
+                  <span className="text-muted-foreground">My leads:</span>
                   {match.myLeads.map((s) => (
                     <span
                       key={s}
-                      className="inline-flex items-center rounded-md border border-card-border bg-background px-1.5 py-0.5 text-foreground"
+                      className="inline-flex items-center rounded-md border border-border bg-background px-1.5 py-0.5 text-foreground"
                     >
                       {s}
                     </span>
                   ))}
                 </div>
-                <span className="text-muted">vs</span>
+                <span className="text-muted-foreground">vs</span>
                 <div className="flex items-center gap-1">
                   {match.opponentLeads.map((s) => (
                     <span
                       key={s}
-                      className="inline-flex items-center rounded-md border border-card-border bg-background px-1.5 py-0.5 text-foreground"
+                      className="inline-flex items-center rounded-md border border-border bg-background px-1.5 py-0.5 text-foreground"
                     >
                       {s}
                     </span>
@@ -108,7 +108,7 @@ export function MatchCard({ match }: MatchCardProps) {
 
             {/* Notes preview */}
             {match.notes && (
-              <p className="text-xs text-muted line-clamp-1">{match.notes}</p>
+              <p className="text-xs text-muted-foreground line-clamp-1">{match.notes}</p>
             )}
           </div>
         </CardContent>

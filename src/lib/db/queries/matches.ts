@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { db } from '../index';
 import { matches, matchTurns, matchTurnActions } from '../schema';
 import type { Turn } from '@/lib/types/battle';
@@ -131,15 +131,27 @@ export function getMatchById(id: string): MatchWithTurns | null {
     .orderBy(matchTurns.turnNumber)
     .all();
 
-  const turns: MatchTurnWithActions[] = turnRows.map((turn) => {
-    const actions = db
-      .select()
-      .from(matchTurnActions)
-      .where(eq(matchTurnActions.turnId, turn.id))
-      .all();
+  if (turnRows.length === 0) return { ...match, turns: [] };
 
-    return { ...turn, actions };
-  });
+  const turnIds = turnRows.map((t) => t.id);
+  const allActions = db
+    .select()
+    .from(matchTurnActions)
+    .where(inArray(matchTurnActions.turnId, turnIds))
+    .all();
+
+  // Group actions by turn_id
+  const actionsByTurn = new Map<string, MatchTurnActionRow[]>();
+  for (const action of allActions) {
+    const tid = action.turnId ?? '';
+    if (!actionsByTurn.has(tid)) actionsByTurn.set(tid, []);
+    actionsByTurn.get(tid)!.push(action);
+  }
+
+  const turns: MatchTurnWithActions[] = turnRows.map((turn) => ({
+    ...turn,
+    actions: actionsByTurn.get(turn.id) ?? [],
+  }));
 
   return { ...match, turns };
 }
@@ -306,9 +318,10 @@ export function deleteMatch(id: string): boolean {
       .where(eq(matchTurns.matchId, id))
       .all();
 
-    // Delete actions for each turn
-    for (const turn of turnRows) {
-      tx.delete(matchTurnActions).where(eq(matchTurnActions.turnId, turn.id)).run();
+    // Delete actions for all turns in one query
+    if (turnRows.length > 0) {
+      const turnIds = turnRows.map((t) => t.id);
+      tx.delete(matchTurnActions).where(inArray(matchTurnActions.turnId, turnIds)).run();
     }
 
     // Delete turns

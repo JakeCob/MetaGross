@@ -33,7 +33,7 @@ export function BattlesPageStats() {
     <div className="grid grid-cols-3 gap-4">
       <Card>
         <CardContent className="p-4 text-center">
-          <p className="text-xs font-medium text-muted uppercase tracking-wide">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Total Matches
           </p>
           <p className="mt-1 text-2xl font-bold text-foreground">
@@ -43,7 +43,7 @@ export function BattlesPageStats() {
       </Card>
       <Card>
         <CardContent className="p-4 text-center">
-          <p className="text-xs font-medium text-muted uppercase tracking-wide">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Win Rate
           </p>
           <p
@@ -57,7 +57,7 @@ export function BattlesPageStats() {
       </Card>
       <Card>
         <CardContent className="p-4 text-center">
-          <p className="text-xs font-medium text-muted uppercase tracking-wide">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Record
           </p>
           <p className="mt-1 text-2xl font-bold text-foreground">

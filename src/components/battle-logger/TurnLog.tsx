@@ -43,14 +43,14 @@ export function TurnLog({
   }, [turns.length, currentTurnActions.length]);
 
   return (
-    <div className="max-h-48 overflow-y-auto rounded-xl border border-card-border bg-card">
+    <div className="max-h-48 overflow-y-auto rounded-xl border border-border bg-card">
       {turns.length === 0 && currentTurnActions.length === 0 && (
         <div className="flex items-center justify-center py-6">
-          <span className="text-xs text-muted">No turns logged yet</span>
+          <span className="text-xs text-muted-foreground">No turns logged yet</span>
         </div>
       )}
 
-      <div className="divide-y divide-card-border">
+      <div className="divide-y divide-border">
         {/* Completed turns */}
         {turns.map((turn) => (
           <div key={turn.number} className="px-3 py-2">
@@ -74,12 +74,12 @@ export function TurnLog({
             </div>
             <div className="space-y-0.5">
               {turn.actions.map((action, i) => (
-                <p key={i} className="text-xs text-muted leading-relaxed">
+                <p key={i} className="text-xs text-muted-foreground leading-relaxed">
                   {formatAction(action)}
                 </p>
               ))}
               {turn.actions.length === 0 && (
-                <p className="text-xs text-muted italic">No actions recorded</p>
+                <p className="text-xs text-muted-foreground italic">No actions recorded</p>
               )}
             </div>
           </div>
@@ -92,7 +92,7 @@ export function TurnLog({
               <Badge variant="info" className="text-[10px] px-1.5 py-0">
                 T{currentTurn}
               </Badge>
-              <span className="text-[10px] text-muted italic">in progress</span>
+              <span className="text-[10px] text-muted-foreground italic">in progress</span>
             </div>
             <div className="space-y-0.5">
               {currentTurnActions.map((action, i) => (

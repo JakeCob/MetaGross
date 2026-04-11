@@ -21,12 +21,12 @@ export function TurnControls({
   actionsCount,
 }: TurnControlsProps) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-card-border bg-card px-4 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
       <div className="flex items-center gap-2">
         <Badge variant="info" className="text-xs px-2 py-0.5">
           Turn {currentTurn}
         </Badge>
-        <span className="text-xs text-muted">
+        <span className="text-xs text-muted-foreground">
           {actionsCount} action{actionsCount !== 1 ? "s" : ""}
         </span>
       </div>
