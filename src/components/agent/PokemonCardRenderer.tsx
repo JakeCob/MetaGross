@@ -42,6 +42,18 @@ function parseContent(content: string): Array<{ type: "text"; text: string } | {
     }
 
     const name = headerMatch[1].trim();
+
+    // Skip section headings that aren't Pokemon names
+    const nonPokemonHeadings = [
+      "additional", "team summary", "team members", "summary",
+      "key synergies", "lead combinations", "matchup", "notes",
+      "overview", "strategy", "tips", "principles",
+    ];
+    if (nonPokemonHeadings.some((h) => name.toLowerCase().includes(h))) {
+      blocks.push({ type: "text", text: part.trim() });
+      continue;
+    }
+
     const lines = part.split("\n").slice(1);
 
     const data: PokemonBlock = { name };
