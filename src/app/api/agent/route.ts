@@ -108,6 +108,11 @@ export async function POST(request: Request) {
             persona,
           });
 
+          // Buffer the final text — only send the LAST AI text message
+          // (the validation node may replace earlier AI messages)
+          let finalText = "";
+          let toolCallsSent = 0;
+
           for await (const state of eventStream) {
             const messages: BaseMessage[] = state.messages ?? [];
             const lastMsg = messages[messages.length - 1];
@@ -117,25 +122,28 @@ export async function POST(request: Request) {
             if (lastMsg._getType() === "ai") {
               const aiMsg = lastMsg as AIMessage;
 
-              // Check for tool calls
+              // Stream tool calls immediately (these are progress indicators)
               if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
-                send("tool_calls", {
-                  calls: aiMsg.tool_calls.map((tc) => ({
-                    name: tc.name,
-                    args: tc.args,
-                    id: tc.id,
-                  })),
-                });
+                const newCalls = aiMsg.tool_calls.slice(toolCallsSent);
+                if (newCalls.length > 0) {
+                  send("tool_calls", {
+                    calls: newCalls.map((tc) => ({
+                      name: tc.name,
+                      args: tc.args,
+                      id: tc.id,
+                    })),
+                  });
+                  toolCallsSent = aiMsg.tool_calls.length;
+                }
               }
 
-              // Check for text content — content can be string OR array of content blocks
+              // Buffer text content — DON'T send yet (validation may replace it)
               const content = aiMsg.content;
               if (content) {
                 let textContent = "";
                 if (typeof content === "string") {
                   textContent = content;
                 } else if (Array.isArray(content)) {
-                  // Content blocks: [{ type: "text", text: "..." }, ...]
                   textContent = content
                     .filter((block): block is { type: "text"; text: string } =>
                       typeof block === "object" && block !== null && "type" in block && block.type === "text" && "text" in block
@@ -144,19 +152,19 @@ export async function POST(request: Request) {
                     .join("");
                 }
                 if (textContent.length > 0) {
-                  send("text", { content: textContent });
+                  finalText = textContent; // overwrite — always keep the latest
                 }
               }
             }
 
-            // Also handle tool response messages (to show tool results)
+            // Stream tool results immediately (progress indicators)
             if (lastMsg._getType() === "tool") {
               const toolContent = typeof lastMsg.content === "string"
                 ? lastMsg.content
                 : JSON.stringify(lastMsg.content);
               send("tool_result", {
                 name: (lastMsg as unknown as { name?: string }).name ?? "tool",
-                result: toolContent.slice(0, 500), // truncate large results
+                result: toolContent.slice(0, 500),
               });
             }
 
@@ -164,6 +172,11 @@ export async function POST(request: Request) {
             if (state.pendingAction) {
               send("pending_approval", state.pendingAction as WriteActionProposal);
             }
+          }
+
+          // Send the final (validated) text response
+          if (finalText) {
+            send("text", { content: finalText });
           }
 
           send("done", { threadId });
