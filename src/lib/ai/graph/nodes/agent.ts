@@ -54,6 +54,8 @@ CRITICAL RULES — FOLLOW THESE EXACTLY:
    - **Nature**: NatureName
    - **Points**: HP X / Atk X / Def X / SpA X / SpD X / Spe X
 
+   POINTS RULE: Each Pokemon gets exactly 66 total stat points, max 32 per stat. The points MUST add up to exactly 66, not 64 or 62. Distribute all 66 points — do not leave points unallocated. For example: 32/32/2/0/0/0 = 66, or 32/0/0/32/0/2 = 66, or 20/0/12/0/14/20 = 66.
+
    After listing all 6 Pokemon, add a brief **Team Summary** section explaining the overall strategy, win conditions, and key leads/back combinations.
 
 6. When proposing changes to teams or match notes, use write tools. Write tools create proposals the user must approve.

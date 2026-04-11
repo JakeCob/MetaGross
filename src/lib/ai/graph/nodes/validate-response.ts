@@ -76,6 +76,16 @@ export async function validateResponseNode(
     }
   }
 
+  // Check stat point totals (must equal 66)
+  const pointMatches = content.matchAll(/\*\*Points\*\*:\s*HP\s*(\d+)\s*\/\s*Atk\s*(\d+)\s*\/\s*Def\s*(\d+)\s*\/\s*SpA\s*(\d+)\s*\/\s*SpD\s*(\d+)\s*\/\s*Spe\s*(\d+)/g);
+  for (const match of pointMatches) {
+    const total = [1, 2, 3, 4, 5, 6].reduce((sum, i) => sum + parseInt(match[i]), 0);
+    if (total !== 66) {
+      issues.push(`A Pokemon has ${total}/66 stat points allocated. Redistribute to use exactly 66 points (32 max per stat).`);
+      break; // One warning is enough
+    }
+  }
+
   // Check if fewer than 6 Pokemon were suggested when it looks like a team
   if (content.includes("### ") && pokemonMentions && pokemonMentions.length < 6) {
     const count = pokemonMentions.length;
