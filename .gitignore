@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Temporary Screenshots
 /data/temp
+
+# Codex
+.codex
