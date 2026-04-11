@@ -38,12 +38,8 @@ function buildGraph() {
       "review_write",
       END,
     ])
-    // After tool execution: go back to agent for further reasoning
-    .addConditionalEdges("tool_executor", checkForWrite, [
-      "tool_executor",
-      "review_write",
-      END,
-    ])
+    // After tool execution: ALWAYS go back to agent for further reasoning/final response
+    .addEdge("tool_executor", "agent")
     // After write review (approval/rejection): go back to agent
     .addEdge("review_write", "agent");
 
