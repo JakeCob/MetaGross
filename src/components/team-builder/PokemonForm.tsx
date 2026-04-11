@@ -17,6 +17,7 @@ import { SpeciesSearch } from "./SpeciesSearch";
 import { MoveSelector } from "./MoveSelector";
 import { EVEditor } from "./EVEditor";
 import { EVSuggestionsPanel } from "./EVSuggestionsPanel";
+import { EVDebatePanel } from "@/components/ev/EVDebatePanel";
 import { UsageQuickView } from "@/components/meta/UsageQuickView";
 import type { SpeciesData } from "@/lib/pokemon/species";
 import type { AbilityData } from "@/lib/pokemon/abilities";
@@ -94,9 +95,11 @@ export interface PokemonFormProps {
   onChange: (pokemon: Partial<TeamPokemon>) => void;
   slot: number;
   format?: string;
+  /** Full team (all 6 slots) — used by the AI EV optimizer for team context. */
+  team?: Partial<TeamPokemon>[];
 }
 
-export function PokemonForm({ value, onChange, slot, format = "" }: PokemonFormProps) {
+export function PokemonForm({ value, onChange, slot, format = "", team = [] }: PokemonFormProps) {
   const pointSystem = getPointSystem(format);
   const isChampions = format.toLowerCase().startsWith("champions");
   const [speciesData, setSpeciesData] = useState<SpeciesData | null>(null);
@@ -357,6 +360,33 @@ export function PokemonForm({ value, onChange, slot, format = "" }: PokemonFormP
               update({ evs, nature });
             }}
           />
+
+          {/* AI EV Debate Optimizer */}
+          {value.species && currentMoves.some(Boolean) && (
+            <EVDebatePanel
+              pokemon={{
+                species: value.species ?? "",
+                ability: value.ability ?? "",
+                item: value.item ?? "",
+                nature: currentNature,
+                level: currentLevel,
+                moves: currentMoves,
+                evs: currentEvs,
+                ivs: currentIvs,
+              }}
+              team={
+                team
+                  .filter(
+                    (t): t is TeamPokemon =>
+                      Boolean(t.species) && t.species !== value.species,
+                  )
+              }
+              format={format}
+              onComplete={(evs, nature) => {
+                update({ evs, nature });
+              }}
+            />
+          )}
 
           {/* IVs */}
           <div className="flex flex-col gap-3">

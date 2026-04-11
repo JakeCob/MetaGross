@@ -556,6 +556,7 @@ export function TeamBuilder({ teamId, onAddFromAgent }: TeamBuilderProps) {
                 onChange={(updated) => updateSlot(editingSlot, updated)}
                 slot={editingSlot + 1}
                 format={format}
+                team={pokemon as Partial<TeamPokemon>[]}
               />
             </div>
           )}
