@@ -10,6 +10,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { PokemonSprite } from "@/components/pokemon-sprite";
 import { UsageStatsCard } from "./UsageStatsCard";
 
 // ---------------------------------------------------------------------------
@@ -177,9 +178,16 @@ function PokemonCard({
         <CardContent className="pt-5 pb-3 px-3 flex flex-col gap-2.5">
           {/* Species name + usage */}
           <div className="flex items-start justify-between pl-8">
-            <span className="text-sm font-semibold text-foreground leading-tight">
-              {pokemon.species}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <PokemonSprite
+                species={pokemon.species}
+                size={32}
+                className="shrink-0 -ml-1"
+              />
+              <span className="text-sm font-semibold text-foreground leading-tight">
+                {pokemon.species}
+              </span>
+            </div>
             <div className="relative group shrink-0 ml-1">
               <span className="text-xs font-mono text-muted-foreground cursor-default">
                 {pokemon.usage.toFixed(1)}%

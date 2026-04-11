@@ -81,13 +81,24 @@ const STAT_LABELS: { key: StatName; label: string }[] = [
   { key: "spe", label: "Spe" },
 ];
 
+/** Returns point system limits based on the selected format. */
+function getPointSystem(format: string): { totalMax: number; perStatMax: number; label: string } {
+  if (format.toLowerCase().startsWith("champions")) {
+    return { totalMax: 66, perStatMax: 32, label: "Points" };
+  }
+  return { totalMax: 510, perStatMax: 252, label: "EVs" };
+}
+
 export interface PokemonFormProps {
   value: Partial<TeamPokemon>;
   onChange: (pokemon: Partial<TeamPokemon>) => void;
   slot: number;
+  format?: string;
 }
 
-export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
+export function PokemonForm({ value, onChange, slot, format = "" }: PokemonFormProps) {
+  const pointSystem = getPointSystem(format);
+  const isChampions = format.toLowerCase().startsWith("champions");
   const [speciesData, setSpeciesData] = useState<SpeciesData | null>(null);
   const [abilities, setAbilities] = useState<string[]>([]);
 
@@ -176,10 +187,10 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Species Search */}
+      {/* Pokemon Search */}
       <div>
         <div className="text-sm font-medium text-foreground mb-1.5">
-          Species
+          Pokemon
         </div>
         {value.species && speciesData ? (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5">
@@ -215,7 +226,7 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
         ) : (
           <SpeciesSearch
             onChange={handleSpeciesSelect}
-            placeholder={`Search Pokemon for Slot ${slot}...`}
+            placeholder="Search Pokemon..."
           />
         )}
       </div>
@@ -271,6 +282,11 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
                 onChange={(e) => update({ item: e.target.value })}
                 placeholder="e.g., Choice Band"
               />
+              {isChampions && (
+                <span className="text-[10px] text-muted-foreground">
+                  Mega Stones enable Mega Evolution in Champions
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -311,7 +327,7 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
             onChange={(moves) => update({ moves })}
           />
 
-          {/* EVs */}
+          {/* EVs / Points */}
           <EVEditor
             species={value.species ?? ""}
             baseStats={speciesData.baseStats}
@@ -320,6 +336,9 @@ export function PokemonForm({ value, onChange, slot }: PokemonFormProps) {
             value={currentEvs}
             ivs={currentIvs}
             onChange={(evs) => update({ evs })}
+            totalMax={pointSystem.totalMax}
+            perStatMax={pointSystem.perStatMax}
+            label={pointSystem.label}
           />
 
           {/* EV Suggestions */}

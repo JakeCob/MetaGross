@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PokemonSprite } from "@/components/pokemon-sprite";
 
 export interface TeamCardTeam {
   id: string;
@@ -46,13 +47,18 @@ export function TeamCard({ team, onDelete, onSetActive }: TeamCardProps) {
           </div>
 
           {/* Pokemon list */}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {team.pokemon.length > 0 ? (
               team.pokemon.map((mon, i) => (
                 <span
                   key={i}
-                  className="inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-xs text-foreground"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-xs text-foreground"
                 >
+                  <PokemonSprite
+                    species={mon.species}
+                    size={28}
+                    className="shrink-0"
+                  />
                   {mon.species}
                 </span>
               ))

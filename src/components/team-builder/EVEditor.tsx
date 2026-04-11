@@ -20,7 +20,7 @@ interface EVPreset {
   evs: EVSpread;
 }
 
-const PRESETS: EVPreset[] = [
+const TRADITIONAL_PRESETS: EVPreset[] = [
   {
     name: "252/252/4 Physical",
     evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
@@ -39,6 +39,25 @@ const PRESETS: EVPreset[] = [
   },
 ];
 
+const CHAMPIONS_PRESETS: EVPreset[] = [
+  {
+    name: "32/32/2 Physical",
+    evs: { hp: 2, atk: 32, def: 0, spa: 0, spd: 0, spe: 32 },
+  },
+  {
+    name: "32/32/2 Special",
+    evs: { hp: 2, atk: 0, def: 0, spa: 32, spd: 0, spe: 32 },
+  },
+  {
+    name: "Max HP/Def",
+    evs: { hp: 32, atk: 0, def: 32, spa: 0, spd: 2, spe: 0 },
+  },
+  {
+    name: "Max HP/SpD",
+    evs: { hp: 32, atk: 0, def: 0, spa: 0, spd: 32, spe: 2 },
+  },
+];
+
 export interface EVEditorProps {
   species: string;
   baseStats: { hp: number; atk: number; def: number; spa: number; spd: number; spe: number };
@@ -47,6 +66,12 @@ export interface EVEditorProps {
   value: EVSpread;
   ivs: IVSpread;
   onChange: (evs: EVSpread) => void;
+  /** Maximum total points across all stats (default 510 for traditional EVs, 66 for Champions). */
+  totalMax?: number;
+  /** Maximum points per individual stat (default 252 for traditional EVs, 32 for Champions). */
+  perStatMax?: number;
+  /** Display label: "EVs" or "Points" (default "EVs"). */
+  label?: string;
 }
 
 export function EVEditor({
@@ -57,29 +82,36 @@ export function EVEditor({
   value,
   ivs,
   onChange,
+  totalMax = MAX_TOTAL_EVS,
+  perStatMax = MAX_SINGLE_EV,
+  label = "EVs",
 }: EVEditorProps) {
   const total = useMemo(
     () => value.hp + value.atk + value.def + value.spa + value.spd + value.spe,
     [value],
   );
 
-  const isOverLimit = total > MAX_TOTAL_EVS;
+  const isOverLimit = total > totalMax;
+
+  const presets = totalMax === 66 ? CHAMPIONS_PRESETS : TRADITIONAL_PRESETS;
+  // For Champions, step by 1; for traditional EVs, step by 4
+  const step = totalMax === 66 ? 1 : 4;
 
   const updateStat = useCallback(
     (stat: StatName, newVal: number) => {
-      const clamped = Math.max(0, Math.min(MAX_SINGLE_EV, newVal));
+      const clamped = Math.max(0, Math.min(perStatMax, newVal));
       onChange({ ...value, [stat]: clamped });
     },
-    [value, onChange],
+    [value, onChange, perStatMax],
   );
 
   const incrementStat = useCallback(
     (stat: StatName, amount: number) => {
       const current = value[stat];
-      const newVal = Math.max(0, Math.min(MAX_SINGLE_EV, current + amount));
+      const newVal = Math.max(0, Math.min(perStatMax, current + amount));
       onChange({ ...value, [stat]: newVal });
     },
-    [value, onChange],
+    [value, onChange, perStatMax],
   );
 
   const applyPreset = useCallback(
@@ -97,13 +129,13 @@ export function EVEditor({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium text-foreground">
-          EVs
+          {label}
         </div>
         <div className="flex items-center gap-3">
           <span
             className={`text-sm font-mono ${isOverLimit ? "text-destructive font-bold" : "text-muted-foreground"}`}
           >
-            {total}/{MAX_TOTAL_EVS}
+            {total}/{totalMax}
           </span>
           <Button
             type="button"
@@ -119,7 +151,7 @@ export function EVEditor({
 
       {/* Presets */}
       <div className="flex flex-wrap gap-1.5">
-        {PRESETS.map((preset) => (
+        {presets.map((preset) => (
           <Button
             key={preset.name}
             type="button"
@@ -151,7 +183,7 @@ export function EVEditor({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => incrementStat(key, -4)}
+                onClick={() => incrementStat(key, -step)}
                 className="h-6 w-6 p-0 text-xs shrink-0"
                 disabled={evValue <= 0}
               >
@@ -161,8 +193,8 @@ export function EVEditor({
               <input
                 type="range"
                 min={0}
-                max={MAX_SINGLE_EV}
-                step={4}
+                max={perStatMax}
+                step={step}
                 value={evValue}
                 onChange={(e) => updateStat(key, parseInt(e.target.value, 10))}
                 className="flex-1 h-2 rounded-full appearance-none cursor-pointer bg-border accent-primary"
@@ -172,9 +204,9 @@ export function EVEditor({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => incrementStat(key, 4)}
+                onClick={() => incrementStat(key, step)}
                 className="h-6 w-6 p-0 text-xs shrink-0"
-                disabled={evValue >= MAX_SINGLE_EV}
+                disabled={evValue >= perStatMax}
               >
                 +
               </Button>
@@ -195,8 +227,8 @@ export function EVEditor({
 
       {isOverLimit && (
         <p className="text-xs text-destructive">
-          Total EVs exceed the maximum of {MAX_TOTAL_EVS}. Please reduce EVs by{" "}
-          {total - MAX_TOTAL_EVS}.
+          Total {label} exceed the maximum of {totalMax}. Please reduce by{" "}
+          {total - totalMax}.
         </p>
       )}
     </div>

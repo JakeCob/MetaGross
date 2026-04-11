@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+// Accept 0-252 per stat to cover both traditional EVs (max 252) and Champions points (max 32).
+// The UI enforces the tighter per-format limits; validation is permissive to support both systems.
 const evStatSchema = z.number().int().min(0).max(252);
 const ivStatSchema = z.number().int().min(0).max(31);
 
@@ -15,9 +17,10 @@ const evSpreadSchema = z
   .check((ctx) => {
     const evs = ctx.value;
     const total = evs.hp + evs.atk + evs.def + evs.spa + evs.spd + evs.spe;
+    // Accept up to 510 to cover both traditional (510) and Champions (66) formats.
     if (total > 510) {
       ctx.issues.push({
-        message: "Total EVs cannot exceed 510",
+        message: "Total EVs/Points cannot exceed the format maximum",
         code: "custom",
         input: evs,
         path: [],

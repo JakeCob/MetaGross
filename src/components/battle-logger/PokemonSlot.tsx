@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { PokemonSprite } from "@/components/pokemon-sprite";
 import type { ActivePokemon } from "@/lib/types/battle";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -76,9 +77,16 @@ export function PokemonSlot({
 
       {/* Species name + badges */}
       <div className="flex items-center justify-between gap-1">
-        <span className="text-sm font-semibold text-foreground truncate">
-          {pokemon.species}
-        </span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <PokemonSprite
+            species={pokemon.species}
+            size={32}
+            className="shrink-0"
+          />
+          <span className="text-sm font-semibold text-foreground truncate">
+            {pokemon.species}
+          </span>
+        </div>
         <div className="flex items-center gap-1 shrink-0">
           {pokemon.isMega && (
             <Badge variant="warning" className="text-[10px] px-1.5 py-0">

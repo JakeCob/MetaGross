@@ -12,9 +12,15 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PokemonForm } from "./PokemonForm";
+import { PokemonSlotCard } from "./PokemonSlotCard";
 import { TeamImport } from "./TeamImport";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
@@ -59,6 +65,8 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingTeam, setLoadingTeam] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<number | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   // Load existing team data when editing
   useEffect(() => {
@@ -150,6 +158,15 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
     [],
   );
 
+  const removeSlot = useCallback((index: number) => {
+    setPokemon((prev) => {
+      const next = [...prev];
+      next[index] = emptyPokemon();
+      return next;
+    });
+    setEditingSlot((prev) => (prev === index ? null : prev));
+  }, []);
+
   const handleImport = useCallback((imported: TeamPokemon[]) => {
     const slots: Partial<TeamPokemon>[] = Array.from(
       { length: 6 },
@@ -159,6 +176,8 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
       slots[i] = { ...imported[i] };
     }
     setPokemon(slots);
+    setImportDialogOpen(false);
+    setEditingSlot(null);
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -278,13 +297,22 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
     );
   }
 
-  // Build tab labels
-  const tabLabels = pokemon.map(
-    (p, i) => p.species || `Slot ${i + 1}`,
-  );
+  const editingPokemon = editingSlot !== null ? pokemon[editingSlot] : null;
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">
+          {isEditing ? "Edit Team" : "Build New Team"}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {isEditing
+            ? "Update your VGC team"
+            : "Create a new VGC team from scratch or import a paste"}
+        </p>
+      </div>
+
       {/* Team Info */}
       <Card>
         <CardContent>
@@ -316,52 +344,30 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
         </CardContent>
       </Card>
 
-      {/* Pokemon Tabs */}
-      <Card>
-        <CardContent>
-          <Tabs defaultValue="slot-0">
-            <TabsList className="overflow-x-auto">
-              {tabLabels.map((label, i) => (
-                <TabsTrigger key={i} value={`slot-${i}`}>
-                  {label}
-                </TabsTrigger>
-              ))}
-              <TabsTrigger value="import">Import</TabsTrigger>
-            </TabsList>
+      {/* Pokemon Slot Cards Grid */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {pokemon.map((mon, i) => (
+          <PokemonSlotCard
+            key={i}
+            pokemon={mon}
+            index={i}
+            isSelected={editingSlot === i}
+            onSelect={() =>
+              setEditingSlot((prev) => (prev === i ? null : i))
+            }
+            onRemove={() => removeSlot(i)}
+          />
+        ))}
+      </div>
 
-            {pokemon.map((mon, i) => (
-              <TabsContent key={i} value={`slot-${i}`}>
-                <PokemonForm
-                  value={mon}
-                  onChange={(updated) => updateSlot(i, updated)}
-                  slot={i + 1}
-                />
-              </TabsContent>
-            ))}
-
-            <TabsContent value="import">
-              <TeamImport onImport={handleImport} />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-
-      {/* Errors */}
-      {errors.length > 0 && (
-        <div className="rounded-lg border border-destructive/50 bg-red-950/20 px-4 py-3">
-          <div className="text-sm font-medium text-destructive mb-1">
-            {errors.length === 1 ? "Error" : "Errors"}
-          </div>
-          <ul className="list-disc list-inside text-xs text-destructive space-y-0.5">
-            {errors.map((err, i) => (
-              <li key={i}>{err}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Save Button */}
-      <div className="flex gap-3">
+      {/* Action Buttons */}
+      <div className="flex flex-wrap gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setImportDialogOpen(true)}
+        >
+          Import Paste
+        </Button>
         <Button onClick={handleSave} disabled={saving}>
           {saving
             ? "Saving..."
@@ -377,6 +383,60 @@ export function TeamBuilder({ teamId }: TeamBuilderProps) {
           Cancel
         </Button>
       </div>
+
+      {/* Errors */}
+      {errors.length > 0 && (
+        <div className="rounded-lg border border-destructive/50 bg-red-950/20 px-4 py-3">
+          <div className="text-sm font-medium text-destructive mb-1">
+            {errors.length === 1 ? "Error" : "Errors"}
+          </div>
+          <ul className="list-disc list-inside text-xs text-destructive space-y-0.5">
+            {errors.map((err, i) => (
+              <li key={i}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Editing Form (below grid) */}
+      {editingSlot !== null && editingPokemon && (
+        <Card className="overflow-visible">
+          <CardHeader>
+            <CardTitle>
+              Editing: Slot {editingSlot + 1}
+              {editingPokemon.species
+                ? ` \u2014 ${editingPokemon.species}`
+                : ""}
+            </CardTitle>
+            <CardDescription>
+              {editingPokemon.species
+                ? "Modify this Pokemon's details below"
+                : "Search for a Pokemon to add to this slot"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="overflow-visible">
+            <PokemonForm
+              value={editingPokemon}
+              onChange={(updated) => updateSlot(editingSlot, updated)}
+              slot={editingSlot + 1}
+              format={format}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Import Paste Dialog */}
+      <Dialog
+        open={importDialogOpen}
+        onOpenChange={(open: boolean) => setImportDialogOpen(open)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import Team</DialogTitle>
+          </DialogHeader>
+          <TeamImport onImport={handleImport} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
