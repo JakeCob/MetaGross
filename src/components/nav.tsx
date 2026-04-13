@@ -6,6 +6,7 @@ const navLinks = [
   { href: "/teams", label: "Teams" },
   { href: "/battles", label: "Battles" },
   { href: "/meta", label: "Meta" },
+  { href: "/champions", label: "Champions" },
   { href: "/meta/tournaments", label: "Tournaments" },
   { href: "/strategy", label: "Strategy" },
 ] as const;
