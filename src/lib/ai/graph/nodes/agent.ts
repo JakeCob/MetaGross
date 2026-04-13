@@ -26,9 +26,14 @@ RULES:
    - Trick Room: avoid speed-boosting abilities
    - Explicitly explain WHY you chose this ability in the Ability field
 5. MOVES — pick 4 UNIQUE, non-overlapping moves. Never repeat the same move. Pick moves that synergize with the team (e.g., Wave Crash on rain team Basculegion, not Aqua Jet priority if other teammates already provide priority).
-6. ~187 Pokemon available. No Legendaries/Paradox/Amoonguss/Rillaboom/Kingdra. No Tera. Mega via Mega Stones (no Mega Metagross/Salamence). IVs fixed at 31.
-7. ALWAYS suggest exactly 6 Pokemon for a team.
-8. For write actions, use write tools (user must approve).
+6. ~187 Pokemon available. No Legendaries/Paradox/Amoonguss/Rillaboom/Kingdra. No Tera. Mega via Mega Stones (no Mega Metagross/Salamence). IVs fixed at 31. No baby forms (Pichu, Cleffa, Togepi, Riolu, etc.) and NO middle-stage evolutions (Chansey, Porygon2, Electabuzz, Magmar, Rhydon, Gurdurr, Sneasel, Haunter, Kadabra, Machoke, etc.) — Champions only allows fully-evolved / single-stage Pokemon.
+7. FACT-CHECK EVERY POKEMON before suggesting it:
+   - Call get_pokemon_competitive_sets first. If it returns a warning about "NOT on confirmed Champions roster", you MUST verify using fetch_reference (reference='bulbapedia_champions_list') AND search_web before including it.
+   - If the tool returns an explicit rejection (❌), replace the Pokemon immediately — do not argue, do not retry.
+   - Never rely on training-data memory for Champions availability. The roster was finalized April 2026 and your training data may be wrong.
+   - When in doubt, prefer the well-known meta picks: Incineroar, Archaludon, Sneasler, Sinistcha, Pelipper, Dragonite, Whimsicott, Garchomp, Kingambit, Metagross, Charizard-Mega-Y, Tyranitar-Mega.
+8. ALWAYS suggest exactly 6 Pokemon for a team.
+9. For write actions, use write tools (user must approve).
 
 OUTPUT FORMAT — each Pokemon MUST use this exact template:
 

@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PokemonSprite } from "@/components/pokemon-sprite";
+import { getMegaFormFor } from "@/lib/data/champions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 
 export interface PokemonSlotCardProps {
@@ -66,6 +67,9 @@ export function PokemonSlotCard({
   }
 
   const moves = (pokemon.moves ?? ["", "", "", ""]).filter(Boolean);
+  const megaForm = getMegaFormFor(pokemon.species ?? "", pokemon.item);
+  const displaySpecies = megaForm ?? pokemon.species!;
+  const isMega = Boolean(megaForm);
 
   return (
     <div
@@ -115,15 +119,28 @@ export function PokemonSlotCard({
           </Button>
         </div>
 
+        {/* Mega badge (when holding a mega stone for its species) */}
+        {isMega && (
+          <div className="absolute top-2 left-2 z-10">
+            <span className="text-[9px] font-bold uppercase tracking-wider rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5">
+              Mega
+            </span>
+          </div>
+        )}
+
         <CardContent className="flex flex-col items-center gap-2 pt-3 pb-3 px-3">
-          {/* Sprite */}
+          {/* Sprite (switches to mega form when holding the stone) */}
           <div className="flex h-[72px] w-[72px] items-center justify-center">
-            <PokemonSprite species={pokemon.species!} size={68} />
+            <PokemonSprite
+              species={displaySpecies}
+              mega={isMega}
+              size={68}
+            />
           </div>
 
           {/* Species name */}
           <span className="text-sm font-semibold text-foreground leading-tight text-center truncate w-full">
-            {pokemon.species}
+            {isMega ? `Mega ${pokemon.species}` : pokemon.species}
           </span>
 
           {/* Item */}

@@ -33,6 +33,21 @@ export interface RosterPokemon {
   canMegaEvolve: boolean;
   megaStone: string | null;
   abilities: string[];
+  /** Mega form details (present when canMegaEvolve is true). */
+  megaForms?: Array<{
+    species: string; // e.g., "Charizard-Mega-X"
+    types: string[];
+    baseStats: {
+      hp: number;
+      atk: number;
+      def: number;
+      spa: number;
+      spd: number;
+      spe: number;
+    };
+    abilities: string[];
+    stone: string;
+  }>;
 }
 
 export interface RosterResponse {
@@ -66,11 +81,9 @@ export async function GET() {
       const data = getSpecies(name);
       if (!data) continue;
 
-      // A base species "canMegaEvolve" if any Mega key starts with its name
-      // AND it is not on the NO_MEGA_DESPITE_BASE list.
-      const megaEntry = Object.entries(CHAMPIONS_MEGAS).find(([key]) => {
+      // Find every Mega key belonging to this base (covers X/Y forms).
+      const megaEntries = Object.entries(CHAMPIONS_MEGAS).filter(([key]) => {
         if (key === name) return true;
-        // e.g. "Charizard-Mega-X" → base "Charizard"
         return key.startsWith(`${name}-Mega`);
       });
 
@@ -78,13 +91,32 @@ export async function GET() {
         (n) => n.toLowerCase() === name.toLowerCase(),
       );
 
+      const canMegaEvolve = megaEntries.length > 0 && !blocked;
+
+      const megaForms = canMegaEvolve
+        ? megaEntries.flatMap(([megaSpecies, info]) => {
+            const mData = getSpecies(megaSpecies);
+            if (!mData) return [];
+            return [
+              {
+                species: mData.name,
+                types: mData.types,
+                baseStats: mData.baseStats,
+                abilities: mData.abilities,
+                stone: info.stone,
+              },
+            ];
+          })
+        : undefined;
+
       pokemon.push({
         species: data.name,
         types: data.types,
         baseStats: data.baseStats,
-        canMegaEvolve: Boolean(megaEntry) && !blocked,
-        megaStone: megaEntry && !blocked ? megaEntry[1].stone : null,
+        canMegaEvolve,
+        megaStone: canMegaEvolve ? megaEntries[0][1].stone : null,
         abilities: data.abilities,
+        megaForms,
       });
     }
 

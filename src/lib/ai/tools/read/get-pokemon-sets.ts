@@ -1,6 +1,9 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { isConfirmedNotInChampions } from "@/lib/data/champions";
+import {
+  isConfirmedNotInChampions,
+  isChampionsPokemon,
+} from "@/lib/data/champions";
 
 const PIKALYTICS_BASE = "https://www.pikalytics.com/ai/pokedex";
 const DEFAULT_FORMAT = "championspreview";
@@ -121,6 +124,22 @@ export const getPokemonSetsTool = new DynamicStructuredTool({
           ? replacements
           : ["Pick from the top meta: Incineroar, Archaludon, Sneasler, Sinistcha, Pelipper, Dragonite, Whimsicott, Garchomp, Kingambit, Metagross"],
         action: "Choose a different Pokemon from the Champions pool. Do not ask about this Pokemon again.",
+      });
+    }
+
+    // Soft warning: Pokemon not on the known-confirmed Champions list.
+    // The agent MUST fact-check before using it.
+    if (!isChampionsPokemon(species)) {
+      return JSON.stringify({
+        warning: `⚠ ${species} is NOT on MetaGross's confirmed Champions roster. This does not mean it's banned — the local list is incomplete. But DO NOT include ${species} in a team until you have verified availability.`,
+        species,
+        requiredAction:
+          `BEFORE suggesting ${species}, call fetch_reference with reference='bulbapedia_champions_list' AND search the returned text for '${species}'. If not found, also call search_web with '${species} Pokemon Champions Regulation M-A available' and verify from at least TWO sources (Bulbapedia, Serebii, Victory Road, Pikalytics). Only proceed if confirmed. If not confirmed, reject and pick a known-legal alternative.`,
+        knownLegalAlternatives: [
+          "Incineroar", "Archaludon", "Sneasler", "Sinistcha", "Pelipper",
+          "Dragonite", "Whimsicott", "Garchomp", "Kingambit", "Metagross",
+          "Charizard", "Tyranitar", "Gengar", "Gardevoir", "Primarina",
+        ],
       });
     }
 

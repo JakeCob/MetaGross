@@ -23,8 +23,20 @@ These Pokemon are commonly mistakenly suggested. DO NOT recommend them:
 - **Calyrex / Koraidon / Miraidon / Zacian / Zamazenta** — Restricted legends, NOT in Champions.
 - **Ogerpon / Tornadus / Landorus / Chien-Pao** — NOT in Champions.
 
+### Middle-stage & baby Pokemon (NEVER in Champions)
+Champions only allows fully-evolved / single-stage Pokemon. Do NOT suggest:
+- **Middle stages**: Chansey, Porygon2, Electabuzz, Magmar, Rhydon, Gurdurr, Boldore, Sneasel, Haunter, Kadabra, Machoke, Scyther, Piloswine, Dusclops, Fraxure, Shelgon, Metang, Zweilous, Graveler, Quilladin, Frogadier, Braixen, Dartrix, Torracat, Brionne, Dewott, Servine.
+- **Baby forms**: Pichu, Cleffa, Igglybuff, Togepi, Togetic, Magby, Elekid, Smoochum, Tyrogue, Wynaut, Azurill, Budew, Chingling, Bonsly, Mime Jr., Happiny, Munchlax, Mantyke, Riolu.
+
 **Rule:** If the meta data shows a Pokemon at high usage, verify it's actually in Champions first.
 Meta usage data on Showdown may include Pokemon the cartridge doesn't have.
+
+**Fact-check mandate (added 2026-04-13):**
+When the user asks about or the agent considers a Pokemon NOT on the confirmed
+Champions roster, the agent MUST call `fetch_reference` with
+`reference='bulbapedia_champions_list'` AND `search_web` before suggesting it.
+Never rely on training data alone — the Champions roster was finalized
+April 2026 and training data may be stale.
 
 ### Wrong Ability Choices
 - **Basculegion on rain teams**: Use **Swift Swim** (doubles speed in rain), NOT Adaptability.

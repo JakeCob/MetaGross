@@ -81,6 +81,42 @@ export const CHAMPIONS_POKEMON: string[] = [
   "Skeledirge", "Quaquaval", "Garganacl", "Armarouge", "Ceruledge",
   "Bellibolt", "Tinkaton", "Orthworm", "Hydrapple",
   "Wyrdeer", "Kleavor",
+  // Additional confirmed Gen 1-9 picks (batch 2, added 2026-04-13).
+  // Conservative — only fully-evolved / single-stage Pokemon.
+  // No baby forms (Pichu, Cleffa...) and no middle stages (Chansey, Porygon2,
+  // Electabuzz, Magmar, Rhydon, etc.) — they are not in Champions.
+  // Gen 1–3 classics
+  "Weezing", "Blissey",
+  "Cloyster", "Hypno", "Kingler", "Muk", "Marowak",
+  "Dodrio", "Dewgong", "Sudowoodo", "Quagsire",
+  "Donphan", "Miltank",
+  "Swampert", "Sceptile", "Breloom",
+  "Medicham", "Manectric", "Sharpedo", "Walrein",
+  "Claydol", "Banette", "Glalie",
+  // Gen 4
+  "Staraptor", "Floatzel", "Mismagius", "Honchkrow",
+  "Bronzong", "Spiritomb", "Magnezone", "Togekiss",
+  "Yanmega", "Weavile", "Mamoswine", "Gallade", "Dusknoir",
+  // Gen 5
+  "Gigalith", "Scolipede", "Reuniclus",
+  "Galvantula", "Ferrothorn", "Klinklang", "Haxorus",
+  "Chandelure", "Beheeyem", "Mienshao", "Golurk",
+  "Bisharp", "Mandibuzz", "Druddigon", "Accelgor",
+  // Gen 6
+  "Aromatisse", "Slurpuff", "Malamar", "Heliolisk",
+  "Tyrantrum", "Aurorus", "Dragalge", "Clawitzer",
+  "Gourgeist", "Avalugg", "Trevenant",
+  // Gen 7
+  "Toucannon", "Lycanroc", "Palossand", "Lurantis",
+  "Bruxish", "Turtonator", "Minior",
+  // Gen 8
+  "Toxtricity", "Coalossal", "Copperajah", "Duraludon",
+  "Frosmoth", "Centiskorch", "Cramorant",
+  "Flapple", "Appletun", "Indeedee",
+  // Gen 9
+  "Annihilape", "Dachsbun", "Brambleghast", "Veluza",
+  "Cetitan", "Clodsire", "Palafin", "Dudunsparce",
+  "Cyclizar", "Revavroom", "Rabsca",
 ];
 
 /**
@@ -97,6 +133,19 @@ export const NOT_IN_CHAMPIONS: string[] = [
   "Iron Treads", "Iron Bundle", "Iron Moth", "Iron Thorns",
   "Roaring Moon", "Iron Valiant", "Walking Wake", "Iron Leaves",
   "Gouging Fire", "Raging Bolt", "Iron Boulder", "Iron Crown",
+  // Middle-stage evolutions — Champions only allows fully-evolved / single-stage
+  "Chansey", "Porygon2", "Electabuzz", "Magmar", "Rhydon",
+  "Scyther", "Piloswine", "Dusclops", "Gurdurr", "Boldore",
+  "Sneasel", "Sneasel-Hisui", "Duosion", "Klang", "Pawmo",
+  "Dartrix", "Torracat", "Brionne", "Dewott", "Servine",
+  "Quilladin", "Frogadier", "Braixen", "Dartrix", "Zweilous",
+  "Fraxure", "Shelgon", "Metang", "Haunter", "Graveler",
+  "Kadabra", "Machoke", "Electabuzz", "Magmar",
+  // Baby forms — never in competitive
+  "Pichu", "Cleffa", "Igglybuff", "Togepi", "Togetic",
+  "Magby", "Elekid", "Smoochum", "Tyrogue", "Wynaut",
+  "Azurill", "Budew", "Chingling", "Bonsly", "Mime Jr.",
+  "Happiny", "Munchlax", "Mantyke", "Riolu",
 ];
 
 // ---------------------------------------------------------------------------
@@ -230,5 +279,34 @@ export function isConfirmedNotInChampions(species: string): boolean {
 }
 
 export function canMegaEvolve(species: string): boolean {
-  return species in CHAMPIONS_MEGAS;
+  return Object.keys(CHAMPIONS_MEGAS).some(
+    (k) => k === species || k.startsWith(`${species}-Mega`),
+  );
+}
+
+/**
+ * Look up the Mega Stone → base species / mega species mapping.
+ * Returns the mega form name when the held item triggers Mega Evolution
+ * for the given base species in Champions; otherwise null.
+ *
+ * Examples:
+ *   getMegaFormFor("Garchomp", "Garchompite") → "Garchomp-Mega"
+ *   getMegaFormFor("Charizard", "Charizardite X") → "Charizard-Mega-X"
+ *   getMegaFormFor("Dragonite", "Dragoninite") → "Dragonite-Mega"
+ *   getMegaFormFor("Pikachu", "Focus Sash") → null
+ */
+export function getMegaFormFor(
+  species: string,
+  item: string | undefined | null,
+): string | null {
+  if (!species || !item) return null;
+  const itemLc = item.trim().toLowerCase();
+  for (const [megaKey, info] of Object.entries(CHAMPIONS_MEGAS)) {
+    if (info.stone.toLowerCase() !== itemLc) continue;
+    const expectedBase = megaKey.split("-Mega")[0];
+    if (expectedBase.toLowerCase() === species.toLowerCase()) {
+      return megaKey;
+    }
+  }
+  return null;
 }

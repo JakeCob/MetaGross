@@ -12,6 +12,21 @@ import { PokemonSprite } from "@/components/pokemon-sprite";
 // Types (mirrors /api/champions/roster response)
 // ---------------------------------------------------------------------------
 
+interface MegaForm {
+  species: string;
+  types: string[];
+  baseStats: {
+    hp: number;
+    atk: number;
+    def: number;
+    spa: number;
+    spd: number;
+    spe: number;
+  };
+  abilities: string[];
+  stone: string;
+}
+
 interface RosterPokemon {
   species: string;
   types: string[];
@@ -26,6 +41,7 @@ interface RosterPokemon {
   canMegaEvolve: boolean;
   megaStone: string | null;
   abilities: string[];
+  megaForms?: MegaForm[];
 }
 
 interface RosterResponse {
@@ -164,9 +180,67 @@ function TypeBadge({
 // Pokemon card
 // ---------------------------------------------------------------------------
 
+function StatRow({
+  baseStats,
+  compareTo,
+}: {
+  baseStats: RosterPokemon["baseStats"];
+  compareTo?: RosterPokemon["baseStats"];
+}) {
+  return (
+    <div className="grid grid-cols-6 gap-1 text-center">
+      {(["hp", "atk", "def", "spa", "spd", "spe"] as const).map((k) => {
+        const v = baseStats[k];
+        const delta = compareTo ? v - compareTo[k] : 0;
+        const color =
+          delta > 0
+            ? "text-emerald-400"
+            : delta < 0
+              ? "text-rose-400"
+              : "text-foreground";
+        return (
+          <div
+            key={k}
+            className="flex flex-col rounded bg-muted/40 px-1 py-0.5"
+            title={k.toUpperCase()}
+          >
+            <span className="text-[8px] uppercase text-muted-foreground tracking-wider">
+              {k}
+            </span>
+            <span className={`text-[11px] font-mono font-medium ${color}`}>
+              {v}
+              {compareTo && delta !== 0 && (
+                <span className="ml-0.5 text-[8px]">
+                  ({delta > 0 ? "+" : ""}
+                  {delta})
+                </span>
+              )}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function PokemonCard({ pokemon }: { pokemon: RosterPokemon }) {
   const [expanded, setExpanded] = useState(false);
-  const total = bst(pokemon);
+  const hasMega = pokemon.canMegaEvolve && (pokemon.megaForms?.length ?? 0) > 0;
+  // For X/Y Megas (Charizard etc.) allow cycling.
+  const [megaIndex, setMegaIndex] = useState(0);
+  const [view, setView] = useState<"base" | "mega">("base");
+
+  const activeMega = hasMega ? pokemon.megaForms![megaIndex] : undefined;
+  const showingMega = view === "mega" && activeMega;
+  const activeStats = showingMega ? activeMega.baseStats : pokemon.baseStats;
+  const activeTypes = showingMega ? activeMega.types : pokemon.types;
+  const activeAbilities = showingMega
+    ? activeMega.abilities
+    : pokemon.abilities;
+  const total = (["hp", "atk", "def", "spa", "spd", "spe"] as const).reduce(
+    (acc, k) => acc + activeStats[k],
+    0,
+  );
 
   return (
     <Card className="bg-card/80 backdrop-blur-sm border-border/50 transition-all hover:ring-2 hover:ring-primary/40">
@@ -174,14 +248,26 @@ function PokemonCard({ pokemon }: { pokemon: RosterPokemon }) {
         {/* Header: sprite + name + MEGA badge */}
         <div className="flex items-start gap-2">
           <div className="shrink-0">
-            <PokemonSprite species={pokemon.species} size={64} />
+            <PokemonSprite
+              species={showingMega ? activeMega.species : pokemon.species}
+              mega={Boolean(showingMega)}
+              size={64}
+            />
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-foreground leading-tight truncate">
-                {pokemon.species}
+                {showingMega
+                  ? `Mega ${pokemon.species}${
+                      activeMega.species.endsWith("-X")
+                        ? " X"
+                        : activeMega.species.endsWith("-Y")
+                          ? " Y"
+                          : ""
+                    }`
+                  : pokemon.species}
               </h3>
-              {pokemon.canMegaEvolve && (
+              {hasMega && (
                 <Badge
                   variant="warning"
                   className="text-[9px] px-1.5 uppercase tracking-wider shrink-0"
@@ -192,7 +278,7 @@ function PokemonCard({ pokemon }: { pokemon: RosterPokemon }) {
             </div>
             {/* Types */}
             <div className="flex flex-wrap gap-1">
-              {pokemon.types.map((t) => (
+              {activeTypes.map((t) => (
                 <TypeBadge key={t} type={t} />
               ))}
             </div>
@@ -200,27 +286,66 @@ function PokemonCard({ pokemon }: { pokemon: RosterPokemon }) {
             <div className="text-[10px] font-mono text-muted-foreground">
               BST:{" "}
               <span className="text-foreground/80 font-semibold">{total}</span>
+              {showingMega && (
+                <span className="ml-1 text-emerald-400">
+                  (+
+                  {total -
+                    (["hp", "atk", "def", "spa", "spd", "spe"] as const).reduce(
+                      (acc, k) => acc + pokemon.baseStats[k],
+                      0,
+                    )}
+                  )
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Stat row */}
-        <div className="grid grid-cols-6 gap-1 text-center">
-          {(["hp", "atk", "def", "spa", "spd", "spe"] as const).map((k) => (
-            <div
-              key={k}
-              className="flex flex-col rounded bg-muted/40 px-1 py-0.5"
-              title={k.toUpperCase()}
+        {/* Form toggle (only if Pokemon has a Mega) */}
+        {hasMega && (
+          <div className="flex items-center gap-1 p-0.5 rounded-md bg-muted/40 border border-border/40">
+            <button
+              type="button"
+              onClick={() => setView("base")}
+              className={`flex-1 text-[10px] px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                view === "base"
+                  ? "bg-primary/20 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <span className="text-[8px] uppercase text-muted-foreground tracking-wider">
-                {k}
-              </span>
-              <span className="text-[11px] font-mono font-medium text-foreground">
-                {pokemon.baseStats[k]}
-              </span>
-            </div>
-          ))}
-        </div>
+              Base
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("mega")}
+              className={`flex-1 text-[10px] px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                view === "mega"
+                  ? "bg-amber-500/20 text-amber-300 font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Mega
+            </button>
+            {pokemon.megaForms && pokemon.megaForms.length > 1 && view === "mega" && (
+              <button
+                type="button"
+                onClick={() =>
+                  setMegaIndex((i) => (i + 1) % pokemon.megaForms!.length)
+                }
+                className="text-[10px] px-2 py-0.5 rounded text-amber-400 hover:bg-amber-500/10 cursor-pointer"
+                title="Cycle mega form"
+              >
+                ↻
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Stat row — when showing Mega, show delta from base */}
+        <StatRow
+          baseStats={activeStats}
+          compareTo={showingMega ? pokemon.baseStats : undefined}
+        />
 
         {/* Abilities */}
         <div className="text-[10px] text-muted-foreground">
@@ -228,9 +353,19 @@ function PokemonCard({ pokemon }: { pokemon: RosterPokemon }) {
             Abilities:
           </span>
           <span className="text-foreground/80">
-            {pokemon.abilities.join(", ")}
+            {activeAbilities.join(", ")}
           </span>
         </div>
+
+        {/* Mega requirement callout */}
+        {showingMega && (
+          <div className="text-[10px] rounded bg-amber-500/10 border border-amber-500/30 px-2 py-1">
+            <span className="uppercase tracking-wider text-[9px] text-amber-400 mr-1">
+              Requires:
+            </span>
+            <span className="text-amber-200 font-medium">{activeMega.stone}</span>
+          </div>
+        )}
 
         {/* Expand toggle */}
         <button
@@ -243,24 +378,6 @@ function PokemonCard({ pokemon }: { pokemon: RosterPokemon }) {
 
         {expanded && (
           <div className="flex flex-col gap-2 border-t border-border/50 pt-2">
-            {pokemon.canMegaEvolve && pokemon.megaStone && (
-              <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-2 py-1">
-                <PokemonSprite
-                  species={pokemon.species}
-                  mega
-                  size={40}
-                  className="shrink-0"
-                />
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-semibold text-amber-400">
-                    Mega {pokemon.species}
-                  </span>
-                  <span className="text-[9px] text-muted-foreground">
-                    Requires {pokemon.megaStone}
-                  </span>
-                </div>
-              </div>
-            )}
             <Link
               href={`/meta?species=${encodeURIComponent(pokemon.species)}`}
               className="text-[10px] text-primary hover:underline"
