@@ -70,9 +70,50 @@ fi
 
 PORT=4649
 
-# Start dev server
+# Allocate more memory for Node (Next.js + LangGraph + @pkmn/dex can be heavy)
+export NODE_OPTIONS="--max-old-space-size=4096"
+
+# Kill any existing process on the port
+if lsof -ti:$PORT > /dev/null 2>&1; then
+  echo "⚠️  Port $PORT is in use, killing existing process..."
+  lsof -ti:$PORT | xargs -r kill -9 2>/dev/null
+  sleep 1
+fi
+
+# Graceful shutdown handler — forwards Ctrl+C to the dev server
+trap 'echo ""; echo "👋 Shutting down MetaGross..."; kill $(jobs -p) 2>/dev/null; exit 0' INT TERM
+
+# Restart-on-crash loop
 echo ""
 echo "🚀 Starting MetaGross on port $PORT..."
+echo "   Memory limit: 4GB | Auto-restart on crash: ON"
 echo "   Open http://localhost:$PORT in your browser"
+echo "   Press Ctrl+C to stop"
 echo ""
-npx next dev -p $PORT
+
+RESTART_COUNT=0
+MAX_RESTARTS=5
+
+while true; do
+  npx next dev -p $PORT
+  EXIT_CODE=$?
+
+  # Exit code 0 or 130 (Ctrl+C) means intentional shutdown — don't restart
+  if [ $EXIT_CODE -eq 0 ] || [ $EXIT_CODE -eq 130 ]; then
+    echo ""
+    echo "✅ MetaGross stopped cleanly."
+    break
+  fi
+
+  RESTART_COUNT=$((RESTART_COUNT + 1))
+  if [ $RESTART_COUNT -ge $MAX_RESTARTS ]; then
+    echo ""
+    echo "❌ MetaGross crashed $MAX_RESTARTS times in a row. Stopping."
+    echo "   Check the logs above for the error."
+    exit 1
+  fi
+
+  echo ""
+  echo "💥 MetaGross crashed (exit code $EXIT_CODE). Restarting... ($RESTART_COUNT/$MAX_RESTARTS)"
+  sleep 2
+done

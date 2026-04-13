@@ -6,6 +6,7 @@ import { createModel, detectProvider, getModelName } from "../model";
 import type { BaseMessage } from "@langchain/core/messages";
 import { SystemMessage } from "@langchain/core/messages";
 import { logAgentEvent } from "@/lib/ai/logger";
+import { loadKnowledgeContext } from "@/lib/ai/knowledge";
 
 const BASE_SYSTEM_PROMPT = `You are MetaGross, an expert Pokemon VGC doubles copilot for Champions Regulation M-A.
 
@@ -44,13 +45,50 @@ CRITICAL: Copy the Points line EXACTLY from the optimize_ev_spread tool result. 
 Verify: nature matches role (Modest/Timid for special, Adamant/Jolly for physical, Bold/Calm for support). Stats invest in the RIGHT offensive stat (SpA for special, Atk for physical).
 
 Every ### heading must be a Pokemon species name. No "Additional Team Members" headings.
-End with a **Team Summary** paragraph (no ### heading).`;
+
+After all 6 Pokemon, include:
+
+**Team Summary** — 2-3 sentences on win condition and key synergies.
+
+**Matchup Analysis** — lead recommendations vs common meta teams:
+
+VS Sun Teams (Charizard-Mega-Y, Venusaur, Torkoal):
+- Lead: [2 Pokemon] | Back: [2 Pokemon]
+- Plan: [1-2 sentences on turn 1-2 strategy]
+
+VS Sand Teams (Tyranitar, Excadrill):
+- Lead: [2 Pokemon] | Back: [2 Pokemon]
+- Plan: [strategy — warn if sand overrides your rain]
+
+VS Trick Room (Farigiraf, Sinistcha, Dondozo):
+- Lead: [2 Pokemon] | Back: [2 Pokemon]
+- Plan: [how to handle TR — disrupt setter or out-stall]
+
+VS Rain Mirror (if applicable):
+- Lead: [2 Pokemon] | Back: [2 Pokemon]
+- Plan: [mirror strategy]
+
+VS Fairy-Heavy (Gardevoir-Mega, Sylveon, Whimsicott):
+- Lead: [2 Pokemon] | Back: [2 Pokemon]
+- Plan: [Steel coverage priorities]
+
+Include these matchup sections ALWAYS for team suggestions. Users rely on them.`;
 
 /**
  * Build the full system prompt from base + persona + context + memory.
  */
 function buildSystemPrompt(state: AgentStateType): string {
   const parts: string[] = [BASE_SYSTEM_PROMPT];
+
+  // Load knowledge base (user feedback, corrections, preferences) as RAG context
+  try {
+    const knowledge = loadKnowledgeContext();
+    if (knowledge && knowledge.length > 100) {
+      parts.push(`\n\n---\n# KNOWLEDGE BASE (user corrections and preferences)\nFollow these corrections. They supersede your training data.\n\n${knowledge}\n---\n`);
+    }
+  } catch (err) {
+    console.error("[agent] Failed to load knowledge:", err);
+  }
 
   // Add persona-specific instructions
   const personaKey = (state.persona || "default") as AgentPersona;

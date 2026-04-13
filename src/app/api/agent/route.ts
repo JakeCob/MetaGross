@@ -135,6 +135,7 @@ export async function POST(request: Request) {
                       tc.name === "calculate_damage" ? "Running damage calc..." :
                       tc.name === "check_speed" ? "Comparing speed tiers..." :
                       tc.name === "search_web" ? "Searching web..." :
+                      tc.name === "fetch_reference" ? `Checking ${(tc.args as Record<string,string>).reference?.replace(/_/g, ' ') ?? 'reference'}...` :
                       `Using ${tc.name}...`;
                     send("status", { message: statusMsg });
                   }

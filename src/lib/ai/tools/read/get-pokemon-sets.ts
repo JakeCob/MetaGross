@@ -1,8 +1,34 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
+import { isConfirmedNotInChampions } from "@/lib/data/champions";
 
 const PIKALYTICS_BASE = "https://www.pikalytics.com/ai/pokedex";
 const DEFAULT_FORMAT = "championspreview";
+
+// Suggested replacements for commonly-requested but unavailable Pokemon
+const REPLACEMENT_SUGGESTIONS: Record<string, string[]> = {
+  Ludicolo: ["Basculegion", "Pelipper (Water+Flying)", "Gastrodon (Ground/Water)"],
+  Kingdra: ["Basculegion", "Gyarados", "Milotic"],
+  Ferrothorn: ["Archaludon (Steel/Dragon)", "Kingambit (Dark/Steel)"],
+  Amoonguss: ["Sinistcha (Grass/Ghost with Rage Powder)", "Meganium"],
+  Rillaboom: ["Meowscarada", "Venusaur"],
+  "Flutter Mane": ["Gengar (Ghost/Poison)", "Sinistcha"],
+  "Iron Hands": ["Kommo-o", "Hitmontop"],
+  Urshifu: ["Sneasler", "Kingambit"],
+  "Urshifu-Rapid-Strike": ["Sneasler", "Basculegion"],
+  "Calyrex-Ice": ["Kangaskhan (Mega)"],
+  "Calyrex-Shadow": ["Dragapult", "Gengar"],
+  "Raging Bolt": ["Archaludon", "Dragonite"],
+  "Iron Crown": ["Metagross", "Archaludon"],
+  "Ogerpon": ["Venusaur", "Meowscarada"],
+  Miraidon: ["Raichu", "Archaludon"],
+  Koraidon: ["Salamence", "Garchomp"],
+  Tornadus: ["Dragonite", "Pelipper"],
+  Landorus: ["Garchomp", "Excadrill"],
+  "Chien-Pao": ["Sneasler", "Kingambit"],
+  Zacian: ["Kingambit", "Metagross"],
+  Zamazenta: ["Archaludon", "Corviknight"],
+};
 
 /**
  * Parse a section of `- **Name**: value%` lines from Pikalytics Markdown.
@@ -85,6 +111,19 @@ export const getPokemonSetsTool = new DynamicStructuredTool({
       ),
   }),
   func: async ({ species, teamArchetype }) => {
+    // Early rejection: don't waste a network call on Pokemon confirmed NOT in Champions
+    if (isConfirmedNotInChampions(species)) {
+      const replacements = REPLACEMENT_SUGGESTIONS[species] || [];
+      return JSON.stringify({
+        error: `❌ ${species} is NOT in Pokemon Champions Reg M-A. Do NOT include it in the team.`,
+        species,
+        suggestedReplacements: replacements.length > 0
+          ? replacements
+          : ["Pick from the top meta: Incineroar, Archaludon, Sneasler, Sinistcha, Pelipper, Dragonite, Whimsicott, Garchomp, Kingambit, Metagross"],
+        action: "Choose a different Pokemon from the Champions pool. Do not ask about this Pokemon again.",
+      });
+    }
+
     try {
       const url = `${PIKALYTICS_BASE}/${encodeURIComponent(DEFAULT_FORMAT)}/${encodeURIComponent(species)}`;
       const response = await fetch(url, {
