@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { MoveDetailsDialog } from "./MoveDetailsDialog";
 import type { MoveData } from "@/lib/pokemon/moves";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -55,6 +56,7 @@ export function MoveSelector({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const [loading, setLoading] = useState(false);
+  const [detailMove, setDetailMove] = useState<{ name: string; index: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Fetch legal moves when species changes
@@ -184,17 +186,33 @@ export function MoveSelector({
           return (
             <div key={i}>
               {moveName ? (
-                <button
-                  type="button"
-                  onClick={() => handleRemoveMove(i)}
-                  className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-left transition-colors hover:border-destructive hover:bg-red-950/20 cursor-pointer"
-                  title="Click to remove"
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDetailMove({ name: moveName, index: i })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setDetailMove({ name: moveName, index: i });
+                    }
+                  }}
+                  className="group/move flex w-full items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-left transition-colors hover:border-primary/60 hover:bg-accent/30 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  title="Click for move details"
                 >
                   <span className="flex-1 font-medium truncate">
                     {moveName}
                   </span>
                   {moveData && (
-                    <div className="flex gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
+                      {moveData.priority !== 0 && (
+                        <span
+                          className="text-[10px] font-mono text-amber-400"
+                          title={`Priority ${moveData.priority > 0 ? "+" : ""}${moveData.priority}`}
+                        >
+                          {moveData.priority > 0 ? "+" : ""}
+                          {moveData.priority}
+                        </span>
+                      )}
                       <Badge
                         className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[moveData.type] ?? "bg-gray-600 text-white"}`}
                       >
@@ -207,7 +225,22 @@ export function MoveSelector({
                       </Badge>
                     </div>
                   )}
-                </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveMove(i);
+                    }}
+                    className="ml-1 -mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer transition-colors"
+                    aria-label={`Remove ${moveName}`}
+                    title="Remove move"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" />
+                    </svg>
+                  </button>
+                </div>
               ) : (
                 <div className="flex h-[38px] items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
                   Slot {i + 1}
@@ -262,7 +295,16 @@ export function MoveSelector({
                     >
                       <span className="flex-1 truncate">{moveName}</span>
                       {data && (
-                        <div className="flex gap-1 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0">
+                          {data.priority !== 0 && (
+                            <span
+                              className="text-[10px] text-amber-400 font-mono"
+                              title={`Priority ${data.priority > 0 ? "+" : ""}${data.priority}`}
+                            >
+                              {data.priority > 0 ? "+" : ""}
+                              {data.priority}
+                            </span>
+                          )}
                           <Badge
                             className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[data.type] ?? "bg-gray-600 text-white"}`}
                           >
@@ -288,6 +330,22 @@ export function MoveSelector({
           )}
         </div>
       )}
+
+      <MoveDetailsDialog
+        open={detailMove !== null}
+        onOpenChange={(o) => {
+          if (!o) setDetailMove(null);
+        }}
+        move={detailMove ? moveDataCache[detailMove.name] ?? null : null}
+        onRemove={
+          detailMove
+            ? () => {
+                handleRemoveMove(detailMove.index);
+                setDetailMove(null);
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

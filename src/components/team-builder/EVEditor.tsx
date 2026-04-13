@@ -5,6 +5,40 @@ import { Button } from "@/components/ui/button";
 import type { EVSpread, IVSpread, StatName } from "@/lib/types/pokemon";
 import { MAX_TOTAL_EVS, MAX_SINGLE_EV } from "@/lib/types/pokemon";
 import { calcStat } from "@/lib/pokemon/stats";
+import { CHAMPIONS_POINTS } from "@/lib/data/champions";
+
+// Maps each nature to the stat it boosts (+10%) and reduces (-10%).
+const NATURE_EFFECTS: Record<string, { plus?: StatName; minus?: StatName }> = {
+  Hardy: {}, Docile: {}, Serious: {}, Bashful: {}, Quirky: {},
+  Lonely: { plus: "atk", minus: "def" },
+  Brave: { plus: "atk", minus: "spe" },
+  Adamant: { plus: "atk", minus: "spa" },
+  Naughty: { plus: "atk", minus: "spd" },
+  Bold: { plus: "def", minus: "atk" },
+  Relaxed: { plus: "def", minus: "spe" },
+  Impish: { plus: "def", minus: "spa" },
+  Lax: { plus: "def", minus: "spd" },
+  Modest: { plus: "spa", minus: "atk" },
+  Mild: { plus: "spa", minus: "def" },
+  Quiet: { plus: "spa", minus: "spe" },
+  Rash: { plus: "spa", minus: "spd" },
+  Calm: { plus: "spd", minus: "atk" },
+  Gentle: { plus: "spd", minus: "def" },
+  Sassy: { plus: "spd", minus: "spe" },
+  Careful: { plus: "spd", minus: "spa" },
+  Timid: { plus: "spe", minus: "atk" },
+  Hasty: { plus: "spe", minus: "def" },
+  Jolly: { plus: "spe", minus: "spa" },
+  Naive: { plus: "spe", minus: "spd" },
+};
+
+function getNatureMark(stat: StatName, nature: string): "plus" | "minus" | null {
+  const eff = NATURE_EFFECTS[nature];
+  if (!eff) return null;
+  if (eff.plus === stat) return "plus";
+  if (eff.minus === stat) return "minus";
+  return null;
+}
 
 const STAT_LABELS: { key: StatName; label: string; short: string }[] = [
   { key: "hp", label: "HP", short: "HP" },
@@ -165,18 +199,54 @@ export function EVEditor({
         ))}
       </div>
 
+      {/* Header row for stat sliders */}
+      {species && (
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium border-b border-border/40 pb-1">
+          <span className="w-8 text-right shrink-0">Stat</span>
+          <span className="w-6 shrink-0" />
+          <span className="flex-1 text-center">{label}</span>
+          <span className="w-6 shrink-0" />
+          <span className="w-8 text-right shrink-0">{label === "Points" ? "Pts" : "EVs"}</span>
+          <span className="w-12 text-right shrink-0">Final</span>
+        </div>
+      )}
+
       {/* Stat sliders */}
       <div className="flex flex-col gap-3">
         {STAT_LABELS.map(({ key, short }) => {
           const evValue = value[key];
+          // In Champions, the slider stores POINTS — convert to EVs (1 pt = 8 EVs) for stat math.
+          const evForCalc =
+            totalMax === 66
+              ? Math.min(MAX_SINGLE_EV, evValue * CHAMPIONS_POINTS.evConversion)
+              : evValue;
           const finalStat = species
-            ? calcStat(key, baseStats[key], ivs[key], evValue, level, nature)
+            ? calcStat(key, baseStats[key], ivs[key], evForCalc, level, nature)
             : 0;
+          const baseFinal = species
+            ? calcStat(key, baseStats[key], ivs[key], 0, level, "Hardy")
+            : 0;
+          const natureMark = getNatureMark(key, nature);
+          const finalColor =
+            key === "hp"
+              ? "text-primary"
+              : natureMark === "plus"
+                ? "text-emerald-400"
+                : natureMark === "minus"
+                  ? "text-rose-400"
+                  : "text-primary";
+          const delta = finalStat - baseFinal;
 
           return (
             <div key={key} className="flex items-center gap-2">
               <span className="w-8 text-xs font-medium text-muted-foreground text-right shrink-0">
                 {short}
+                {natureMark === "plus" && (
+                  <span className="text-emerald-400 ml-0.5">+</span>
+                )}
+                {natureMark === "minus" && (
+                  <span className="text-rose-400 ml-0.5">−</span>
+                )}
               </span>
 
               <Button
@@ -216,7 +286,20 @@ export function EVEditor({
               </span>
 
               {species && (
-                <span className="w-10 text-xs font-mono text-primary text-right shrink-0">
+                <span
+                  className={`w-12 text-xs font-mono text-right shrink-0 ${finalColor}`}
+                  title={
+                    key === "hp"
+                      ? `Base HP ${baseStats[key]} → ${finalStat}`
+                      : `Base ${baseStats[key]} → ${finalStat}${
+                          natureMark === "plus"
+                            ? " (+10% nature)"
+                            : natureMark === "minus"
+                              ? " (-10% nature)"
+                              : ""
+                        }${delta !== 0 ? `, +${delta} from EVs/nature` : ""}`
+                  }
+                >
                   {finalStat}
                 </span>
               )}
