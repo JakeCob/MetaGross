@@ -63,9 +63,33 @@ export async function proposeSpreadNode(
     .join(", ");
 
   const teammates = team
-    .filter((t) => t.species !== pokemon.species)
-    .map((t) => t.species)
-    .join(", ");
+    .filter((t) => t.species && t.species !== pokemon.species)
+    .map((t) => {
+      const moves = (t.moves ?? []).filter(Boolean).slice(0, 4).join("/");
+      const parts = [
+        t.species,
+        t.ability ? `ability=${t.ability}` : null,
+        t.item ? `item=${t.item}` : null,
+        t.nature ? `nature=${t.nature}` : null,
+        moves ? `moves=${moves}` : null,
+      ].filter(Boolean);
+      return `  • ${parts.join(", ")}`;
+    })
+    .join("\n");
+
+  // Surface the user's CURRENT configured spread as the starting point.
+  const userSpread = pokemon.evs;
+  const userSpreadLine =
+    userSpread && Object.values(userSpread).some((v) => v > 0)
+      ? `User's current spread (starting point — refine, don't ignore): ${pokemon.nature || "Hardy"} — HP ${userSpread.hp} / Atk ${userSpread.atk} / Def ${userSpread.def} / SpA ${userSpread.spa} / SpD ${userSpread.spd} / Spe ${userSpread.spe}`
+      : `User has not set a spread yet — propose one from scratch.`;
+
+  // Categorize moves so the nature suggestion is coherent.
+  const moveList = pokemon.moves.filter(Boolean);
+  const moveHint =
+    moveList.length > 0
+      ? `Moves on this set: ${moveList.join(", ")}. The proposed Nature MUST align with the category of the offensive moves (boost Atk for physical moves, SpA for special moves, never boost an unused attacking stat).`
+      : "No moves chosen yet.";
 
   // Include feedback from previous iteration if available
   let feedbackSection = "";
@@ -79,14 +103,18 @@ export async function proposeSpreadNode(
     }
   }
 
-  const systemPrompt = `You are an EV spread specialist for VGC doubles. Propose optimal ${label} for the given Pokemon. ${isChampions ? `Total: ${totalMax}, max ${perStatMax} per stat.` : `Total: 510, max 252 per stat.`} Spread across 3-5 stats based on benchmarks.`;
+  const systemPrompt = `You are an EV spread specialist for VGC doubles${isChampions ? " in Pokemon Champions Regulation M-A" : ""}. Propose optimal ${label} for the given Pokemon. ${isChampions ? `Total must equal ${totalMax}, max ${perStatMax} per stat.` : `Total must equal 510, max 252 per stat.`} Spread across 3-5 stats based on benchmarks. Consider the user's current spread as a starting point (refine, don't ignore it unless clearly wrong). The Nature MUST match the actual offensive category of the moveset.`;
 
   const userPrompt = `Pokemon: ${pokemon.species}
 Ability: ${pokemon.ability}
 Item: ${pokemon.item}
-Moves: ${pokemon.moves.filter(Boolean).join(", ")}
-Teammates: ${teammates || "None yet"}
-Top meta threats: ${threatList}
+${moveHint}
+${userSpreadLine}
+
+Teammates on this team:
+${teammates || "  • None yet"}
+
+Top meta threats in this format (defensive benchmarks should target these): ${threatList}
 ${feedbackSection}
 
 Respond with EXACTLY this format (nothing else):

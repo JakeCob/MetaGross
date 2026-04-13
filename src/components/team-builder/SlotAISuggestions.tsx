@@ -57,8 +57,9 @@ export function SlotAISuggestions({
   }, [currentTeam, format]);
 
   // Ask AI for a specific recommendation
-  const askAI = useCallback(async () => {
-    if (!aiQuery.trim()) return;
+  const runAskAI = useCallback(async (query: string) => {
+    const q = query.trim();
+    if (!q) return;
     setAiLoading(true);
     setAiResponse(null);
 
@@ -71,7 +72,7 @@ export function SlotAISuggestions({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: `${teamContext} For slot ${slot}, ${aiQuery}. Suggest ONE specific Pokemon with a brief reason why. Be concise (2-3 sentences max).`,
+          message: `${teamContext} For slot ${slot}, ${q}. Suggest ONE specific Pokemon with a brief reason why. Be concise (2-3 sentences max).`,
           contextType: "team",
           persona: "default",
         }),
@@ -82,24 +83,40 @@ export function SlotAISuggestions({
         return;
       }
 
-      // Read SSE stream for the text response
+      // Read SSE stream. Each event is: "event: <name>\ndata: <json>\n\n"
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = "";
       let fullText = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n").filter(Boolean);
-        for (const line of lines) {
+        buffer += decoder.decode(value, { stream: true });
+
+        // Split on double-newline (SSE event delimiter)
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? ""; // keep incomplete trailing event
+
+        for (const rawEvent of events) {
+          if (!rawEvent.trim()) continue;
+          let eventName = "message";
+          let dataLine = "";
+          for (const line of rawEvent.split("\n")) {
+            if (line.startsWith("event: ")) eventName = line.slice(7).trim();
+            else if (line.startsWith("data: ")) dataLine += line.slice(6);
+          }
+          if (!dataLine) continue;
           try {
-            const event = JSON.parse(line);
-            if (event.type === "text") {
-              fullText += event.content;
+            const data = JSON.parse(dataLine);
+            if (eventName === "text" && typeof data.content === "string") {
+              fullText = data.content; // final text is sent once at the end
+            } else if (eventName === "error") {
+              setAiResponse(`AI error: ${data.message ?? "unknown"}`);
+              return;
             }
           } catch {
-            // skip non-JSON lines
+            // skip malformed data
           }
         }
       }
@@ -110,7 +127,11 @@ export function SlotAISuggestions({
     } finally {
       setAiLoading(false);
     }
-  }, [aiQuery, currentTeam, format, slot]);
+  }, [currentTeam, format, slot]);
+
+  const askAI = useCallback(() => {
+    runAskAI(aiQuery);
+  }, [runAskAI, aiQuery]);
 
   if (currentTeam.length === 0) return null;
 
@@ -194,6 +215,7 @@ export function SlotAISuggestions({
             </div>
             <div className="flex flex-wrap gap-1.5">
               {[
+                "I need a mega good with rain weather",
                 "I need speed control",
                 "I need a Fake Out user",
                 "Counter Water types",
@@ -206,6 +228,7 @@ export function SlotAISuggestions({
                   onClick={() => {
                     setAiQuery(q);
                     setShowAskAI(true);
+                    runAskAI(q);
                   }}
                 >
                   {q}

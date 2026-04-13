@@ -47,6 +47,7 @@ export async function finalizeNode(
 
   const {
     pokemon,
+    team,
     currentSpread,
     currentNature,
     wolfeReview,
@@ -68,11 +69,19 @@ export async function finalizeNode(
     )
     .join("\n");
 
-  const systemPrompt = `You are an EV optimization synthesizer. Given multiple expert opinions and simulation data, produce the final optimized ${label} spread. Total: ${totalMax}, max ${perStatMax} per stat. The total MUST equal exactly ${totalMax}.`;
+  const teammates = team
+    .filter((t) => t.species && t.species !== pokemon.species)
+    .map((t) => `${t.species} (${t.ability || "?"})`)
+    .join(", ");
+
+  const moveList = pokemon.moves.filter(Boolean).join(", ");
+
+  const systemPrompt = `You are an EV optimization synthesizer${isChampions ? " for Pokemon Champions Reg M-A" : ""}. Given multiple expert opinions and simulation data, produce the final optimized ${label} spread. Total MUST equal exactly ${totalMax}, max ${perStatMax} per stat. The chosen Nature must be consistent with the actual move categories (never boost an unused attacking stat).`;
 
   const userPrompt = `Pokemon: ${pokemon.species} (${pokemon.ability}, ${pokemon.item})
-Moves: ${pokemon.moves.filter(Boolean).join(", ")}
-Current spread: ${currentNature} ${spreadStr}
+Moves: ${moveList || "(none)"}
+Teammates: ${teammates || "none"}
+Current spread being reviewed: ${currentNature} ${spreadStr}
 
 Wolfe Glick's review: "${wolfeReview ?? "None"}"
 CybertronVGC's review: "${cybertronReview ?? "None"}"
@@ -83,7 +92,7 @@ ${simSummary}
 Produce the final optimized spread. Respond EXACTLY in this format:
 Nature: <NatureName>
 Spread: HP <n> / Atk <n> / Def <n> / SpA <n> / SpD <n> / Spe <n>
-Reasoning: <2-3 sentences explaining the final decision>`;
+Reasoning: <2-3 sentences explaining the final decision; cite teammate synergy and specific threats from the sim>`;
 
   const response = await model.invoke([
     new SystemMessage(systemPrompt),

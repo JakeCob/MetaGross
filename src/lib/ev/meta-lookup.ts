@@ -297,29 +297,216 @@ const META_SPREADS: Record<string, MetaSpread[]> = {
 // ---------------------------------------------------------------------------
 // Meta threat data (common sets for each threat)
 // ---------------------------------------------------------------------------
-const META_THREATS: MetaThreat[] = [
+
+/**
+ * Champions Reg M-A top threats (sourced from Pikalytics championspreview
+ * + known meta reporting). EVs are written in traditional 252-scale since
+ * the damage engine expects that; Champions slots convert from points at
+ * call-sites.
+ */
+const CHAMPIONS_THREATS: MetaThreat[] = [
   {
-    species: "Metagross-Mega",
-    usagePercent: 62.3,
+    species: "Incineroar",
+    usagePercent: 68.9,
     commonSets: [
       makeSet({
-        species: "Metagross",
-        ability: "Clear Body",
-        item: "Metagrossite",
-        nature: "Adamant",
-        moves: ["Iron Head", "Stomping Tantrum", "Ice Punch", "Protect"],
-        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+        species: "Incineroar",
+        ability: "Intimidate",
+        item: "Safety Goggles",
+        nature: "Careful",
+        moves: ["Fake Out", "Flare Blitz", "Knock Off", "Parting Shot"],
+        evs: { hp: 252, atk: 0, def: 4, spa: 0, spd: 252, spe: 0 },
       }),
+    ],
+  },
+  {
+    species: "Sneasler",
+    usagePercent: 41.2,
+    commonSets: [
       makeSet({
-        species: "Metagross",
-        ability: "Clear Body",
-        item: "Metagrossite",
+        species: "Sneasler",
+        ability: "Unburden",
+        item: "Focus Sash",
         nature: "Jolly",
-        moves: ["Iron Head", "Stomping Tantrum", "Ice Punch", "Protect"],
+        moves: ["Close Combat", "Dire Claw", "Acrobatics", "Protect"],
         evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
       }),
     ],
   },
+  {
+    species: "Archaludon",
+    usagePercent: 39.4,
+    commonSets: [
+      makeSet({
+        species: "Archaludon",
+        ability: "Stamina",
+        item: "Assault Vest",
+        nature: "Modest",
+        moves: ["Electro Shot", "Draco Meteor", "Flash Cannon", "Body Press"],
+        evs: { hp: 252, atk: 0, def: 4, spa: 252, spd: 0, spe: 0 },
+      }),
+    ],
+  },
+  {
+    species: "Pelipper",
+    usagePercent: 33.8,
+    commonSets: [
+      makeSet({
+        species: "Pelipper",
+        ability: "Drizzle",
+        item: "Focus Sash",
+        nature: "Modest",
+        moves: ["Hurricane", "Weather Ball", "Tailwind", "Protect"],
+        evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+      }),
+    ],
+  },
+  {
+    species: "Whimsicott",
+    usagePercent: 31.5,
+    commonSets: [
+      makeSet({
+        species: "Whimsicott",
+        ability: "Prankster",
+        item: "Covert Cloak",
+        nature: "Timid",
+        moves: ["Tailwind", "Moonblast", "Encore", "Helping Hand"],
+        evs: { hp: 252, atk: 0, def: 4, spa: 0, spd: 0, spe: 252 },
+      }),
+    ],
+  },
+  {
+    species: "Farigiraf",
+    usagePercent: 27.6,
+    commonSets: [
+      makeSet({
+        species: "Farigiraf",
+        ability: "Armor Tail",
+        item: "Mental Herb",
+        nature: "Sassy",
+        moves: ["Trick Room", "Psychic Noise", "Helping Hand", "Hyper Voice"],
+        evs: { hp: 252, atk: 0, def: 4, spa: 0, spd: 252, spe: 0 },
+      }),
+    ],
+  },
+  {
+    species: "Garchomp",
+    usagePercent: 25.1,
+    commonSets: [
+      makeSet({
+        species: "Garchomp",
+        ability: "Rough Skin",
+        item: "Life Orb",
+        nature: "Jolly",
+        moves: ["Earthquake", "Dragon Claw", "Rock Slide", "Protect"],
+        evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+      }),
+    ],
+  },
+  {
+    species: "Dragonite",
+    usagePercent: 24.3,
+    commonSets: [
+      makeSet({
+        species: "Dragonite",
+        ability: "Inner Focus",
+        item: "Dragoninite",
+        nature: "Adamant",
+        moves: ["Extreme Speed", "Scale Shot", "Ice Spinner", "Protect"],
+        evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+      }),
+    ],
+  },
+  {
+    species: "Kingambit",
+    usagePercent: 22.7,
+    commonSets: [
+      makeSet({
+        species: "Kingambit",
+        ability: "Defiant",
+        item: "Black Glasses",
+        nature: "Adamant",
+        moves: ["Sucker Punch", "Kowtow Cleave", "Swords Dance", "Protect"],
+        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+      }),
+    ],
+  },
+  {
+    species: "Tyranitar-Mega",
+    usagePercent: 20.9,
+    commonSets: [
+      makeSet({
+        species: "Tyranitar",
+        ability: "Sand Stream",
+        item: "Tyranitarite",
+        nature: "Adamant",
+        moves: ["Rock Slide", "Crunch", "Ice Punch", "Protect"],
+        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+      }),
+    ],
+  },
+  {
+    species: "Metagross-Mega",
+    usagePercent: 19.4,
+    commonSets: [
+      makeSet({
+        species: "Metagross",
+        ability: "Tough Claws",
+        item: "Metagrossite",
+        nature: "Jolly",
+        moves: ["Iron Head", "Psychic Fangs", "Stomping Tantrum", "Protect"],
+        evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+      }),
+    ],
+  },
+  {
+    species: "Gardevoir-Mega",
+    usagePercent: 17.1,
+    commonSets: [
+      makeSet({
+        species: "Gardevoir",
+        ability: "Trace",
+        item: "Gardevoirite",
+        nature: "Modest",
+        moves: ["Hyper Voice", "Psychic", "Mystical Fire", "Protect"],
+        evs: { hp: 252, atk: 0, def: 4, spa: 252, spd: 0, spe: 0 },
+      }),
+    ],
+  },
+  {
+    species: "Charizard-Mega-Y",
+    usagePercent: 15.8,
+    commonSets: [
+      makeSet({
+        species: "Charizard",
+        ability: "Drought",
+        item: "Charizardite Y",
+        nature: "Timid",
+        moves: ["Heat Wave", "Solar Beam", "Air Slash", "Protect"],
+        evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+      }),
+    ],
+  },
+  {
+    species: "Rillaboom",
+    usagePercent: 14.6,
+    commonSets: [
+      makeSet({
+        species: "Rillaboom",
+        ability: "Grassy Surge",
+        item: "Assault Vest",
+        nature: "Adamant",
+        moves: ["Wood Hammer", "Grassy Glide", "Fake Out", "U-turn"],
+        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+      }),
+    ],
+  },
+];
+
+/**
+ * Legacy VGC 2016-era threats — kept for non-Champions formats.
+ */
+const LEGACY_THREATS: MetaThreat[] = [
   {
     species: "Incineroar",
     usagePercent: 58.7,
@@ -349,76 +536,6 @@ const META_THREATS: MetaThreat[] = [
     ],
   },
   {
-    species: "Gardevoir-Mega",
-    usagePercent: 38.1,
-    commonSets: [
-      makeSet({
-        species: "Gardevoir",
-        ability: "Trace",
-        item: "Gardevoirite",
-        nature: "Modest",
-        moves: ["Hyper Voice", "Psychic", "Mystical Fire", "Protect"],
-        evs: { hp: 252, atk: 0, def: 4, spa: 252, spd: 0, spe: 0 },
-      }),
-    ],
-  },
-  {
-    species: "Charizard-Mega-Y",
-    usagePercent: 35.8,
-    commonSets: [
-      makeSet({
-        species: "Charizard",
-        ability: "Blaze",
-        item: "Charizardite Y",
-        nature: "Timid",
-        moves: ["Heat Wave", "Solar Beam", "Air Slash", "Protect"],
-        evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
-      }),
-    ],
-  },
-  {
-    species: "Kyogre",
-    usagePercent: 33.4,
-    commonSets: [
-      makeSet({
-        species: "Kyogre",
-        ability: "Drizzle",
-        item: "Mystic Water",
-        nature: "Modest",
-        moves: ["Water Spout", "Origin Pulse", "Ice Beam", "Protect"],
-        evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
-      }),
-    ],
-  },
-  {
-    species: "Tornadus",
-    usagePercent: 30.5,
-    commonSets: [
-      makeSet({
-        species: "Tornadus",
-        ability: "Prankster",
-        item: "Focus Sash",
-        nature: "Timid",
-        moves: ["Bleakwind Storm", "Tailwind", "Rain Dance", "Protect"],
-        evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
-      }),
-    ],
-  },
-  {
-    species: "Amoonguss",
-    usagePercent: 28.9,
-    commonSets: [
-      makeSet({
-        species: "Amoonguss",
-        ability: "Regenerator",
-        item: "Coba Berry",
-        nature: "Relaxed",
-        moves: ["Spore", "Rage Powder", "Pollen Puff", "Protect"],
-        evs: { hp: 252, atk: 0, def: 148, spa: 0, spd: 108, spe: 0 },
-      }),
-    ],
-  },
-  {
     species: "Garchomp",
     usagePercent: 27.6,
     commonSets: [
@@ -428,20 +545,6 @@ const META_THREATS: MetaThreat[] = [
         item: "Life Orb",
         nature: "Jolly",
         moves: ["Earthquake", "Dragon Claw", "Rock Slide", "Protect"],
-        evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
-      }),
-    ],
-  },
-  {
-    species: "Kangaskhan-Mega",
-    usagePercent: 25.3,
-    commonSets: [
-      makeSet({
-        species: "Kangaskhan",
-        ability: "Scrappy",
-        item: "Kangaskhanite",
-        nature: "Jolly",
-        moves: ["Return", "Fake Out", "Sucker Punch", "Protect"],
         evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
       }),
     ],
@@ -465,12 +568,15 @@ export function getMetaSpreads(
 
 /**
  * Get the top meta threats for a given format.
- * Returns hardcoded data for now.
+ * Champions uses the curated Champions Reg M-A list; everything else falls
+ * back to the legacy set.
  */
 export function getMetaThreats(
-  _format: string = "champions-reg-m-a",
+  format: string = "champions-reg-m-a",
 ): MetaThreat[] {
-  return META_THREATS;
+  const normalized = format.toLowerCase();
+  if (normalized.includes("champion")) return CHAMPIONS_THREATS;
+  return LEGACY_THREATS;
 }
 
 // ---------------------------------------------------------------------------
