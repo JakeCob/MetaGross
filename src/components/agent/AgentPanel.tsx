@@ -35,7 +35,7 @@ export function AgentPanel({ contextType, contextId, cardActions }: AgentPanelPr
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusLog, setStatusLog] = useState<string[]>([]);
   const [pendingApproval, setPendingApproval] = useState<WriteActionProposal | null>(null);
   const [selectedPersona, setSelectedPersona] = useState<AgentPersona>("default");
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +54,7 @@ export function AgentPanel({ contextType, contextId, cardActions }: AgentPanelPr
       };
       setMessages((prev) => [...prev, userMessage]);
       setIsStreaming(true);
+      setStatusLog([]);
       toolCallsRef.current = [];
 
       let assistantContent = "";
@@ -206,11 +207,16 @@ export function AgentPanel({ contextType, contextId, cardActions }: AgentPanelPr
                 break;
 
               case "status":
-                setStatusMessage((event as unknown as { message?: string }).message ?? null);
+                {
+                  const msg = (event as unknown as { message?: string }).message;
+                  if (msg) {
+                    setStatusLog((prev) => [...prev, msg].slice(-5)); // keep last 5
+                  }
+                }
                 break;
 
               case "done":
-                setStatusMessage(null);
+                setStatusLog([]);
                 if (event.threadId) {
                   newThreadId = event.threadId;
                   setThreadId(event.threadId);
@@ -225,7 +231,7 @@ export function AgentPanel({ contextType, contextId, cardActions }: AgentPanelPr
                 break;
 
               case "error":
-                setStatusMessage(null);
+                setStatusLog([]);
                 setError(event.content ?? event.message ?? "An error occurred");
                 break;
             }
@@ -342,7 +348,7 @@ export function AgentPanel({ contextType, contextId, cardActions }: AgentPanelPr
       <AgentMessageList
         messages={messages}
         isStreaming={isStreaming}
-        statusMessage={statusMessage}
+        statusLog={statusLog}
         pendingApproval={pendingApproval}
         onApprove={handleApprove}
         onReject={handleReject}

@@ -36,18 +36,55 @@ function parsePercentSection(
   return entries;
 }
 
+// Weather-synergy ability mapping
+const WEATHER_ABILITIES: Record<string, string[]> = {
+  rain: ["Swift Swim", "Rain Dish", "Hydration", "Dry Skin"],
+  sun: ["Chlorophyll", "Solar Power", "Flower Gift", "Leaf Guard"],
+  sand: ["Sand Rush", "Sand Force", "Sand Veil"],
+  snow: ["Slush Rush", "Ice Body", "Snow Cloak"],
+};
+
+function annotateAbilities(
+  abilities: { name: string; usage: number }[],
+  teamArchetype?: string,
+): { name: string; usage: number; synergy?: string }[] {
+  if (!teamArchetype) return abilities;
+  const archetype = teamArchetype.toLowerCase();
+
+  return abilities.map((ab) => {
+    for (const [weather, synergyAbilities] of Object.entries(WEATHER_ABILITIES)) {
+      if (archetype.includes(weather) && synergyAbilities.includes(ab.name)) {
+        return {
+          ...ab,
+          synergy: `⭐ BEST CHOICE for ${weather} teams — synergizes with weather`,
+        };
+      }
+    }
+    if (archetype.includes("trick room") && ab.name === "Unburden") {
+      return { ...ab, synergy: "⚠️ AVOID on Trick Room teams — boosts speed which is bad for TR" };
+    }
+    return ab;
+  });
+}
+
 export const getPokemonSetsTool = new DynamicStructuredTool({
   name: "get_pokemon_competitive_sets",
   description:
-    "Get ACTUAL competitive sets for a Pokemon from Pikalytics usage data (Champions Reg M-A). Returns real moves, abilities, items, and teammates with usage percentages. ALWAYS use this before recommending any moves, abilities, or items for a Pokemon — never guess from memory.",
+    "Get ACTUAL competitive sets for a Pokemon from Pikalytics usage data (Champions Reg M-A). Returns real moves, abilities, items, and teammates with usage percentages. PASS teamArchetype to get synergy hints for ability selection. ALWAYS use this before recommending any moves, abilities, or items — never guess from memory.",
   schema: z.object({
     species: z
       .string()
       .describe(
         "Pokemon species name (e.g. 'Incineroar', 'Archaludon', 'Rotom-Wash')",
       ),
+    teamArchetype: z
+      .string()
+      .optional()
+      .describe(
+        "Team archetype for synergy analysis: 'rain', 'sun', 'sand', 'snow', 'trick room', 'hyper offense', 'balance'. When provided, abilities will be annotated with synergy hints (e.g., Swift Swim for rain teams).",
+      ),
   }),
-  func: async ({ species }) => {
+  func: async ({ species, teamArchetype }) => {
     try {
       const url = `${PIKALYTICS_BASE}/${encodeURIComponent(DEFAULT_FORMAT)}/${encodeURIComponent(species)}`;
       const response = await fetch(url, {
@@ -90,15 +127,20 @@ export const getPokemonSetsTool = new DynamicStructuredTool({
         });
       }
 
+      const annotatedAbilities = annotateAbilities(abilities, teamArchetype);
+      const hasSynergy = annotatedAbilities.some((a) => a.synergy?.includes("BEST CHOICE"));
+
       return JSON.stringify({
         species,
         format: "Champions Reg M-A",
         dataDate,
         moves: moves.slice(0, 12),
-        abilities,
+        abilities: annotatedAbilities,
         items: items.slice(0, 10),
         teammates: teammates.slice(0, 10),
-        note: "This is REAL competitive usage data. Use the highest-usage options unless you have a specific reason not to.",
+        note: hasSynergy
+          ? "⭐ A synergy-best ability was found — USE IT even if it has lower usage %. Team synergy > raw usage."
+          : "This is REAL competitive usage data. Pick the ability that fits the team strategy, then highest-usage.",
       });
     } catch (err) {
       return JSON.stringify({

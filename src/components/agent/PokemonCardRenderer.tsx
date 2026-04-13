@@ -113,9 +113,17 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
   const [showActions, setShowActions] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const isMega = data.name.includes("Mega") || data.name.includes("(Mega)")
-    || Boolean(data.item && data.item.toLowerCase().endsWith("ite"))
-    || Boolean(data.item && data.item.toLowerCase() === "dragoninite");
+  // Check if the item is a Mega Stone — look at the CLEAN item value (before any explanation)
+  const cleanItemName = (data.item || "").split(/[—–\-(:]/)[0].trim().toLowerCase();
+  const isMegaStone =
+    cleanItemName.endsWith("ite") ||
+    cleanItemName === "dragoninite" ||
+    cleanItemName.includes("charizardite") ||
+    cleanItemName.includes("mega stone");
+  const isMega =
+    data.name.toLowerCase().includes("mega") ||
+    data.name.includes("(Mega)") ||
+    isMegaStone;
   const spriteSpecies = data.name
     .replace(/\s*\(Mega\)/, "")
     .replace(/Mega\s+/, "")
@@ -129,13 +137,28 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
     actions?.onCopy?.(data);
   };
 
+  // Extract just the first word/short identifier from fields that may have inline explanations
+  // e.g., "Stamina — boosts defense when hit" → "Stamina"
+  const cleanField = (val?: string): { short: string; long?: string } => {
+    if (!val) return { short: "" };
+    const sepMatch = val.match(/^([^—–\-:(]+?)(?:\s*[—–\-]\s*|\s*:\s*|\s*\(\s*)(.+)/);
+    if (sepMatch) {
+      return { short: sepMatch[1].trim(), long: sepMatch[2].replace(/\)$/, "").trim() };
+    }
+    return { short: val.trim() };
+  };
+
+  const abilityField = cleanField(data.ability);
+  const itemField = cleanField(data.item);
+  const natureField = cleanField(data.nature);
+
   return (
     <div
-      className={`rounded-xl border bg-card/80 backdrop-blur-sm p-3 ${isMega ? "border-purple-500/30" : "border-border"} hover:border-primary/30 transition-colors`}
+      className={`w-full max-w-full overflow-hidden rounded-xl border bg-card/80 backdrop-blur-sm p-3 ${isMega ? "border-purple-500/30" : "border-border"} hover:border-primary/30 transition-colors`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      <div className="flex gap-3 items-start">
+      <div className="flex gap-3 items-start min-w-0">
         {/* Sprite */}
         <div className="shrink-0 flex flex-col items-center gap-1">
           <PokemonSprite species={spriteSpecies} mega={isMega} size={56} />
@@ -147,61 +170,78 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
         </div>
 
         {/* Details */}
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="min-w-0 flex-1 space-y-1.5 overflow-hidden">
           {/* Name + Role */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-sm text-foreground">{data.name}</span>
+            <span className="font-bold text-sm text-foreground break-words">{data.name}</span>
             {data.role && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                {data.role}
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                {data.role.split(/[—–\-]/)[0].trim()}
               </Badge>
             )}
           </div>
 
-          {/* Ability + Item + Nature */}
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-            {data.ability && (
-              <span>
-                <span className="text-foreground/70">Ability:</span> {data.ability}
-              </span>
-            )}
-            {data.item && (
-              <span>
-                <span className="text-foreground/70">Item:</span> {data.item}
-              </span>
-            )}
-            {data.nature && (
-              <span>
-                <span className="text-foreground/70">Nature:</span> {data.nature}
-              </span>
-            )}
-          </div>
+          {/* Ability */}
+          {data.ability && (
+            <div className="text-xs break-words">
+              <span className="text-foreground/60">Ability: </span>
+              <span className="text-foreground font-medium">{abilityField.short}</span>
+              {abilityField.long && (
+                <span className="text-muted-foreground"> — {abilityField.long}</span>
+              )}
+            </div>
+          )}
+
+          {/* Item */}
+          {data.item && (
+            <div className="text-xs break-words">
+              <span className="text-foreground/60">Item: </span>
+              <span className="text-foreground font-medium">{itemField.short}</span>
+              {itemField.long && (
+                <span className="text-muted-foreground"> — {itemField.long}</span>
+              )}
+            </div>
+          )}
+
+          {/* Nature */}
+          {data.nature && (
+            <div className="text-xs break-words">
+              <span className="text-foreground/60">Nature: </span>
+              <span className="text-foreground font-medium">{natureField.short}</span>
+              {natureField.long && (
+                <span className="text-muted-foreground"> — {natureField.long}</span>
+              )}
+            </div>
+          )}
 
           {/* Moves */}
           {data.moves && (
             <div className="flex flex-wrap gap-1 mt-1">
-              {data.moves.split(/\s*\/\s*/).map((move) => (
-                <Badge
-                  key={move}
-                  variant="outline"
-                  className="text-[10px] px-1.5 py-0 font-normal"
-                >
-                  {move.trim()}
-                </Badge>
-              ))}
+              {data.moves.split(/\s*\/\s*/).map((move, i) => {
+                const cleanMove = move.split(/[—–\-]/)[0].trim();
+                return (
+                  <Badge
+                    key={`${cleanMove}-${i}`}
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0 font-normal"
+                  >
+                    {cleanMove}
+                  </Badge>
+                );
+              })}
             </div>
           )}
 
           {/* Points/EVs */}
           {data.points && (
-            <div className="text-[10px] text-muted-foreground mt-1 font-mono">
+            <div className="text-[10px] text-muted-foreground mt-1 font-mono break-words">
               {data.points}
             </div>
           )}
 
           {/* Spread Reasoning */}
           {data.spreadReasoning && (
-            <div className="text-[10px] text-muted-foreground mt-1 italic leading-relaxed border-l-2 border-primary/20 pl-2">
+            <div className="text-[10px] text-muted-foreground mt-1 italic leading-relaxed border-l-2 border-primary/20 pl-2 break-words">
               {data.spreadReasoning}
             </div>
           )}

@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 interface AgentMessageListProps {
   messages: AgentChatMessage[];
   isStreaming: boolean;
-  statusMessage?: string | null;
+  statusLog?: string[];
   onApprove: () => void;
   onReject: () => void;
   onEdit: (editedPayload: unknown) => void;
@@ -34,7 +34,7 @@ export function AgentMessageList({
   onEdit,
   pendingApproval,
   cardActions,
-  statusMessage,
+  statusLog = [],
 }: AgentMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -136,26 +136,38 @@ export function AgentMessageList({
           </div>
         )}
 
-      {/* Streaming indicator with status */}
+      {/* Streaming indicator with status log */}
       {isStreaming && (
         <div className="flex justify-start">
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-2 max-w-[80%]">
             <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted">
               <BotIcon className="size-3.5 text-muted-foreground" />
             </div>
-            <div className="rounded-2xl rounded-bl-md bg-card ring-1 ring-foreground/10 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "0ms" }} />
-                  <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "150ms" }} />
-                  <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "300ms" }} />
-                </div>
-                {statusMessage && (
-                  <span className="text-[11px] text-muted-foreground animate-pulse">
-                    {statusMessage}
-                  </span>
-                )}
+            <div className="rounded-2xl rounded-bl-md bg-card ring-1 ring-foreground/10 px-3 py-2 min-w-0">
+              <div className="flex items-center gap-1 mb-1">
+                <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "0ms" }} />
+                <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "150ms" }} />
+                <span className={cn("size-1.5 rounded-full bg-muted-foreground animate-bounce")} style={{ animationDelay: "300ms" }} />
               </div>
+              {statusLog.length > 0 && (
+                <div className="space-y-0.5">
+                  {statusLog.map((msg, i) => {
+                    const isLast = i === statusLog.length - 1;
+                    return (
+                      <div
+                        key={`${i}-${msg}`}
+                        className={cn(
+                          "text-[11px] flex items-center gap-1.5 break-words",
+                          isLast ? "text-foreground animate-pulse" : "text-muted-foreground opacity-60"
+                        )}
+                      >
+                        <span className="shrink-0">{isLast ? "⚡" : "✓"}</span>
+                        <span>{msg}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

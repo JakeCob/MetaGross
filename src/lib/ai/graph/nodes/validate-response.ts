@@ -120,6 +120,20 @@ export async function validateResponseNode(
         issues.push(`${species}: ${nature} nature with ${spa} SpA is wrong for a physical attacker. Use Adamant/Jolly and invest in Atk, not SpA.`);
       }
     }
+
+    // Check for duplicate moves
+    const movesMatch = section.match(/\*\*Moves\*\*:\s*(.+)/);
+    if (movesMatch && speciesMatch) {
+      const moves = movesMatch[1]
+        .split(/\s*\/\s*/)
+        .map((m) => m.split(/[—–\-]/)[0].trim().toLowerCase())
+        .filter(Boolean);
+      const uniqueMoves = new Set(moves);
+      if (moves.length !== uniqueMoves.size) {
+        const dupes = moves.filter((m, i) => moves.indexOf(m) !== i);
+        issues.push(`${speciesMatch[1].trim()}: has duplicate moves (${[...new Set(dupes)].join(", ")}). Each move must be unique. Pick 4 different moves from the Pikalytics data.`);
+      }
+    }
   }
 
   // Check if fewer than 6 Pokemon were suggested when it looks like a team
