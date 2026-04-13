@@ -68,10 +68,17 @@ export function PokemonSlotCard({
   const moves = (pokemon.moves ?? ["", "", "", ""]).filter(Boolean);
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
-      className="relative w-full cursor-pointer text-left"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className="relative w-full cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
     >
       <Card
         className={`h-full min-h-[180px] transition-all hover:ring-2 hover:ring-primary/40 ${
@@ -155,6 +162,6 @@ export function PokemonSlotCard({
           )}
         </CardContent>
       </Card>
-    </button>
+    </div>
   );
 }
