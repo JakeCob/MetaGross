@@ -59,6 +59,12 @@ const TEAM_PRESETS = [
     description: "Sand Stream + Sand Rush",
   },
   {
+    name: "Snow",
+    emoji: "❄️",
+    core: ["Ninetales-Alola", "Froslass", "Glaceon"],
+    description: "Snow Warning + Slush Rush + Aurora Veil",
+  },
+  {
     name: "Trick Room",
     emoji: "🔮",
     core: ["Sinistcha", "Farigiraf", "Incineroar"],

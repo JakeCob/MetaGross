@@ -68,6 +68,10 @@ VS Rain Mirror (if applicable):
 - Lead: [2 Pokemon] | Back: [2 Pokemon]
 - Plan: [mirror strategy]
 
+VS Snow Teams (Ninetales-Alola, Froslass-Mega, Baxcalibur):
+- Lead: [2 Pokemon] | Back: [2 Pokemon]
+- Plan: [strategy — Fire/Steel/Fighting coverage breaks Ice types, watch for Aurora Veil]
+
 VS Fairy-Heavy (Gardevoir-Mega, Sylveon, Whimsicott):
 - Lead: [2 Pokemon] | Back: [2 Pokemon]
 - Plan: [Steel coverage priorities]

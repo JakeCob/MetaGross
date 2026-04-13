@@ -52,6 +52,39 @@ Users can swap 1-2 Pokemon but the CORE should remain intact.
 
 ---
 
+## ❄️ Snow Team (B+ tier)
+
+**Core:**
+- Ninetales-Alola (Snow Warning, Light Clay) — Snow setter + Aurora Veil support
+- Arcanine-Hisui (Intimidate, Heavy-Duty Boots) — Wait, Arcanine-Hisui is Fire/Rock. Replace with another Ice abuser.
+- Cetitan or Froslass or Glaceon — Ice STAB attackers. Slush Rush doubles speed in snow.
+- Chien-Pao? NO — not in Champions. Use **Baxcalibur** or **Froslass-Mega**.
+
+**Better Core (Champions-verified):**
+- Ninetales-Alola (Snow Warning) — Snow setter
+- Froslass-Mega (via Froslasite) — Fast Ice/Ghost sweeper, Mega boosts speed further
+- Glaceon (Snow Cloak / Ice Body) — Special Ice attacker
+- Corviknight (Mirror Armor / Pressure) — Physical bulk + utility
+
+**Flex:** Incineroar, Sinistcha, Whimsicott for support
+
+**Win condition:** Set snow → Aurora Veil screens → Slush Rush abusers sweep behind doubled defenses.
+
+**Key Ice-type abilities in snow:**
+- **Slush Rush** — doubles speed in snow (like Swift Swim for rain)
+- **Ice Body** — passive HP recovery in snow
+- **Snow Cloak** — +20% evasion in snow
+
+**Why Aurora Veil matters:** Auto-snow from Ninetales lets Aurora Veil activate immediately.
+Screens + Ice typing + Snow Cloak = very hard to KO.
+
+**Matchup weaknesses:**
+- Fire types (Incineroar, Charizard) break through
+- Steel types resist Ice
+- Teams with their own weather override your snow
+
+---
+
 ## 🔮 Trick Room Team (A-tier)
 
 **Core:**
