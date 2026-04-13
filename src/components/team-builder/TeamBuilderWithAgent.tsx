@@ -10,6 +10,8 @@ import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
 
 interface TeamBuilderWithAgentProps {
   teamId?: string;
+  initialSpecies?: string[];
+  initialName?: string;
 }
 
 function pokemonBlockToTeamPokemon(block: PokemonBlock): Partial<TeamPokemon> {
@@ -53,7 +55,11 @@ function pokemonBlockToTeamPokemon(block: PokemonBlock): Partial<TeamPokemon> {
   };
 }
 
-export function TeamBuilderWithAgent({ teamId }: TeamBuilderWithAgentProps) {
+export function TeamBuilderWithAgent({
+  teamId,
+  initialSpecies,
+  initialName,
+}: TeamBuilderWithAgentProps) {
   const [agentOpen, setAgentOpen] = useState(false);
   // Ref for TeamBuilder's add function — set via callback
   const addToTeamRef = useRef<((pokemon: Partial<TeamPokemon>) => void) | null>(null);
@@ -77,7 +83,7 @@ export function TeamBuilderWithAgent({ teamId }: TeamBuilderWithAgentProps) {
     <>
       {/* Desktop: side-by-side layout */}
       <div className="hidden lg:grid lg:grid-cols-[2fr_1fr] lg:gap-6">
-        <TeamBuilder teamId={teamId} onAddFromAgent={(fn) => { addToTeamRef.current = fn; }} />
+        <TeamBuilder teamId={teamId} initialSpecies={initialSpecies} initialName={initialName} onAddFromAgent={(fn) => { addToTeamRef.current = fn; }} />
         <div className="sticky top-4 h-[calc(100vh-6rem)]">
           <AgentPanel
             contextType="team"
@@ -92,7 +98,7 @@ export function TeamBuilderWithAgent({ teamId }: TeamBuilderWithAgentProps) {
 
       {/* Mobile/tablet: stacked with collapsible agent */}
       <div className="lg:hidden">
-        <TeamBuilder teamId={teamId} onAddFromAgent={(fn) => { addToTeamRef.current = fn; }} />
+        <TeamBuilder teamId={teamId} initialSpecies={initialSpecies} initialName={initialName} onAddFromAgent={(fn) => { addToTeamRef.current = fn; }} />
 
         <div className="fixed bottom-4 right-4 z-40">
           <Button

@@ -4,6 +4,7 @@ import { ThemeToggle } from "./theme-toggle";
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/teams", label: "Teams" },
+  { href: "/team-archive", label: "Archive" },
   { href: "/battles", label: "Battles" },
   { href: "/meta", label: "Meta" },
   { href: "/champions", label: "Champions" },

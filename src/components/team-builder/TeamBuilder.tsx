@@ -99,10 +99,17 @@ function emptyPokemon(): Partial<TeamPokemon> {
 
 export interface TeamBuilderProps {
   teamId?: string;
+  initialSpecies?: string[];
+  initialName?: string;
   onAddFromAgent?: (addFn: (pokemon: Partial<TeamPokemon>) => void) => void;
 }
 
-export function TeamBuilder({ teamId, onAddFromAgent }: TeamBuilderProps) {
+export function TeamBuilder({
+  teamId,
+  initialSpecies,
+  initialName,
+  onAddFromAgent,
+}: TeamBuilderProps) {
   const router = useRouter();
   const isEditing = Boolean(teamId);
 
@@ -116,6 +123,27 @@ export function TeamBuilder({ teamId, onAddFromAgent }: TeamBuilderProps) {
   const [loadingTeam, setLoadingTeam] = useState(false);
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+  // Apply initial species / name from query params (only on mount, only when creating)
+  useEffect(() => {
+    if (teamId) return; // editing existing team — skip
+    if (initialName && initialName.trim()) {
+      setTeamName((prev) => (prev.trim() ? prev : initialName.trim()));
+    }
+    if (initialSpecies && initialSpecies.length > 0) {
+      setPokemon(() => {
+        const slots: Partial<TeamPokemon>[] = Array.from(
+          { length: 6 },
+          () => emptyPokemon(),
+        );
+        for (let i = 0; i < Math.min(initialSpecies.length, 6); i++) {
+          slots[i] = { ...emptyPokemon(), species: initialSpecies[i] };
+        }
+        return slots;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Register the add-from-agent callback
   useEffect(() => {
