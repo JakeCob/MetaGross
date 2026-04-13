@@ -81,43 +81,17 @@ export const CHAMPIONS_POKEMON: string[] = [
   "Skeledirge", "Quaquaval", "Garganacl", "Armarouge", "Ceruledge",
   "Bellibolt", "Tinkaton", "Orthworm", "Hydrapple",
   "Wyrdeer", "Kleavor",
-  // Additional confirmed Gen 1-9 picks (batch 2, added 2026-04-13).
-  // Conservative — only fully-evolved / single-stage Pokemon.
-  // No baby forms (Pichu, Cleffa...) and no middle stages (Chansey, Porygon2,
-  // Electabuzz, Magmar, Rhydon, etc.) — they are not in Champions.
-  // Gen 1–3 classics
-  "Weezing", "Blissey",
-  "Cloyster", "Hypno", "Kingler", "Muk", "Marowak",
-  "Dodrio", "Dewgong", "Sudowoodo", "Quagsire",
-  "Donphan", "Miltank",
-  "Swampert", "Sceptile", "Breloom",
-  "Medicham", "Manectric", "Sharpedo", "Walrein",
-  "Claydol", "Banette", "Glalie",
-  // Gen 4
-  "Staraptor", "Floatzel", "Mismagius", "Honchkrow",
-  "Bronzong", "Spiritomb", "Magnezone", "Togekiss",
-  "Yanmega", "Weavile", "Mamoswine", "Gallade", "Dusknoir",
-  // Gen 5
-  "Gigalith", "Scolipede", "Reuniclus",
-  "Galvantula", "Ferrothorn", "Klinklang", "Haxorus",
-  "Chandelure", "Beheeyem", "Mienshao", "Golurk",
-  "Bisharp", "Mandibuzz", "Druddigon", "Accelgor",
-  // Gen 6
-  "Aromatisse", "Slurpuff", "Malamar", "Heliolisk",
-  "Tyrantrum", "Aurorus", "Dragalge", "Clawitzer",
-  "Gourgeist", "Avalugg", "Trevenant",
-  // Gen 7
-  "Toucannon", "Lycanroc", "Palossand", "Lurantis",
-  "Bruxish", "Turtonator", "Minior",
-  // Gen 8
-  "Toxtricity", "Coalossal", "Copperajah", "Duraludon",
-  "Frosmoth", "Centiskorch", "Cramorant",
-  "Flapple", "Appletun", "Indeedee",
-  // Gen 9
-  "Annihilape", "Dachsbun", "Brambleghast", "Veluza",
-  "Cetitan", "Clodsire", "Palafin", "Dudunsparce",
-  "Cyclizar", "Revavroom", "Rabsca",
 ];
+
+// NOTE: The list above contains source-verified entries from Pikalytics
+// (championspreview), Serebii (pokemonchampions), Bulbapedia, and
+// Victory Road. It intentionally under-includes rather than
+// over-includes — listing a Pokemon that is NOT in Champions leads to
+// bad agent recommendations, which is worse than omitting a few.
+//
+// Unknown Pokemon are handled by the agent's fact-check flow
+// (fetch_reference + search_web in get_pokemon_competitive_sets) before
+// being suggested.
 
 /**
  * Pokemon NOT in Champions (commonly suggested by AI incorrectly)

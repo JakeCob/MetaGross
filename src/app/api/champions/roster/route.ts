@@ -17,7 +17,10 @@ import {
 } from "@/lib/data/champions";
 import { getSpecies } from "@/lib/pokemon/species";
 
-export const revalidate = 3600; // 1 hour
+// Don't cache — the roster is source-of-truth and edits should appear
+// immediately. Cost is trivial (pure in-memory data assembly).
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 export interface RosterPokemon {
   species: string;
