@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PokemonSprite } from "@/components/pokemon-sprite";
@@ -37,9 +38,22 @@ interface UsageEntry {
   combinedUsage: number;
 }
 
+const ARCHETYPE_HINTS = [
+  "rain",
+  "sun",
+  "sand",
+  "trick room",
+  "hyper offense",
+  "bulky",
+  "fast",
+  "tailwind",
+  "fake out",
+  "intimidate",
+];
+
 export function SpeciesSearch({
   onChange,
-  placeholder = "Search Pokemon...",
+  placeholder = "Search Pokemon or type archetype (e.g. 'rain')...",
 }: SpeciesSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SpeciesData[]>([]);
@@ -47,8 +61,32 @@ export function SpeciesSearch({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const [loadedSuggestions, setLoadedSuggestions] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Calculate dropdown position (for portal rendering)
+  const updateDropdownPos = useCallback(() => {
+    if (!inputRef.current) return;
+    const rect = inputRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + window.scrollY + 4,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+    });
+  }, []);
 
   // Load top meta Pokemon as suggestions on first focus
   const loadSuggestions = useCallback(() => {
@@ -61,7 +99,6 @@ export function SpeciesSearch({
         const entries: UsageEntry[] = data.pokemon || data.topUsage || [];
         if (entries.length === 0) return;
 
-        // Fetch species data for top Pokemon
         const names = entries.slice(0, 15).map((e) => e.species);
         return Promise.all(
           names.map((name) =>
@@ -82,10 +119,10 @@ export function SpeciesSearch({
       setResults([]);
       return;
     }
-    fetch(`/api/pokemon/search?q=${encodeURIComponent(q)}&limit=20`)
+    fetch(`/api/pokemon/search?q=${encodeURIComponent(q)}&limit=25`)
       .then((res) => res.json())
       .then((data: SpeciesData[]) => {
-        setResults(data);
+        setResults(Array.isArray(data) ? data : []);
         setHighlightIndex(-1);
       })
       .catch(() => {
@@ -117,14 +154,27 @@ export function SpeciesSearch({
     [onChange],
   );
 
-  // Items to display: search results if typing, else suggestions
   const displayItems = query.trim() ? results : suggestions;
-  const showDropdown = isOpen && displayItems.length > 0;
+  const showDropdown = isOpen && mounted && dropdownPos !== null;
   const showingSearchResults = query.trim().length > 0;
+
+  // Update position when the dropdown opens, on scroll, or on resize
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    updateDropdownPos();
+
+    const handle = () => updateDropdownPos();
+    window.addEventListener("scroll", handle, true);
+    window.addEventListener("resize", handle);
+    return () => {
+      window.removeEventListener("scroll", handle, true);
+      window.removeEventListener("resize", handle);
+    };
+  }, [isOpen, updateDropdownPos]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (!showDropdown) return;
+      if (!isOpen || displayItems.length === 0) return;
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -144,15 +194,18 @@ export function SpeciesSearch({
         setHighlightIndex(-1);
       }
     },
-    [showDropdown, displayItems, highlightIndex, handleSelect],
+    [isOpen, displayItems, highlightIndex, handleSelect],
   );
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
       if (
         containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
+        !containerRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
       ) {
         setIsOpen(false);
         setHighlightIndex(-1);
@@ -168,60 +221,103 @@ export function SpeciesSearch({
     };
   }, []);
 
+  const onHintClick = (hint: string) => {
+    setQuery(hint);
+    performSearch(hint);
+    inputRef.current?.focus();
+  };
+
+  const dropdownContent = showDropdown && dropdownPos && (
+    <div
+      ref={dropdownRef}
+      style={{
+        position: "absolute",
+        top: `${dropdownPos.top}px`,
+        left: `${dropdownPos.left}px`,
+        width: `${dropdownPos.width}px`,
+        zIndex: 9999,
+      }}
+      className="max-h-80 overflow-y-auto rounded-lg border border-border bg-popover shadow-xl"
+    >
+      {!showingSearchResults && (
+        <>
+          <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border-b border-border">
+            Popular in Champions Reg M-A
+          </div>
+          <div className="px-3 pt-2 pb-1 border-b border-border/50">
+            <div className="text-[10px] text-muted-foreground mb-1">
+              Try an archetype:
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {ARCHETYPE_HINTS.map((hint) => (
+                <button
+                  key={hint}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onHintClick(hint);
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-accent hover:bg-primary/20 cursor-pointer"
+                >
+                  {hint}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      {showingSearchResults && results.length === 0 && (
+        <div className="px-4 py-3 text-sm text-muted-foreground">
+          No results — try an archetype like &quot;rain&quot; or &quot;bulky&quot;
+        </div>
+      )}
+      {displayItems.map((species, i) => (
+        <button
+          key={species.name}
+          type="button"
+          onClick={() => handleSelect(species)}
+          onMouseEnter={() => setHighlightIndex(i)}
+          className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors cursor-pointer ${
+            i === highlightIndex
+              ? "bg-accent text-accent-foreground"
+              : "text-foreground hover:bg-accent/50"
+          }`}
+        >
+          <PokemonSprite species={species.name} size={32} />
+          <span className="font-medium">{species.name}</span>
+          <div className="ml-auto flex gap-1">
+            {species.types.map((type) => (
+              <Badge
+                key={type}
+                className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[type] ?? "bg-gray-600 text-white"}`}
+              >
+                {type}
+              </Badge>
+            ))}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div ref={containerRef} className="relative">
       <Input
+        ref={inputRef}
         value={query}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         onFocus={() => {
           loadSuggestions();
+          updateDropdownPos();
           setIsOpen(true);
         }}
         placeholder={placeholder}
         autoComplete="off"
       />
 
-      {showDropdown && (
-        <div className="absolute z-[100] mt-1 w-full max-h-72 overflow-y-auto rounded-lg border border-border bg-popover shadow-xl">
-          {!showingSearchResults && (
-            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border-b border-border">
-              Popular in Champions Reg M-A
-            </div>
-          )}
-          {showingSearchResults && results.length === 0 && (
-            <div className="px-4 py-3 text-sm text-muted-foreground">
-              No results
-            </div>
-          )}
-          {displayItems.map((species, i) => (
-            <button
-              key={species.name}
-              type="button"
-              onClick={() => handleSelect(species)}
-              onMouseEnter={() => setHighlightIndex(i)}
-              className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors cursor-pointer ${
-                i === highlightIndex
-                  ? "bg-accent text-accent-foreground"
-                  : "text-foreground hover:bg-accent/50"
-              }`}
-            >
-              <PokemonSprite species={species.name} size={32} />
-              <span className="font-medium">{species.name}</span>
-              <div className="ml-auto flex gap-1">
-                {species.types.map((type) => (
-                  <Badge
-                    key={type}
-                    className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[type] ?? "bg-gray-600 text-white"}`}
-                  >
-                    {type}
-                  </Badge>
-                ))}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Render dropdown via portal to escape Dialog's overflow clipping */}
+      {showDropdown && mounted && createPortal(dropdownContent, document.body)}
     </div>
   );
 }
