@@ -559,12 +559,17 @@ export function TeamBuilder({
           if (!open) setEditingSlot(null);
         }}
       >
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto overflow-x-visible !top-[40%]">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-visible">
           <DialogHeader>
-            <DialogTitle>
-              {editingPokemon?.species
-                ? `Editing: ${editingPokemon.species}`
-                : `Slot ${(editingSlot ?? 0) + 1} — Add Pokemon`}
+            <DialogTitle className="flex items-center gap-2">
+              <span>
+                {editingPokemon?.species
+                  ? `Editing: ${editingPokemon.species}`
+                  : `Slot ${(editingSlot ?? 0) + 1} — Add Pokemon`}
+              </span>
+              <span className="text-[10px] font-normal uppercase tracking-wide text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                {format}
+              </span>
             </DialogTitle>
           </DialogHeader>
           {editingSlot !== null && editingPokemon && (

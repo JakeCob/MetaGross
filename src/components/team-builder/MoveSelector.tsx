@@ -36,9 +36,19 @@ export interface MoveSelectorProps {
   species: string;
   value: [string, string, string, string];
   onChange: (moves: [string, string, string, string]) => void;
+  /** Restrict the pool to moves legal in Champions Reg M-A (e.g., no Tera Blast). */
+  championsOnly?: boolean;
 }
 
-export function MoveSelector({ species, value, onChange }: MoveSelectorProps) {
+// Moves disallowed in Champions Reg M-A (Terastallization is disabled).
+const CHAMPIONS_BANNED_MOVES = new Set<string>(["Tera Blast", "Tera Starstorm"]);
+
+export function MoveSelector({
+  species,
+  value,
+  onChange,
+  championsOnly = false,
+}: MoveSelectorProps) {
   const [legalMoveNames, setLegalMoveNames] = useState<string[]>([]);
   const [moveDataCache, setMoveDataCache] = useState<Record<string, MoveData>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,7 +72,10 @@ export function MoveSelector({ species, value, onChange }: MoveSelectorProps) {
       .then((res) => res.json())
       .then((result: { names: string[]; data: Record<string, MoveData> }) => {
         if (cancelled) return;
-        setLegalMoveNames(result.names);
+        const names = championsOnly
+          ? result.names.filter((n) => !CHAMPIONS_BANNED_MOVES.has(n))
+          : result.names;
+        setLegalMoveNames(names);
         setMoveDataCache(result.data);
         setLoading(false);
       })
@@ -77,7 +90,7 @@ export function MoveSelector({ species, value, onChange }: MoveSelectorProps) {
     return () => {
       cancelled = true;
     };
-  }, [species]);
+  }, [species, championsOnly]);
 
   const filteredMoves = useMemo(() => {
     if (!searchQuery.trim()) return legalMoveNames.slice(0, 30);

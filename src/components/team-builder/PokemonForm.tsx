@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { SpeciesSearch } from "./SpeciesSearch";
 import { MoveSelector } from "./MoveSelector";
 import { EVEditor } from "./EVEditor";
+import { ItemSelect } from "./ItemSelect";
 import { EVSuggestionsPanel } from "./EVSuggestionsPanel";
 import { EVDebatePanel } from "@/components/ev/EVDebatePanel";
 import { UsageQuickView } from "@/components/meta/UsageQuickView";
@@ -280,14 +281,15 @@ export function PokemonForm({ value, onChange, slot, format = "", team = [] }: P
 
             <div className="flex flex-col gap-1.5">
               <Label>Item</Label>
-              <Input
+              <ItemSelect
                 value={value.item ?? ""}
-                onChange={(e) => update({ item: e.target.value })}
+                onChange={(item) => update({ item })}
+                championsOnly={isChampions}
                 placeholder="e.g., Choice Band"
               />
               {isChampions && (
                 <span className="text-[10px] text-muted-foreground">
-                  Mega Stones enable Mega Evolution in Champions
+                  Only Champions-legal items are suggested. Mega Stones enable Mega Evolution.
                 </span>
               )}
             </div>
@@ -328,6 +330,7 @@ export function PokemonForm({ value, onChange, slot, format = "", team = [] }: P
             species={value.species ?? ""}
             value={currentMoves}
             onChange={(moves) => update({ moves })}
+            championsOnly={isChampions}
           />
 
           {/* EVs / Points */}
@@ -388,37 +391,45 @@ export function PokemonForm({ value, onChange, slot, format = "", team = [] }: P
             />
           )}
 
-          {/* IVs */}
-          <div className="flex flex-col gap-3">
-            <div className="text-sm font-medium text-foreground">IVs</div>
-            <div className="grid grid-cols-6 gap-2">
-              {STAT_LABELS.map(({ key, label }) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <span className="text-[10px] text-muted-foreground text-center">
-                    {label}
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={31}
-                    value={currentIvs[key]}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value, 10);
-                      if (!isNaN(v)) {
-                        update({
-                          ivs: {
-                            ...currentIvs,
-                            [key]: Math.max(0, Math.min(31, v)),
-                          },
-                        });
-                      }
-                    }}
-                    className="h-8 w-full rounded-lg border border-border bg-card px-2 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
-                </div>
-              ))}
+          {/* IVs — hidden in Champions (fixed at 31) */}
+          {isChampions ? (
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
+              <span className="text-[11px] text-muted-foreground">
+                IVs are fixed at 31 in Champions Reg M-A — no manual editing required.
+              </span>
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="text-sm font-medium text-foreground">IVs</div>
+              <div className="grid grid-cols-6 gap-2">
+                {STAT_LABELS.map(({ key, label }) => (
+                  <div key={key} className="flex flex-col gap-1">
+                    <span className="text-[10px] text-muted-foreground text-center">
+                      {label}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={31}
+                      value={currentIvs[key]}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (!isNaN(v)) {
+                          update({
+                            ivs: {
+                              ...currentIvs,
+                              [key]: Math.max(0, Math.min(31, v)),
+                            },
+                          });
+                        }
+                      }}
+                      className="h-8 w-full rounded-lg border border-border bg-card px-2 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
