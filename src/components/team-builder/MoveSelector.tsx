@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { MoveDetailsDialog } from "./MoveDetailsDialog";
+import { MoveSearchDialog } from "./MoveSearchDialog";
 import type { MoveData } from "@/lib/pokemon/moves";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -52,12 +52,9 @@ export function MoveSelector({
 }: MoveSelectorProps) {
   const [legalMoveNames, setLegalMoveNames] = useState<string[]>([]);
   const [moveDataCache, setMoveDataCache] = useState<Record<string, MoveData>>({});
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [detailMove, setDetailMove] = useState<{ name: string; index: number } | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [searchSlot, setSearchSlot] = useState<number | null>(null);
 
   // Fetch legal moves when species changes
   useEffect(() => {
@@ -94,29 +91,12 @@ export function MoveSelector({
     };
   }, [species, championsOnly]);
 
-  const filteredMoves = useMemo(() => {
-    if (!searchQuery.trim()) return legalMoveNames.slice(0, 30);
-    const lower = searchQuery.toLowerCase();
-    return legalMoveNames
-      .filter((name) => name.toLowerCase().includes(lower))
-      .slice(0, 30);
-  }, [searchQuery, legalMoveNames]);
-
-  const handleSelectMove = useCallback(
-    (moveName: string) => {
-      // Find first empty slot
-      const emptyIndex = value.findIndex((m) => !m);
-      if (emptyIndex === -1) return; // All slots filled
-
-      // Don't allow duplicate moves
-      if (value.includes(moveName)) return;
-
+  const handlePickMoveForSlot = useCallback(
+    (slotIndex: number, moveName: string) => {
+      if (value.includes(moveName)) return; // duplicate guard
       const newMoves = [...value] as [string, string, string, string];
-      newMoves[emptyIndex] = moveName;
+      newMoves[slotIndex] = moveName;
       onChange(newMoves);
-      setSearchQuery("");
-      setIsDropdownOpen(false);
-      setHighlightIndex(-1);
     },
     [value, onChange],
   );
@@ -130,48 +110,7 @@ export function MoveSelector({
     [value, onChange],
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (!isDropdownOpen) return;
-
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setHighlightIndex((prev) =>
-          prev < filteredMoves.length - 1 ? prev + 1 : 0,
-        );
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setHighlightIndex((prev) =>
-          prev > 0 ? prev - 1 : filteredMoves.length - 1,
-        );
-      } else if (e.key === "Enter" && highlightIndex >= 0) {
-        e.preventDefault();
-        handleSelectMove(filteredMoves[highlightIndex]);
-      } else if (e.key === "Escape") {
-        setIsDropdownOpen(false);
-        setHighlightIndex(-1);
-      }
-    },
-    [isDropdownOpen, filteredMoves, highlightIndex, handleSelectMove],
-  );
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setIsDropdownOpen(false);
-        setHighlightIndex(-1);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const filledCount = value.filter(Boolean).length;
-  const canAddMore = filledCount < 4;
 
   return (
     <div className="flex flex-col gap-3">
@@ -242,94 +181,49 @@ export function MoveSelector({
                   </button>
                 </div>
               ) : (
-                <div className="flex h-[38px] items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
-                  Slot {i + 1}
-                </div>
+                <button
+                  type="button"
+                  disabled={!species || loading}
+                  onClick={() => setSearchSlot(i)}
+                  className="flex h-[38px] w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground transition-colors cursor-pointer hover:border-primary/60 hover:bg-accent/20 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  title={
+                    !species
+                      ? "Pick a Pokemon first"
+                      : loading
+                        ? "Loading moves…"
+                        : `Add a move to slot ${i + 1}`
+                  }
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M5 12h14" />
+                    <path d="M12 5v14" />
+                  </svg>
+                  <span>{loading ? "Loading…" : `Slot ${i + 1}`}</span>
+                </button>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Search input */}
-      {canAddMore && species && (
-        <div ref={containerRef} className="relative">
-          <Input
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setIsDropdownOpen(true);
-              setHighlightIndex(-1);
-            }}
-            onFocus={() => setIsDropdownOpen(true)}
-            onKeyDown={handleKeyDown}
-            placeholder={loading ? "Loading moves..." : "Search moves..."}
-            disabled={loading}
-            autoComplete="off"
-          />
+      <p className="text-[10px] text-muted-foreground">
+        Click a slot to search moves · click a filled move for details · × to remove
+      </p>
 
-          {isDropdownOpen && (
-            <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
-              {filteredMoves.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-muted-foreground">
-                  {loading ? "Loading..." : "No matching moves"}
-                </div>
-              ) : (
-                filteredMoves.map((moveName, i) => {
-                  const data = moveDataCache[moveName];
-                  const isAlreadySelected = value.includes(moveName);
-                  return (
-                    <button
-                      key={moveName}
-                      type="button"
-                      onClick={() => handleSelectMove(moveName)}
-                      onMouseEnter={() => setHighlightIndex(i)}
-                      disabled={isAlreadySelected}
-                      className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors cursor-pointer ${
-                        isAlreadySelected
-                          ? "opacity-40 cursor-not-allowed"
-                          : i === highlightIndex
-                            ? "bg-accent/20 text-foreground"
-                            : "text-foreground hover:bg-border/30"
-                      }`}
-                    >
-                      <span className="flex-1 truncate">{moveName}</span>
-                      {data && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          {data.priority !== 0 && (
-                            <span
-                              className="text-[10px] text-amber-400 font-mono"
-                              title={`Priority ${data.priority > 0 ? "+" : ""}${data.priority}`}
-                            >
-                              {data.priority > 0 ? "+" : ""}
-                              {data.priority}
-                            </span>
-                          )}
-                          <Badge
-                            className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[data.type] ?? "bg-gray-600 text-white"}`}
-                          >
-                            {data.type}
-                          </Badge>
-                          <Badge
-                            className={`text-[10px] px-1.5 py-0 ${CATEGORY_STYLES[data.category] ?? ""}`}
-                          >
-                            {data.category}
-                          </Badge>
-                          {data.basePower > 0 && (
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              {data.basePower}BP
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      <MoveSearchDialog
+        open={searchSlot !== null}
+        onOpenChange={(o) => {
+          if (!o) setSearchSlot(null);
+        }}
+        slotNumber={(searchSlot ?? 0) + 1}
+        legalMoveNames={legalMoveNames}
+        moveDataCache={moveDataCache}
+        alreadyChosen={value as unknown as string[]}
+        loading={loading}
+        onPick={(moveName) => {
+          if (searchSlot !== null) handlePickMoveForSlot(searchSlot, moveName);
+        }}
+      />
 
       <MoveDetailsDialog
         open={detailMove !== null}
