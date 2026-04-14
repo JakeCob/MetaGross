@@ -87,11 +87,11 @@ export const CHAMPIONS_POKEMON: string[] = [
   // Gen 6
   "Chesnaught", "Delphox", "Greninja", "Diggersby", "Talonflame",
   "Vivillon", "Floette-Eternal", "Florges", "Pangoro", "Furfrou",
-  "Meowstic", "Meowstic-Female", "Aegislash", "Aromatisse", "Slurpuff",
+  "Meowstic", "Meowstic-F", "Aegislash", "Aromatisse", "Slurpuff",
   "Clawitzer", "Heliolisk", "Tyrantrum", "Aurorus", "Sylveon",
   "Hawlucha", "Dedenne", "Goodra", "Goodra-Hisui", "Klefki",
   "Trevenant",
-  "Gourgeist", "Gourgeist-Small", "Gourgeist-Large", "Gourgeist-Jumbo",
+  "Gourgeist", "Gourgeist-Small", "Gourgeist-Large", "Gourgeist-Super",
   "Avalugg", "Avalugg-Hisui", "Noivern",
   // Gen 7
   "Decidueye", "Decidueye-Hisui", "Incineroar", "Primarina",
@@ -105,7 +105,7 @@ export const CHAMPIONS_POKEMON: string[] = [
   "Dragapult",
   // Hisuian / Legends Arceus additions
   "Wyrdeer", "Kleavor",
-  "Basculegion", "Basculegion-Female", "Sneasler",
+  "Basculegion", "Basculegion-F", "Sneasler",
   // Gen 9 (Paldea — non-Paradox, non-restricted only)
   "Meowscarada", "Skeledirge", "Quaquaval",
   "Maushold", "Maushold-Four",

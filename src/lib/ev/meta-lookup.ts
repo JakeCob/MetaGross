@@ -473,20 +473,6 @@ const CHAMPIONS_THREATS: MetaThreat[] = [
       }),
     ],
   },
-  {
-    species: "Rillaboom",
-    usagePercent: 14.6,
-    commonSets: [
-      makeSet({
-        species: "Rillaboom",
-        ability: "Grassy Surge",
-        item: "Assault Vest",
-        nature: "Adamant",
-        moves: ["Wood Hammer", "Grassy Glide", "Fake Out", "U-turn"],
-        evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
-      }),
-    ],
-  },
 ];
 
 /**
