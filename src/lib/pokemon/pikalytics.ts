@@ -65,9 +65,13 @@ interface CacheEntry<T> {
 }
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes when Pikalytics is unreachable
+const FETCH_TIMEOUT_MS = 3000; // give up on a single request after 3s
 
 const topUsageCache = new Map<string, CacheEntry<PikalyticsUsageEntry[]>>();
 const detailCache = new Map<string, CacheEntry<PikalyticsPokemonDetail>>();
+// Negative cache: keys in here will short-circuit immediately until TTL expires.
+const negativeCache = new Map<string, number>();
 
 function getCached<T>(
   cache: Map<string, CacheEntry<T>>,
@@ -86,6 +90,56 @@ function setCache<T>(
   data: T,
 ): void {
   cache.set(key, { data, fetchedAt: Date.now() });
+}
+
+function isNegCached(key: string): boolean {
+  const until = negativeCache.get(key);
+  if (!until) return false;
+  if (Date.now() > until) {
+    negativeCache.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function markUnreachable(key: string): void {
+  negativeCache.set(key, Date.now() + NEGATIVE_CACHE_TTL_MS);
+}
+
+/**
+ * Classify a fetch error: true if it's a transient network failure
+ * (timeout, DNS, connection refused). We suppress the noisy stack for
+ * these and mark the host as unreachable for a short window.
+ */
+function isNetworkError(err: unknown): boolean {
+  const e = err as { code?: string; name?: string; cause?: { code?: string } };
+  if (!e) return false;
+  if (e.name === "AbortError") return true;
+  const code = e.code ?? e.cause?.code;
+  return (
+    code === "ETIMEDOUT" ||
+    code === "ECONNREFUSED" ||
+    code === "ENOTFOUND" ||
+    code === "ECONNRESET" ||
+    code === "EAI_AGAIN"
+  );
+}
+
+/**
+ * Wrap fetch with an AbortController timeout so we never hang on a
+ * blocked/offline Pikalytics host.
+ */
+async function fetchWithTimeout(url: string): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, {
+      headers: { "User-Agent": "MetaGross/1.0 (VGC analysis tool)" },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -277,17 +331,17 @@ export async function getPikalyticsTopUsage(
   const cacheKey = format;
   const cached = getCached(topUsageCache, cacheKey);
   if (cached) return cached;
+  if (isNegCached(`top:${format}`)) return [];
 
   try {
     const url = `${PIKALYTICS_BASE}/${encodeURIComponent(format)}`;
-    const response = await fetch(url, {
-      headers: { "User-Agent": "MetaGross/1.0 (VGC analysis tool)" },
-    });
+    const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
       console.error(
         `[pikalytics] Failed to fetch top usage for ${format}: ${response.status}`,
       );
+      markUnreachable(`top:${format}`);
       return [];
     }
 
@@ -298,6 +352,14 @@ export async function getPikalyticsTopUsage(
     }
     return entries;
   } catch (err) {
+    if (isNetworkError(err)) {
+      // Quiet one-line warning — Pikalytics unreachable from this host.
+      console.warn(
+        `[pikalytics] unreachable (top-usage ${format}); using fallback for ${NEGATIVE_CACHE_TTL_MS / 1000}s`,
+      );
+      markUnreachable(`top:${format}`);
+      return [];
+    }
     console.error(`[pikalytics] Error fetching top usage for ${format}:`, err);
     return [];
   }
@@ -313,17 +375,26 @@ export async function getPikalyticsPokemonDetail(
   const cacheKey = `${format}:${species}`;
   const cached = getCached(detailCache, cacheKey);
   if (cached) return cached;
+  // If the whole host is unreachable, short-circuit every detail lookup
+  // too — no point hammering per-species when the top-level already failed.
+  if (isNegCached(`top:${format}`) || isNegCached(`detail:${cacheKey}`)) {
+    return null;
+  }
 
   try {
     const url = `${PIKALYTICS_BASE}/${encodeURIComponent(format)}/${encodeURIComponent(species)}`;
-    const response = await fetch(url, {
-      headers: { "User-Agent": "MetaGross/1.0 (VGC analysis tool)" },
-    });
+    const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
-      console.error(
-        `[pikalytics] Failed to fetch detail for ${species} in ${format}: ${response.status}`,
-      );
+      if (response.status === 404) {
+        // Not a transient failure — cache "null" for the full TTL so we
+        // don't retry a species that simply isn't on Pikalytics.
+        markUnreachable(`detail:${cacheKey}`);
+      } else {
+        console.error(
+          `[pikalytics] Failed to fetch detail for ${species} in ${format}: ${response.status}`,
+        );
+      }
       return null;
     }
 
@@ -343,6 +414,16 @@ export async function getPikalyticsPokemonDetail(
     setCache(detailCache, cacheKey, detail);
     return detail;
   } catch (err) {
+    if (isNetworkError(err)) {
+      // Mark the whole host unreachable — any other species we try will
+      // fail the same way until the circuit opens.
+      markUnreachable(`top:${format}`);
+      markUnreachable(`detail:${cacheKey}`);
+      console.warn(
+        `[pikalytics] unreachable (detail ${species}/${format}); using fallback for ${NEGATIVE_CACHE_TTL_MS / 1000}s`,
+      );
+      return null;
+    }
     console.error(
       `[pikalytics] Error fetching detail for ${species} in ${format}:`,
       err,

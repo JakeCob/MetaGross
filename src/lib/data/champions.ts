@@ -143,7 +143,8 @@ export const NOT_IN_CHAMPIONS: string[] = [
   "Iron Treads", "Iron Bundle", "Iron Moth", "Iron Thorns",
   "Roaring Moon", "Iron Valiant", "Walking Wake", "Iron Leaves",
   "Gouging Fire", "Raging Bolt", "Iron Boulder", "Iron Crown",
-  // Middle-stage evolutions — Champions only allows fully-evolved / single-stage
+  // Common excluded middle-stage evolutions. Current Bulbapedia roster still
+  // has explicit exceptions such as Pikachu and Eternal Flower Floette.
   "Chansey", "Porygon2", "Electabuzz", "Magmar", "Rhydon",
   "Scyther", "Piloswine", "Dusclops", "Gurdurr", "Boldore",
   "Sneasel", "Sneasel-Hisui", "Duosion", "Klang", "Pawmo",
