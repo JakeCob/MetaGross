@@ -446,20 +446,6 @@ const CHAMPIONS_THREATS: MetaThreat[] = [
     ],
   },
   {
-    species: "Metagross-Mega",
-    usagePercent: 19.4,
-    commonSets: [
-      makeSet({
-        species: "Metagross",
-        ability: "Tough Claws",
-        item: "Metagrossite",
-        nature: "Jolly",
-        moves: ["Iron Head", "Psychic Fangs", "Stomping Tantrum", "Protect"],
-        evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
-      }),
-    ],
-  },
-  {
     species: "Gardevoir-Mega",
     usagePercent: 17.1,
     commonSets: [

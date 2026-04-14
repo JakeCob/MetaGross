@@ -47,40 +47,73 @@ export const CHAMPIONS_POINTS = {
 
 /**
  * Pokemon confirmed in Champions Reg M-A.
- * Top 50 from Pikalytics competitive usage + additional confirmed from
- * Serebii/Bulbapedia full game Pokedex (187 total species in game).
+ * Source of truth: Bulbapedia — List of Pokémon in Pokémon Champions
+ * (https://bulbapedia.bulbagarden.net/wiki/List_of_Pokémon_in_Pokémon_Champions)
+ * Last synced: 2026-04-13.
  */
 export const CHAMPIONS_POKEMON: string[] = [
-  // Top competitive usage (Pikalytics top 50)
-  "Incineroar", "Sneasler", "Sinistcha", "Sinistcha-Masterpiece",
-  "Archaludon", "Whimsicott", "Pelipper", "Garchomp", "Farigiraf",
-  "Dragonite", "Charizard", "Basculegion", "Tyranitar", "Kingambit",
-  "Gengar", "Metagross", "Froslass", "Venusaur", "Primarina",
-  "Rotom-Wash", "Corviknight", "Excadrill", "Gardevoir", "Milotic",
-  "Dragapult", "Talonflame", "Torkoal", "Dondozo", "Clefable",
-  "Arcanine-Hisui", "Maushold", "Maushold-Four", "Gyarados", "Salamence",
-  "Meganium", "Meowscarada", "Politoed", "Meowstic-F", "Volcarona",
-  "Tatsugiri", "Ninetales-Alola", "Grimmsnarl", "Aegislash", "Delphox",
-  "Kommo-o", "Kangaskhan", "Glimmora", "Palafin-Hero", "Raichu", "Sylveon",
-  // Additional confirmed from Serebii/Bulbapedia (partial list of 187 total)
-  "Blastoise", "Beedrill", "Pidgeot", "Arbok", "Pikachu", "Arcanine",
-  "Alakazam", "Machamp", "Slowbro", "Pinsir", "Tauros", "Snorlax",
-  "Vaporeon", "Jolteon", "Flareon", "Aerodactyl", "Starmie",
-  "Typhlosion", "Feraligatr", "Ampharos", "Azumarill", "Espeon",
-  "Umbreon", "Slowking", "Forretress", "Steelix", "Scizor", "Heracross",
-  "Skarmory", "Houndoom", "Altaria", "Absol", "Sableye",
-  "Empoleon", "Lopunny", "Lucario", "Hippowdon", "Rhyperior",
-  "Leafeon", "Glaceon", "Gliscor",
-  "Serperior", "Emboar", "Samurott", "Krookodile", "Zoroark",
-  "Hydreigon", "Audino",
-  "Chesnaught", "Greninja", "Diggersby", "Meowstic", "Hawlucha",
-  "Goodra", "Noivern", "Klefki",
-  "Decidueye", "Toxapex", "Mudsdale", "Araquanid", "Salazzle",
-  "Tsareena", "Oranguru", "Passimian", "Mimikyu", "Drampa",
-  "Hatterene", "Polteageist", "Alcremie", "Morpeko",
-  "Skeledirge", "Quaquaval", "Garganacl", "Armarouge", "Ceruledge",
-  "Bellibolt", "Tinkaton", "Orthworm", "Hydrapple",
+  // Gen 1
+  "Venusaur", "Charizard", "Blastoise", "Beedrill", "Pidgeot", "Arbok",
+  "Pikachu", "Raichu", "Raichu-Alola", "Clefable",
+  "Ninetales", "Ninetales-Alola", "Arcanine", "Arcanine-Hisui",
+  "Alakazam", "Machamp", "Victreebel", "Slowbro", "Slowbro-Galar",
+  "Gengar", "Kangaskhan", "Starmie", "Pinsir",
+  "Tauros", "Tauros-Paldea-Combat", "Tauros-Paldea-Blaze", "Tauros-Paldea-Aqua",
+  "Gyarados", "Ditto", "Vaporeon", "Jolteon", "Flareon",
+  "Aerodactyl", "Snorlax", "Dragonite",
+  // Gen 2
+  "Meganium", "Typhlosion", "Typhlosion-Hisui", "Feraligatr",
+  "Ariados", "Ampharos", "Azumarill", "Politoed", "Espeon", "Umbreon",
+  "Slowking", "Slowking-Galar", "Forretress", "Steelix", "Scizor",
+  "Heracross", "Skarmory", "Houndoom", "Tyranitar",
+  // Gen 3
+  "Pelipper", "Gardevoir", "Sableye", "Aggron", "Medicham",
+  "Manectric", "Sharpedo", "Camerupt", "Torkoal", "Altaria",
+  "Milotic", "Castform", "Banette", "Chimecho", "Absol", "Glalie",
+  // Gen 4
+  "Torterra", "Infernape", "Empoleon", "Luxray", "Roserade",
+  "Rampardos", "Bastiodon", "Lopunny", "Spiritomb", "Garchomp",
+  "Lucario", "Hippowdon", "Toxicroak", "Abomasnow", "Weavile",
+  "Rhyperior", "Leafeon", "Glaceon", "Gliscor", "Mamoswine",
+  "Gallade", "Froslass",
+  "Rotom", "Rotom-Heat", "Rotom-Wash", "Rotom-Frost", "Rotom-Fan", "Rotom-Mow",
+  // Gen 5
+  "Serperior", "Emboar", "Samurott", "Samurott-Hisui",
+  "Watchog", "Liepard", "Simisage", "Simisear", "Simipour",
+  "Excadrill", "Audino", "Conkeldurr", "Whimsicott", "Krookodile",
+  "Cofagrigus", "Garbodor", "Zoroark", "Zoroark-Hisui",
+  "Reuniclus", "Vanilluxe", "Emolga", "Chandelure", "Beartic",
+  "Stunfisk", "Stunfisk-Galar", "Golurk", "Hydreigon", "Volcarona",
+  // Gen 6
+  "Chesnaught", "Delphox", "Greninja", "Diggersby", "Talonflame",
+  "Vivillon", "Floette-Eternal", "Florges", "Pangoro", "Furfrou",
+  "Meowstic", "Meowstic-Female", "Aegislash", "Aromatisse", "Slurpuff",
+  "Clawitzer", "Heliolisk", "Tyrantrum", "Aurorus", "Sylveon",
+  "Hawlucha", "Dedenne", "Goodra", "Goodra-Hisui", "Klefki",
+  "Trevenant",
+  "Gourgeist", "Gourgeist-Small", "Gourgeist-Large", "Gourgeist-Jumbo",
+  "Avalugg", "Avalugg-Hisui", "Noivern",
+  // Gen 7
+  "Decidueye", "Decidueye-Hisui", "Incineroar", "Primarina",
+  "Toucannon", "Crabominable",
+  "Lycanroc", "Lycanroc-Midnight", "Lycanroc-Dusk",
+  "Toxapex", "Mudsdale", "Araquanid", "Salazzle", "Tsareena",
+  "Oranguru", "Passimian", "Mimikyu", "Drampa", "Kommo-o",
+  // Gen 8
+  "Corviknight", "Flapple", "Appletun", "Sandaconda", "Polteageist",
+  "Hatterene", "Mr. Rime", "Runerigus", "Alcremie", "Morpeko",
+  "Dragapult",
+  // Hisuian / Legends Arceus additions
   "Wyrdeer", "Kleavor",
+  "Basculegion", "Basculegion-Female", "Sneasler",
+  // Gen 9 (Paldea — non-Paradox, non-restricted only)
+  "Meowscarada", "Skeledirge", "Quaquaval",
+  "Maushold", "Maushold-Four",
+  "Garganacl", "Armarouge", "Ceruledge", "Bellibolt", "Scovillain",
+  "Espathra", "Tinkaton", "Palafin", "Palafin-Hero", "Orthworm",
+  "Glimmora", "Farigiraf", "Kingambit",
+  "Sinistcha", "Sinistcha-Masterpiece",
+  "Archaludon", "Hydrapple",
 ];
 
 // NOTE: The list above contains source-verified entries from Pikalytics
@@ -102,6 +135,9 @@ export const NOT_IN_CHAMPIONS: string[] = [
   "Calyrex-Shadow", "Zacian", "Zamazenta", "Eternatus",
   "Koraidon", "Miraidon", "Ogerpon", "Raging Bolt", "Iron Crown",
   "Landorus", "Thundurus", "Tornadus", "Chien-Pao",
+  // Confirmed cut from Champions Reg M-A (verified against Bulbapedia
+  // roster 2026-04-13) — do NOT recommend these:
+  "Metagross", "Salamence", "Dondozo", "Tatsugiri", "Grimmsnarl",
   // All Paradox Pokemon
   "Great Tusk", "Scream Tail", "Brute Bonnet", "Sandy Shocks",
   "Iron Treads", "Iron Bundle", "Iron Moth", "Iron Thorns",
@@ -219,11 +255,11 @@ export const CHAMPIONS_MEGAS: Record<string, { stone: string; confirmed: boolean
 /**
  * Pokemon that exist in Champions but CANNOT Mega Evolve
  * (their Mega Stone is not in the game).
+ *
+ * NOTE: Metagross and Salamence are NOT in Champions at all — see
+ * NOT_IN_CHAMPIONS above.
  */
-export const NO_MEGA_DESPITE_BASE: string[] = [
-  "Metagross", // Metagrossite NOT in game
-  "Salamence", // Salamencite NOT in game
-];
+export const NO_MEGA_DESPITE_BASE: string[] = [];
 
 // ---------------------------------------------------------------------------
 // Helpers
