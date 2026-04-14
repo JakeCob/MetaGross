@@ -59,18 +59,33 @@ export async function getMovesForSpecies(
 ): Promise<string[]> {
   // Gen 9 learnset is preferred, but falls back to the full Dex learnset
   // for Pokemon cut from SV (Starmie, Togekiss, etc.) whose learnset still
-  // exists in the broader dataset.
+  // exists in the broader dataset. Cosmetic / size variants (Gourgeist-
+  // Small, Maushold-Four, Alcremie forms, …) don't have their own learnset
+  // entry — they share the base species' moveset.
   const moveIds = new Set<string>();
 
-  const gen9Learnable = await defaultGen.learnsets.learnable(speciesName);
-  if (gen9Learnable) {
-    for (const id of Object.keys(gen9Learnable)) moveIds.add(id);
+  async function collect(name: string) {
+    const gen9 = await defaultGen.learnsets.learnable(name);
+    if (gen9) {
+      for (const id of Object.keys(gen9)) moveIds.add(id);
+      return;
+    }
+    const dex = await Dex.learnsets.get(name);
+    if (dex?.learnset) {
+      for (const id of Object.keys(dex.learnset)) moveIds.add(id);
+    }
   }
 
+  await collect(speciesName);
+
+  // Form variant fallback — try the Dex's baseSpecies if nothing landed.
   if (moveIds.size === 0) {
-    const dexLearnset = await Dex.learnsets.get(speciesName);
-    if (dexLearnset?.learnset) {
-      for (const id of Object.keys(dexLearnset.learnset)) moveIds.add(id);
+    const specie =
+      (defaultGen.species.get(speciesName) as { baseSpecies?: string } | undefined) ??
+      (Dex.species.get(speciesName) as { baseSpecies?: string } | undefined);
+    const base = specie?.baseSpecies;
+    if (base && base !== speciesName) {
+      await collect(base);
     }
   }
 
