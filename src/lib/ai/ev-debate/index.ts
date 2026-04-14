@@ -4,7 +4,7 @@ import type { EVDebateStateType } from "./state";
 import { proposeSpreadNode } from "./nodes/propose-spread";
 import { wolfeReviewNode } from "./nodes/wolfe-review";
 import { cybertronReviewNode } from "./nodes/cybertron-review";
-import { simulateNode } from "./nodes/simulate";
+import { simulateNode, simulateInitialNode } from "./nodes/simulate";
 import { finalizeNode } from "./nodes/finalize";
 import type { TeamPokemon, EVSpread } from "@/lib/types/pokemon";
 import { createSessionLogger } from "@/lib/ai/logger";
@@ -26,27 +26,28 @@ function shouldLoop(state: EVDebateStateType): "propose_spread" | "__end__" {
 
 // ---------------------------------------------------------------------------
 // Build the debate graph
+// Order: simulate (baseline) → propose full set → wolfe → cybertron →
+//        simulate (post-debate) → finalize → [loop back to propose?]
 // ---------------------------------------------------------------------------
 function buildDebateGraph() {
   const graph = new StateGraph(EVDebateState)
+    .addNode("simulate_initial", simulateInitialNode)
     .addNode("propose_spread", proposeSpreadNode)
     .addNode("wolfe_review", wolfeReviewNode)
     .addNode("cybertron_review", cybertronReviewNode)
     .addNode("simulate", simulateNode)
     .addNode("finalize", finalizeNode)
-    // Linear flow: START -> propose -> wolfe -> cybertron -> simulate -> finalize
-    .addEdge(START, "propose_spread")
+    .addEdge(START, "simulate_initial")
+    .addEdge("simulate_initial", "propose_spread")
     .addEdge("propose_spread", "wolfe_review")
     .addEdge("wolfe_review", "cybertron_review")
     .addEdge("cybertron_review", "simulate")
     .addEdge("simulate", "finalize")
-    // After finalize: conditional loop or end
     .addConditionalEdges("finalize", shouldLoop, {
       propose_spread: "propose_spread",
       __end__: END,
     });
 
-  // No checkpointer -- stateless, no persistence needed
   return graph.compile();
 }
 
@@ -66,9 +67,15 @@ function getDebateGraph() {
 export interface EVDebateResult {
   spread: EVSpread;
   nature: string;
+  moves: string[];
+  ability: string;
+  item: string;
   reasoning: string;
   wolfeComment: string;
   cybertronComment: string;
+  /** Simulation run with the user's original set (baseline). */
+  initialBenchmarks: SimulationResult[];
+  /** Simulation run with the proposed set after debate. */
   benchmarks: SimulationResult[];
   iterations: number;
 }
@@ -98,6 +105,9 @@ export async function optimizeEVSpread(
     format,
     currentSpread: pokemon.evs,
     currentNature: pokemon.nature,
+    currentMoves: [...pokemon.moves],
+    currentAbility: pokemon.ability,
+    currentItem: pokemon.item,
     iterations: 0,
     maxIterations: 2,
   };
@@ -106,12 +116,16 @@ export async function optimizeEVSpread(
   const finalState = await graph.invoke(input);
   const durationMs = Date.now() - startTime;
 
-  const result = {
+  const result: EVDebateResult = {
     spread: finalState.finalSpread ?? finalState.currentSpread,
     nature: finalState.finalNature ?? finalState.currentNature,
+    moves: (finalState.finalMoves ?? finalState.currentMoves) as string[],
+    ability: finalState.finalAbility ?? finalState.currentAbility ?? pokemon.ability,
+    item: finalState.finalItem ?? finalState.currentItem ?? pokemon.item,
     reasoning: finalState.finalReasoning ?? "Optimization complete.",
     wolfeComment: finalState.wolfeReview ?? "",
     cybertronComment: finalState.cybertronReview ?? "",
+    initialBenchmarks: finalState.initialSimulationResults ?? [],
     benchmarks: finalState.simulationResults ?? [],
     iterations: finalState.iterations,
   };
@@ -145,6 +159,9 @@ export async function* streamEVDebate(
     format,
     currentSpread: pokemon.evs,
     currentNature: pokemon.nature,
+    currentMoves: [...pokemon.moves],
+    currentAbility: pokemon.ability,
+    currentItem: pokemon.item,
     iterations: 0,
     maxIterations: 2,
   };

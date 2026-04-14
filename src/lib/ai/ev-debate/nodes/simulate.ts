@@ -7,31 +7,13 @@ import type { TeamPokemon } from "@/lib/types/pokemon";
 import { CHAMPIONS_POINTS } from "@/lib/data/champions";
 
 /**
- * Node: pure calculation, NO LLM. Runs damage calcs and speed comparisons
- * for the current spread against top meta threats.
+ * Run the benchmark simulation for a given Pokemon+spread combination.
+ * Pure calculation, no LLM.
  */
-export async function simulateNode(
-  state: EVDebateStateType,
-): Promise<Partial<EVDebateStateUpdate>> {
-  const { pokemon, currentSpread, currentNature, format } = state;
-  const isChampions = format.toLowerCase().startsWith("champions");
-
-  // Build the test Pokemon with the current proposed spread
-  const testPokemon: TeamPokemon = {
-    ...pokemon,
-    evs: isChampions
-      ? {
-          hp: currentSpread.hp * CHAMPIONS_POINTS.evConversion,
-          atk: currentSpread.atk * CHAMPIONS_POINTS.evConversion,
-          def: currentSpread.def * CHAMPIONS_POINTS.evConversion,
-          spa: currentSpread.spa * CHAMPIONS_POINTS.evConversion,
-          spd: currentSpread.spd * CHAMPIONS_POINTS.evConversion,
-          spe: currentSpread.spe * CHAMPIONS_POINTS.evConversion,
-        }
-      : currentSpread,
-    nature: currentNature,
-  };
-
+function runBenchmarks(
+  testPokemon: TeamPokemon,
+  format: string,
+): SimulationResult[] {
   const threats = getMetaThreats(format).slice(0, 10);
   const results: SimulationResult[] = [];
 
@@ -56,7 +38,7 @@ export async function simulateNode(
       let bestOurDmg = 0;
       let bestOurMove = "";
 
-      for (const moveName of pokemon.moves) {
+      for (const moveName of testPokemon.moves) {
         if (!moveName) continue;
         const dmg = calculateDamage(testPokemon, threatSet, moveName, {
           isDoubles: true,
@@ -93,6 +75,57 @@ export async function simulateNode(
       });
     }
   }
+  return results;
+}
 
+function buildTestPokemon(state: EVDebateStateType): TeamPokemon {
+  const { pokemon, currentSpread, currentNature, currentMoves, currentAbility, currentItem, format } = state;
+  const isChampions = format.toLowerCase().startsWith("champions");
+  const moves = (currentMoves.length === 4
+    ? currentMoves
+    : [...currentMoves, "", "", "", ""].slice(0, 4)) as [string, string, string, string];
+  return {
+    ...pokemon,
+    ability: currentAbility || pokemon.ability,
+    item: currentItem || pokemon.item,
+    moves,
+    evs: isChampions
+      ? {
+          hp: currentSpread.hp * CHAMPIONS_POINTS.evConversion,
+          atk: currentSpread.atk * CHAMPIONS_POINTS.evConversion,
+          def: currentSpread.def * CHAMPIONS_POINTS.evConversion,
+          spa: currentSpread.spa * CHAMPIONS_POINTS.evConversion,
+          spd: currentSpread.spd * CHAMPIONS_POINTS.evConversion,
+          spe: currentSpread.spe * CHAMPIONS_POINTS.evConversion,
+        }
+      : currentSpread,
+    nature: currentNature,
+  };
+}
+
+/**
+ * Initial simulation — runs BEFORE propose. Uses the user's set as-is so
+ * the proposal node can see what specifically fails under the current
+ * configuration and optimize accordingly.
+ */
+export async function simulateInitialNode(
+  state: EVDebateStateType,
+): Promise<Partial<EVDebateStateUpdate>> {
+  const testPokemon = buildTestPokemon(state);
+  const results = runBenchmarks(testPokemon, state.format);
+  // Populate BOTH so the propose node always has something to diff against.
+  return { initialSimulationResults: results, simulationResults: results };
+}
+
+/**
+ * Final simulation — runs AFTER the personas have agreed. Benchmarks the
+ * proposed set against the meta threats; results feed the finalize node
+ * and any looping logic.
+ */
+export async function simulateNode(
+  state: EVDebateStateType,
+): Promise<Partial<EVDebateStateUpdate>> {
+  const testPokemon = buildTestPokemon(state);
+  const results = runBenchmarks(testPokemon, state.format);
   return { simulationResults: results };
 }

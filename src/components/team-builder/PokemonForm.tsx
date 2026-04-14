@@ -385,8 +385,25 @@ export function PokemonForm({ value, onChange, slot, format = "", team = [] }: P
                   )
               }
               format={format}
-              onComplete={(evs, nature) => {
-                update({ evs, nature });
+              onComplete={(evs, nature, full) => {
+                if (full) {
+                  const paddedMoves = [
+                    ...full.moves,
+                    "",
+                    "",
+                    "",
+                    "",
+                  ].slice(0, 4) as [string, string, string, string];
+                  update({
+                    evs: full.spread,
+                    nature: full.nature,
+                    moves: paddedMoves,
+                    ability: full.ability || value.ability,
+                    item: full.item || value.item,
+                  });
+                } else {
+                  update({ evs, nature });
+                }
               }}
             />
           )}

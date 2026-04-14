@@ -27,11 +27,24 @@ interface SimResult {
 interface DebateResult {
   spread: EVSpread;
   nature: string;
+  moves: string[];
+  ability: string;
+  item: string;
   reasoning: string;
   wolfeComment: string;
   cybertronComment: string;
+  initialBenchmarks: SimResult[];
   benchmarks: SimResult[];
   iterations: number;
+}
+
+/** Full optimized set applied back to the team editor. */
+export interface FinalSet {
+  spread: EVSpread;
+  nature: string;
+  moves: string[];
+  ability: string;
+  item: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,7 +54,47 @@ export interface EVDebatePanelProps {
   pokemon: TeamPokemon;
   team: TeamPokemon[];
   format?: string;
-  onComplete?: (spread: EVSpread, nature: string) => void;
+  /**
+   * Called when the user accepts the debated set.
+   * Receives the full set (moves/ability/item as well as spread/nature).
+   * The legacy (spread, nature) shape remains supported via an overload-
+   * style call — we always pass both so older callers still work.
+   */
+  onComplete?: (spread: EVSpread, nature: string, full?: FinalSet) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Single row of the before/after set diff.
+// ---------------------------------------------------------------------------
+function SetRow({
+  label,
+  from,
+  to,
+}: {
+  label: string;
+  from: string;
+  to: string;
+}) {
+  const changed = (from ?? "").trim() !== (to ?? "").trim();
+  return (
+    <>
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground self-center">
+        {label}
+      </span>
+      <div className="flex flex-col gap-0.5">
+        {changed ? (
+          <>
+            <span className="text-rose-400 line-through decoration-rose-400/60">
+              {from || "(unset)"}
+            </span>
+            <span className="text-emerald-300">{to || "(unset)"}</span>
+          </>
+        ) : (
+          <span className="text-foreground/80">{to || "(unset)"}</span>
+        )}
+      </div>
+    </>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -141,10 +194,11 @@ export function EVDebatePanel({
         const nodeData = (data.data ?? {}) as Record<string, unknown>;
 
         const agentLabels: Record<string, { label: string; agent: string }> = {
+          simulate_initial: { label: "Simulator (baseline)", agent: "simulator" },
           propose: { label: "Spread Specialist", agent: "specialist" },
           wolfe: { label: "Wolfe Glick", agent: "wolfe" },
           cybertron: { label: "CybertronVGC", agent: "cybertron" },
-          simulate: { label: "Simulator", agent: "simulator" },
+          simulate: { label: "Simulator (post-debate)", agent: "simulator" },
           finalize: { label: "Final Decision", agent: "finalize" },
         };
 
@@ -157,13 +211,33 @@ export function EVDebatePanel({
         if (node === "propose") {
           const s = nodeData.currentSpread as EVSpread | undefined;
           const n = nodeData.currentNature as string | undefined;
+          const mv = (nodeData.currentMoves as string[] | undefined)?.filter(Boolean) ?? [];
+          const ab = nodeData.currentAbility as string | undefined;
+          const it = nodeData.currentItem as string | undefined;
+          const lines: string[] = [];
+          if (ab) lines.push(`Ability: ${ab}`);
+          if (it) lines.push(`Item: ${it}`);
+          if (mv.length) lines.push(`Moves: ${mv.join(" / ")}`);
           if (s) {
-            content = `${n ?? "Hardy"}: HP ${s.hp} / Atk ${s.atk} / Def ${s.def} / SpA ${s.spa} / SpD ${s.spd} / Spe ${s.spe}`;
+            lines.push(
+              `${n ?? "Hardy"}: HP ${s.hp} / Atk ${s.atk} / Def ${s.def} / SpA ${s.spa} / SpD ${s.spd} / Spe ${s.spe}`,
+            );
           }
+          content = lines.join("\n");
         } else if (node === "wolfe") {
           content = (nodeData.wolfeReview as string) ?? "";
         } else if (node === "cybertron") {
           content = (nodeData.cybertronReview as string) ?? "";
+        } else if (node === "simulate_initial") {
+          const sims = (nodeData.initialSimulationResults as SimResult[]) ?? [];
+          content = sims.length
+            ? `Baseline (your current set):\n${sims
+                .map(
+                  (r) =>
+                    `${r.survives ? "OK" : "FAIL"} vs ${r.threat}: ${r.damageRange}, ${r.speedComparison}`,
+                )
+                .join("\n")}`
+            : "Baseline simulation complete.";
         } else if (node === "simulate") {
           const sims = (nodeData.simulationResults as SimResult[]) ?? [];
           content = sims
@@ -176,9 +250,20 @@ export function EVDebatePanel({
           const s = nodeData.finalSpread as EVSpread | undefined;
           const n = nodeData.finalNature as string | undefined;
           const r = nodeData.finalReasoning as string | undefined;
+          const mv = (nodeData.finalMoves as string[] | undefined)?.filter(Boolean) ?? [];
+          const ab = nodeData.finalAbility as string | undefined;
+          const it = nodeData.finalItem as string | undefined;
+          const lines: string[] = [];
+          if (ab) lines.push(`Ability: ${ab}`);
+          if (it) lines.push(`Item: ${it}`);
+          if (mv.length) lines.push(`Moves: ${mv.join(" / ")}`);
           if (s) {
-            content = `${n ?? "Hardy"}: HP ${s.hp} / Atk ${s.atk} / Def ${s.def} / SpA ${s.spa} / SpD ${s.spd} / Spe ${s.spe}\n${r ?? ""}`;
+            lines.push(
+              `${n ?? "Hardy"}: HP ${s.hp} / Atk ${s.atk} / Def ${s.def} / SpA ${s.spa} / SpD ${s.spd} / Spe ${s.spe}`,
+            );
           }
+          if (r) lines.push("", r);
+          content = lines.join("\n");
         }
 
         setSteps((prev) => {
@@ -201,9 +286,13 @@ export function EVDebatePanel({
         const r: DebateResult = {
           spread: data.spread as EVSpread,
           nature: (data.nature as string) ?? "Hardy",
+          moves: (data.moves as string[]) ?? ["", "", "", ""],
+          ability: (data.ability as string) ?? "",
+          item: (data.item as string) ?? "",
           reasoning: (data.reasoning as string) ?? "",
           wolfeComment: (data.wolfeComment as string) ?? "",
           cybertronComment: (data.cybertronComment as string) ?? "",
+          initialBenchmarks: (data.initialBenchmarks as SimResult[]) ?? [],
           benchmarks: (data.benchmarks as SimResult[]) ?? [],
           iterations: (data.iterations as number) ?? 1,
         };
@@ -221,7 +310,14 @@ export function EVDebatePanel({
 
   const handleApply = useCallback(() => {
     if (result && onComplete) {
-      onComplete(result.spread, result.nature);
+      const paddedMoves = [...result.moves, "", "", "", ""].slice(0, 4);
+      onComplete(result.spread, result.nature, {
+        spread: result.spread,
+        nature: result.nature,
+        moves: paddedMoves,
+        ability: result.ability,
+        item: result.item,
+      });
     }
   }, [result, onComplete]);
 
@@ -305,15 +401,42 @@ export function EVDebatePanel({
           <div className="flex flex-col gap-3 border-t border-border pt-3">
             <div className="flex items-center gap-2">
               <Badge variant="success" className="text-xs">
-                Final Spread
+                Final Set
               </Badge>
-              <span className="text-sm font-mono text-foreground">
-                {result.nature}: HP {result.spread.hp} / Atk{" "}
-                {result.spread.atk} / Def {result.spread.def} / SpA{" "}
-                {result.spread.spa} / SpD {result.spread.spd} / Spe{" "}
-                {result.spread.spe}
+              <span className="text-xs text-muted-foreground">
+                {result.iterations} iteration{result.iterations !== 1 ? "s" : ""}
               </span>
             </div>
+
+            {/* Set diff block */}
+            <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs font-mono rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+              <SetRow
+                label="Ability"
+                from={pokemon.ability}
+                to={result.ability || pokemon.ability}
+              />
+              <SetRow
+                label="Item"
+                from={pokemon.item}
+                to={result.item || pokemon.item}
+              />
+              <SetRow
+                label="Moves"
+                from={pokemon.moves.filter(Boolean).join(" / ")}
+                to={result.moves.filter(Boolean).join(" / ")}
+              />
+              <SetRow
+                label="Nature"
+                from={pokemon.nature}
+                to={result.nature}
+              />
+              <SetRow
+                label="Spread"
+                from={`HP ${pokemon.evs.hp} / Atk ${pokemon.evs.atk} / Def ${pokemon.evs.def} / SpA ${pokemon.evs.spa} / SpD ${pokemon.evs.spd} / Spe ${pokemon.evs.spe}`}
+                to={`HP ${result.spread.hp} / Atk ${result.spread.atk} / Def ${result.spread.def} / SpA ${result.spread.spa} / SpD ${result.spread.spd} / Spe ${result.spread.spe}`}
+              />
+            </div>
+
             <p className="text-xs text-muted-foreground">
               {result.reasoning}
             </p>
@@ -338,14 +461,10 @@ export function EVDebatePanel({
               </div>
             )}
 
-            <div className="text-xs text-muted-foreground">
-              Completed in {result.iterations} iteration{result.iterations !== 1 ? "s" : ""}
-            </div>
-
             {/* Action buttons */}
             <div className="flex gap-2">
               <Button size="sm" onClick={handleApply}>
-                Apply to Team
+                Apply full set to team
               </Button>
               <Button
                 size="sm"

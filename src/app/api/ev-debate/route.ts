@@ -42,6 +42,7 @@ export async function POST(request: Request) {
           send("start", { species: pokemon.species });
 
           const nodeLabels: Record<string, string> = {
+            simulate_initial: "simulate_initial",
             propose_spread: "propose",
             wolfe_review: "wolfe",
             cybertron_review: "cybertron",
@@ -58,19 +59,27 @@ export async function POST(request: Request) {
           )) {
             const label = nodeLabels[node] ?? node;
             lastState = { ...lastState, ...state };
+            const s = state as Record<string, unknown>;
 
             send("node", {
               node: label,
               data: {
-                currentSpread: (state as Record<string, unknown>).currentSpread ?? undefined,
-                currentNature: (state as Record<string, unknown>).currentNature ?? undefined,
-                wolfeReview: (state as Record<string, unknown>).wolfeReview ?? undefined,
-                cybertronReview: (state as Record<string, unknown>).cybertronReview ?? undefined,
-                simulationResults: (state as Record<string, unknown>).simulationResults ?? undefined,
-                finalSpread: (state as Record<string, unknown>).finalSpread ?? undefined,
-                finalNature: (state as Record<string, unknown>).finalNature ?? undefined,
-                finalReasoning: (state as Record<string, unknown>).finalReasoning ?? undefined,
-                iterations: (state as Record<string, unknown>).iterations ?? undefined,
+                currentSpread: s.currentSpread ?? undefined,
+                currentNature: s.currentNature ?? undefined,
+                currentMoves: s.currentMoves ?? undefined,
+                currentAbility: s.currentAbility ?? undefined,
+                currentItem: s.currentItem ?? undefined,
+                wolfeReview: s.wolfeReview ?? undefined,
+                cybertronReview: s.cybertronReview ?? undefined,
+                initialSimulationResults: s.initialSimulationResults ?? undefined,
+                simulationResults: s.simulationResults ?? undefined,
+                finalSpread: s.finalSpread ?? undefined,
+                finalNature: s.finalNature ?? undefined,
+                finalMoves: s.finalMoves ?? undefined,
+                finalAbility: s.finalAbility ?? undefined,
+                finalItem: s.finalItem ?? undefined,
+                finalReasoning: s.finalReasoning ?? undefined,
+                iterations: s.iterations ?? undefined,
               },
             });
           }
@@ -78,9 +87,13 @@ export async function POST(request: Request) {
           send("done", {
             spread: lastState.finalSpread ?? lastState.currentSpread,
             nature: lastState.finalNature ?? lastState.currentNature,
+            moves: lastState.finalMoves ?? lastState.currentMoves ?? pokemon.moves,
+            ability: lastState.finalAbility ?? lastState.currentAbility ?? pokemon.ability,
+            item: lastState.finalItem ?? lastState.currentItem ?? pokemon.item,
             reasoning: lastState.finalReasoning ?? "Complete.",
             wolfeComment: lastState.wolfeReview ?? "",
             cybertronComment: lastState.cybertronReview ?? "",
+            initialBenchmarks: lastState.initialSimulationResults ?? [],
             benchmarks: lastState.simulationResults ?? [],
             iterations: lastState.iterations ?? 1,
           });

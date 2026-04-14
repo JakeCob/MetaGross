@@ -7,7 +7,7 @@ import type { TeamPokemon } from "@/lib/types/pokemon";
 export const optimizeEVSpreadTool = new DynamicStructuredTool({
   name: "optimize_ev_spread",
   description:
-    "Run the multi-agent EV spread optimizer for a Pokemon. Uses the Wolfe Glick and CybertronVGC personas to debate the spread, then simulates against meta threats. Returns the optimized Champions Stat Points (66 total, 32 max/stat) with reasoning from both experts. Call this for EVERY Pokemon when building a team to get proper spreads.",
+    "Run the multi-agent SET optimizer for a Pokemon. Flow: baseline simulator → Spread Specialist proposes a full set (Ability + Item + Moves + Nature + Points) → Wolfe Glick reviews → CybertronVGC reviews → post-debate simulator → Final Decision synthesizes. Returns the full optimized set with reasoning and before/after benchmark diffs. Call this for EVERY Pokemon. The returned Ability/Item/Moves may differ from your input — use the returned values, not the input.",
   schema: z.object({
     species: z.string().describe("Pokemon species name"),
     role: z.string().describe("Role on the team (e.g., Rain Setter, Physical Sweeper, Intimidate Pivot)"),
@@ -45,14 +45,27 @@ export const optimizeEVSpreadTool = new DynamicStructuredTool({
 
       return JSON.stringify({
         species,
+        optimizedSet: {
+          ability: result.ability,
+          item: result.item,
+          moves: result.moves,
+          nature: result.nature,
+          spread: result.spread,
+        },
+        // Kept for backwards compatibility with any caller that still reads
+        // these top-level fields:
         optimizedSpread: result.spread,
         nature: result.nature,
+        ability: result.ability,
+        item: result.item,
+        moves: result.moves,
         reasoning: result.reasoning,
         wolfeComment: result.wolfeComment,
         cybertronComment: result.cybertronComment,
+        initialBenchmarks: result.initialBenchmarks.slice(0, 5),
         benchmarks: result.benchmarks.slice(0, 5),
         iterations: result.iterations,
-        note: "These are Champions Stat Points (66 total, 32 max/stat). Use these values directly in the Points field.",
+        note: "Spread is Champions Stat Points (66 total, 32 max/stat). Use the full optimizedSet — Ability/Item/Moves/Nature may have been changed by the debate based on teammate synergy and benchmark results.",
       });
     } catch (error) {
       return JSON.stringify({

@@ -5,22 +5,40 @@ import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import type { EVSpread } from "@/lib/types/pokemon";
 import { CHAMPIONS_POINTS } from "@/lib/data/champions";
 
+interface ParsedSet {
+  spread: EVSpread;
+  nature: string;
+  moves: string[];
+  ability: string;
+  item: string;
+  reasoning: string;
+}
+
 /**
- * Parse an EV spread and nature from the LLM response.
- * Expects a line like: "HP 24 / Atk 0 / Def 4 / SpA 0 / SpD 28 / Spe 10"
- * and a line like: "Nature: Adamant"
+ * Parse a structured "set" response from the LLM.
+ * Expected format:
+ *   Ability: <name>
+ *   Item: <name>
+ *   Moves: move1 / move2 / move3 / move4
+ *   Nature: <NatureName>
+ *   Spread: HP n / Atk n / Def n / SpA n / SpD n / Spe n
+ *   Reasoning: <text>
  */
-function parseSpreadFromResponse(
+function parseSetFromResponse(
   text: string,
   totalMax: number,
   perStatMax: number,
-): { spread: EVSpread; nature: string } | null {
+): ParsedSet | null {
   const spreadMatch = text.match(
     /HP\s*(\d+)\s*\/\s*Atk\s*(\d+)\s*\/\s*Def\s*(\d+)\s*\/\s*SpA\s*(\d+)\s*\/\s*SpD\s*(\d+)\s*\/\s*Spe\s*(\d+)/i,
   );
-  const natureMatch = text.match(/Nature:\s*(\w+)/i);
-
   if (!spreadMatch) return null;
+
+  const natureMatch = text.match(/Nature:\s*([A-Za-z]+)/i);
+  const abilityMatch = text.match(/Ability:\s*([^\n]+)/i);
+  const itemMatch = text.match(/Item:\s*([^\n]+)/i);
+  const movesMatch = text.match(/Moves:\s*([^\n]+)/i);
+  const reasoningMatch = text.match(/Reasoning:\s*([\s\S]+?)(?:\n\s*\n|$)/i);
 
   const spread: EVSpread = {
     hp: Math.min(perStatMax, parseInt(spreadMatch[1], 10)),
@@ -31,18 +49,30 @@ function parseSpreadFromResponse(
     spe: Math.min(perStatMax, parseInt(spreadMatch[6], 10)),
   };
 
-  const total = spread.hp + spread.atk + spread.def + spread.spa + spread.spd + spread.spe;
+  const total =
+    spread.hp + spread.atk + spread.def + spread.spa + spread.spd + spread.spe;
   if (total > totalMax) return null;
+
+  const moves = (movesMatch?.[1] ?? "")
+    .split(/\s*\/\s*/)
+    .map((m) => m.trim())
+    .filter(Boolean)
+    .slice(0, 4);
 
   return {
     spread,
-    nature: natureMatch?.[1] ?? "Hardy",
+    nature: natureMatch?.[1]?.trim() ?? "Hardy",
+    moves,
+    ability: abilityMatch?.[1]?.trim() ?? "",
+    item: itemMatch?.[1]?.trim() ?? "",
+    reasoning: reasoningMatch?.[1]?.trim() ?? "Initial set proposal.",
   };
 }
 
 /**
- * Node: propose an initial EV spread for the Pokemon.
- * Uses the LLM with meta threat context.
+ * Node: propose a full optimized set (Ability + Item + Moves + Nature +
+ * Spread). Consumes the initial simulation results so the proposal can
+ * target actual weaknesses shown by the benchmarks.
  */
 export async function proposeSpreadNode(
   state: EVDebateStateType,
@@ -77,50 +107,65 @@ export async function proposeSpreadNode(
     })
     .join("\n");
 
-  // Surface the user's CURRENT configured spread as the starting point.
+  // The initial simulation has already run. Show failures + sharpest
+  // offensive coverage to ground the proposal.
+  const initialSim = state.initialSimulationResults.length > 0
+    ? state.initialSimulationResults
+    : state.simulationResults;
+  const failures = initialSim.filter((r) => !r.survives);
+  const failureSummary = failures.length > 0
+    ? failures.map((f) => `- vs ${f.threat}: ${f.damageRange} | ${f.speedComparison}`).join("\n")
+    : "(all defensive checks currently pass — focus on offensive coverage and role consistency)";
+
   const userSpread = pokemon.evs;
-  const userSpreadLine =
-    userSpread && Object.values(userSpread).some((v) => v > 0)
-      ? `User's current spread (starting point — refine, don't ignore): ${pokemon.nature || "Hardy"} — HP ${userSpread.hp} / Atk ${userSpread.atk} / Def ${userSpread.def} / SpA ${userSpread.spa} / SpD ${userSpread.spd} / Spe ${userSpread.spe}`
-      : `User has not set a spread yet — propose one from scratch.`;
+  const userSet = `
+User's current set (starting point — refine, don't throw away unless clearly wrong):
+  Ability: ${pokemon.ability || "(unset)"}
+  Item:    ${pokemon.item || "(unset)"}
+  Moves:   ${pokemon.moves.filter(Boolean).join(" / ") || "(unset)"}
+  Nature:  ${pokemon.nature || "Hardy"}
+  Spread:  HP ${userSpread.hp} / Atk ${userSpread.atk} / Def ${userSpread.def} / SpA ${userSpread.spa} / SpD ${userSpread.spd} / Spe ${userSpread.spe}`;
 
-  // Categorize moves so the nature suggestion is coherent.
-  const moveList = pokemon.moves.filter(Boolean);
-  const moveHint =
-    moveList.length > 0
-      ? `Moves on this set: ${moveList.join(", ")}. The proposed Nature MUST align with the category of the offensive moves (boost Atk for physical moves, SpA for special moves, never boost an unused attacking stat).`
-      : "No moves chosen yet.";
-
-  // Include feedback from previous iteration if available
+  // Feedback from a previous iteration (we may loop up to maxIterations).
   let feedbackSection = "";
-  if (state.iterations > 0 && state.simulationResults.length > 0) {
-    const failures = state.simulationResults.filter((r) => !r.survives);
-    if (failures.length > 0) {
-      feedbackSection = `\nPREVIOUS ITERATION FEEDBACK:\nThe last spread failed these checks:\n${failures.map((f) => `- vs ${f.threat}: ${f.damageRange}, ${f.speedComparison}`).join("\n")}`;
-      if (state.wolfeReview) feedbackSection += `\nWolfe said: ${state.wolfeReview}`;
-      if (state.cybertronReview) feedbackSection += `\nCybertron said: ${state.cybertronReview}`;
-      feedbackSection += `\nAdjust the spread to address these weaknesses.`;
-    }
+  if (state.iterations > 0) {
+    feedbackSection = `\nPREVIOUS ITERATION FEEDBACK:`;
+    if (state.wolfeReview) feedbackSection += `\nWolfe said: ${state.wolfeReview}`;
+    if (state.cybertronReview) feedbackSection += `\nCybertron said: ${state.cybertronReview}`;
+    feedbackSection += `\nAdjust the set to address the above.`;
   }
 
-  const systemPrompt = `You are an EV spread specialist for VGC doubles${isChampions ? " in Pokemon Champions Regulation M-A" : ""}. Propose optimal ${label} for the given Pokemon. ${isChampions ? `Total must equal ${totalMax}, max ${perStatMax} per stat.` : `Total must equal 510, max 252 per stat.`} Spread across 3-5 stats based on benchmarks. Consider the user's current spread as a starting point (refine, don't ignore it unless clearly wrong). The Nature MUST match the actual offensive category of the moveset.`;
+  const systemPrompt = `You are the Spread Specialist, an expert at building full VGC doubles sets${isChampions ? " for Pokemon Champions Regulation M-A" : ""}.
+
+Your job: propose a complete, optimized set — Ability, Item, Moves (exactly 4, unique), Nature, and ${label}.
+
+HARD RULES:
+- The Nature MUST match the actual offensive category of the moves. Physical attackers get Adamant/Jolly, Special attackers get Modest/Timid, Supports get Bold/Calm/Careful/Relaxed/Sassy.
+- Moves: exactly 4, no duplicates, must make sense for the Pokemon's role. If it's a special attacker, prefer special STAB + coverage. Physical attackers prefer physical moves. Include Protect on bulky pivots.
+- Ability: pick the one that best synergizes with the team strategy (Swift Swim on rain, Chlorophyll on sun, Stamina on Archaludon for bulk, Intimidate on Incineroar, etc.).
+- Item: pick for role (Focus Sash on frail leads, Leftovers on passive bulk, Assault Vest on special-bulky offense, Choice Scarf for speed control, Mega Stone if mega-evolving).
+${isChampions ? `- ${label}: total must equal exactly ${totalMax}, max ${perStatMax} per stat. Spread across 3-5 stats. 1 Champions point = 8 traditional EVs.` : `- ${label}: total must equal exactly ${totalMax}, max ${perStatMax} per stat. Spread across 3-5 stats.`}
+- Consider teammate coverage — don't duplicate roles that teammates already provide.`;
 
   const userPrompt = `Pokemon: ${pokemon.species}
-Ability: ${pokemon.ability}
-Item: ${pokemon.item}
-${moveHint}
-${userSpreadLine}
+${userSet}
+
+Initial benchmark simulation (what the user's current set produces):
+${failureSummary}
 
 Teammates on this team:
-${teammates || "  • None yet"}
+${teammates || "  • (none yet)"}
 
 Top meta threats in this format (defensive benchmarks should target these): ${threatList}
 ${feedbackSection}
 
-Respond with EXACTLY this format (nothing else):
+Respond with EXACTLY this format (and nothing else):
+Ability: <ability name>
+Item: <item name>
+Moves: Move1 / Move2 / Move3 / Move4
 Nature: <NatureName>
 Spread: HP <n> / Atk <n> / Def <n> / SpA <n> / SpD <n> / Spe <n>
-Reasoning: <1-2 sentences>`;
+Reasoning: <2-3 sentences explaining how the changes address the sim failures and complement teammates>`;
 
   const response = await model.invoke([
     new SystemMessage(systemPrompt),
@@ -138,38 +183,45 @@ Reasoning: <1-2 sentences>`;
           .join("")
       : "";
 
-  const parsed = parseSpreadFromResponse(text, totalMax, perStatMax);
-  const reasoningMatch = text.match(/Reasoning:\s*(.+)/i);
-  const reasoning = reasoningMatch?.[1]?.trim() ?? "Initial spread proposal.";
+  const parsed = parseSetFromResponse(text, totalMax, perStatMax);
 
   if (parsed) {
+    const paddedMoves = [...parsed.moves, "", "", "", ""].slice(0, 4);
     return {
       currentSpread: parsed.spread,
       currentNature: parsed.nature,
+      currentMoves: paddedMoves,
+      currentAbility: parsed.ability || pokemon.ability,
+      currentItem: parsed.item || pokemon.item,
       spreadHistory: [
         {
           spread: parsed.spread,
           nature: parsed.nature,
+          moves: paddedMoves,
+          ability: parsed.ability,
+          item: parsed.item,
           source: "spread_specialist",
-          reasoning,
+          reasoning: parsed.reasoning,
         },
       ],
       iterations: state.iterations + 1,
     };
   }
 
-  // Fallback: use a simple offensive or defensive spread
-  const fallbackSpread: EVSpread = isChampions
-    ? { hp: 2, atk: 32, def: 0, spa: 0, spd: 0, spe: 32 }
-    : { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 };
-
+  // Fallback: keep the user's current set.
   return {
-    currentSpread: fallbackSpread,
-    currentNature: "Adamant",
+    currentSpread: pokemon.evs,
+    currentNature: pokemon.nature,
+    currentMoves: [...pokemon.moves],
+    currentAbility: pokemon.ability,
+    currentItem: pokemon.item,
     spreadHistory: [
       {
-        spread: fallbackSpread,
-        nature: "Adamant",
+        spread: pokemon.evs,
+        nature: pokemon.nature,
+        moves: [...pokemon.moves],
+        ability: pokemon.ability,
+        item: pokemon.item,
         source: "spread_specialist",
         reasoning: "Fallback: LLM response could not be parsed.",
       },

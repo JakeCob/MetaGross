@@ -17,6 +17,9 @@ export interface SimulationResult {
 export interface SpreadHistoryEntry {
   spread: EVSpread;
   nature: string;
+  moves?: string[];
+  ability?: string;
+  item?: string;
   source: string;
   reasoning: string;
 }
@@ -49,7 +52,7 @@ export const EVDebateState = Annotation.Root({
     default: () => "champions-reg-m-a",
   }),
 
-  // Debate state
+  // Debate state — full set (moves/ability/item included, not just EVs)
   currentSpread: Annotation<EVSpread>({
     reducer: (_prev, next) => next,
     default: () => ({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 }),
@@ -57,6 +60,18 @@ export const EVDebateState = Annotation.Root({
   currentNature: Annotation<string>({
     reducer: (_prev, next) => next,
     default: () => "Hardy",
+  }),
+  currentMoves: Annotation<string[]>({
+    reducer: (_prev, next) => next,
+    default: () => ["", "", "", ""],
+  }),
+  currentAbility: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
+  }),
+  currentItem: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
   }),
   spreadHistory: Annotation<SpreadHistoryEntry[]>({
     reducer: (prev, next) => [...prev, ...next],
@@ -73,7 +88,11 @@ export const EVDebateState = Annotation.Root({
     default: () => null,
   }),
 
-  // Simulation
+  // Simulation — initial (pre-proposal) and final (post-proposal)
+  initialSimulationResults: Annotation<SimulationResult[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
   simulationResults: Annotation<SimulationResult[]>({
     reducer: (_prev, next) => next,
     default: () => [],
@@ -85,6 +104,18 @@ export const EVDebateState = Annotation.Root({
     default: () => null,
   }),
   finalNature: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+  finalMoves: Annotation<string[] | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+  finalAbility: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+  finalItem: Annotation<string | null>({
     reducer: (_prev, next) => next,
     default: () => null,
   }),
