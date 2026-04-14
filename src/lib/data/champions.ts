@@ -186,13 +186,18 @@ export const CHAMPIONS_ITEMS_CONFIRMED: string[] = [
   "Gyaradosite", "Scizorite", "Heracronite", "Houndoominite",
   "Aerodactylite", "Alakazite", "Ampharosite", "Absolite",
   "Altarianite", "Banettite", "Beedrillite", "Cameruptite",
-  "Lopunnite", "Lucarionite", "Mawilite", "Medichamite",
+  "Lopunnite", "Lucarionite", "Medichamite",
   "Pidgeotite", "Pinsirite", "Sablenite", "Sharpedonite",
-  "Slowbronite", "Steelixite", "Audinite",
-  // New Champions Mega Stones
-  "Meganiumite", "Typhlosionite", "Feraligatrite",
-  "Dragoninite", "Excadrillinite", "Delphoxite",
-  "Greninjaite", "Hawluchite", "Froslasite",
+  "Slowbronite", "Steelixite", "Audinite", "Gardevoirite",
+  "Aggronite", "Glalitite", "Abomasite", "Galladite", "Manectite",
+  // New Champions Mega Stones (Legends Z-A) — spellings per Bulbapedia
+  "Clefablite", "Victreebelite", "Starminite", "Chimechite", "Skarmorite",
+  "Meganiumite", "Feraligite",
+  "Dragoninite", "Excadrite", "Emboarite", "Chandelurite",
+  "Golurkite", "Froslassite",
+  "Chesnaughtite", "Delphoxite", "Greninjite", "Floettite",
+  "Meowsticite", "Hawluchanite",
+  "Drampanite", "Crabominite", "Scovillainite", "Glimmoranite",
 ];
 
 /**
@@ -208,49 +213,80 @@ export const CHAMPIONS_ITEMS_UNCERTAIN: string[] = [
 // Mega Evolutions
 // ---------------------------------------------------------------------------
 
+export interface ChampionsMegaInfo {
+  baseSpecies: string;
+  stone: string;
+  confirmed: boolean;
+}
+
 /**
  * Available Mega Evolutions in Champions.
- * NOTE: Some base Pokemon exist but their Mega Stone is NOT available.
+ *
+ * Keys use the canonical @pkmn/dex Mega species names. Most entries map 1:1
+ * with Bulbapedia's Mega table; `Meowstic-F-Mega` is kept as a separate dex
+ * species even though Bulbapedia folds it into "Mega Meowstic".
  */
-export const CHAMPIONS_MEGAS: Record<string, { stone: string; confirmed: boolean }> = {
-  // Returning Megas (Gen 6/7)
-  "Venusaur": { stone: "Venusaurite", confirmed: true },
-  "Charizard-Mega-X": { stone: "Charizardite X", confirmed: true },
-  "Charizard-Mega-Y": { stone: "Charizardite Y", confirmed: true },
-  "Blastoise": { stone: "Blastoisinite", confirmed: true },
-  "Beedrill": { stone: "Beedrillite", confirmed: true },
-  "Pidgeot": { stone: "Pidgeotite", confirmed: true },
-  "Alakazam": { stone: "Alakazite", confirmed: true },
-  "Slowbro": { stone: "Slowbronite", confirmed: true },
-  "Gengar": { stone: "Gengarite", confirmed: true },
-  "Kangaskhan": { stone: "Kangaskhanite", confirmed: true },
-  "Pinsir": { stone: "Pinsirite", confirmed: true },
-  "Gyarados": { stone: "Gyaradosite", confirmed: true },
-  "Aerodactyl": { stone: "Aerodactylite", confirmed: true },
-  "Steelix": { stone: "Steelixite", confirmed: true },
-  "Scizor": { stone: "Scizorite", confirmed: true },
-  "Heracross": { stone: "Heracronite", confirmed: true },
-  "Houndoom": { stone: "Houndoominite", confirmed: true },
-  "Tyranitar": { stone: "Tyranitarite", confirmed: true },
-  "Gardevoir": { stone: "Gardevoirite", confirmed: true },
-  "Sableye": { stone: "Sablenite", confirmed: true },
-  "Altaria": { stone: "Altarianite", confirmed: true },
-  "Absol": { stone: "Absolite", confirmed: true },
-  "Garchomp": { stone: "Garchompite", confirmed: true },
-  "Lucario": { stone: "Lucarionite", confirmed: true },
-  "Lopunny": { stone: "Lopunnite", confirmed: true },
-  "Audino": { stone: "Audinite", confirmed: true },
-  "Ampharos": { stone: "Ampharosite", confirmed: true },
-  // New Champions Megas (Legends Z-A)
-  "Meganium": { stone: "Meganiumite", confirmed: true },
-  "Typhlosion": { stone: "Typhlosionite", confirmed: true },
-  "Feraligatr": { stone: "Feraligatrite", confirmed: true },
-  "Dragonite": { stone: "Dragoninite", confirmed: true },
-  "Excadrill": { stone: "Excadrillinite", confirmed: true },
-  "Froslass": { stone: "Froslasite", confirmed: true },
-  "Delphox": { stone: "Delphoxite", confirmed: true },
-  "Greninja": { stone: "Greninjaite", confirmed: true },
-  "Hawlucha": { stone: "Hawluchite", confirmed: true },
+export const CHAMPIONS_MEGAS: Record<string, ChampionsMegaInfo> = {
+  "Venusaur-Mega": { baseSpecies: "Venusaur", stone: "Venusaurite", confirmed: true },
+  "Charizard-Mega-X": { baseSpecies: "Charizard", stone: "Charizardite X", confirmed: true },
+  "Charizard-Mega-Y": { baseSpecies: "Charizard", stone: "Charizardite Y", confirmed: true },
+  "Blastoise-Mega": { baseSpecies: "Blastoise", stone: "Blastoisinite", confirmed: true },
+  "Beedrill-Mega": { baseSpecies: "Beedrill", stone: "Beedrillite", confirmed: true },
+  "Pidgeot-Mega": { baseSpecies: "Pidgeot", stone: "Pidgeotite", confirmed: true },
+  "Clefable-Mega": { baseSpecies: "Clefable", stone: "Clefablite", confirmed: true },
+  "Alakazam-Mega": { baseSpecies: "Alakazam", stone: "Alakazite", confirmed: true },
+  "Victreebel-Mega": { baseSpecies: "Victreebel", stone: "Victreebelite", confirmed: true },
+  "Slowbro-Mega": { baseSpecies: "Slowbro", stone: "Slowbronite", confirmed: true },
+  "Gengar-Mega": { baseSpecies: "Gengar", stone: "Gengarite", confirmed: true },
+  "Kangaskhan-Mega": { baseSpecies: "Kangaskhan", stone: "Kangaskhanite", confirmed: true },
+  "Starmie-Mega": { baseSpecies: "Starmie", stone: "Starminite", confirmed: true },
+  "Pinsir-Mega": { baseSpecies: "Pinsir", stone: "Pinsirite", confirmed: true },
+  "Gyarados-Mega": { baseSpecies: "Gyarados", stone: "Gyaradosite", confirmed: true },
+  "Aerodactyl-Mega": { baseSpecies: "Aerodactyl", stone: "Aerodactylite", confirmed: true },
+  "Dragonite-Mega": { baseSpecies: "Dragonite", stone: "Dragoninite", confirmed: true },
+  "Meganium-Mega": { baseSpecies: "Meganium", stone: "Meganiumite", confirmed: true },
+  "Feraligatr-Mega": { baseSpecies: "Feraligatr", stone: "Feraligite", confirmed: true },
+  "Ampharos-Mega": { baseSpecies: "Ampharos", stone: "Ampharosite", confirmed: true },
+  "Steelix-Mega": { baseSpecies: "Steelix", stone: "Steelixite", confirmed: true },
+  "Scizor-Mega": { baseSpecies: "Scizor", stone: "Scizorite", confirmed: true },
+  "Heracross-Mega": { baseSpecies: "Heracross", stone: "Heracronite", confirmed: true },
+  "Skarmory-Mega": { baseSpecies: "Skarmory", stone: "Skarmorite", confirmed: true },
+  "Houndoom-Mega": { baseSpecies: "Houndoom", stone: "Houndoominite", confirmed: true },
+  "Tyranitar-Mega": { baseSpecies: "Tyranitar", stone: "Tyranitarite", confirmed: true },
+  "Gardevoir-Mega": { baseSpecies: "Gardevoir", stone: "Gardevoirite", confirmed: true },
+  "Sableye-Mega": { baseSpecies: "Sableye", stone: "Sablenite", confirmed: true },
+  "Aggron-Mega": { baseSpecies: "Aggron", stone: "Aggronite", confirmed: true },
+  "Medicham-Mega": { baseSpecies: "Medicham", stone: "Medichamite", confirmed: true },
+  "Manectric-Mega": { baseSpecies: "Manectric", stone: "Manectite", confirmed: true },
+  "Sharpedo-Mega": { baseSpecies: "Sharpedo", stone: "Sharpedonite", confirmed: true },
+  "Camerupt-Mega": { baseSpecies: "Camerupt", stone: "Cameruptite", confirmed: true },
+  "Altaria-Mega": { baseSpecies: "Altaria", stone: "Altarianite", confirmed: true },
+  "Banette-Mega": { baseSpecies: "Banette", stone: "Banettite", confirmed: true },
+  "Chimecho-Mega": { baseSpecies: "Chimecho", stone: "Chimechite", confirmed: true },
+  "Absol-Mega": { baseSpecies: "Absol", stone: "Absolite", confirmed: true },
+  "Glalie-Mega": { baseSpecies: "Glalie", stone: "Glalitite", confirmed: true },
+  "Lopunny-Mega": { baseSpecies: "Lopunny", stone: "Lopunnite", confirmed: true },
+  "Garchomp-Mega": { baseSpecies: "Garchomp", stone: "Garchompite", confirmed: true },
+  "Lucario-Mega": { baseSpecies: "Lucario", stone: "Lucarionite", confirmed: true },
+  "Abomasnow-Mega": { baseSpecies: "Abomasnow", stone: "Abomasite", confirmed: true },
+  "Gallade-Mega": { baseSpecies: "Gallade", stone: "Galladite", confirmed: true },
+  "Froslass-Mega": { baseSpecies: "Froslass", stone: "Froslassite", confirmed: true },
+  "Emboar-Mega": { baseSpecies: "Emboar", stone: "Emboarite", confirmed: true },
+  "Excadrill-Mega": { baseSpecies: "Excadrill", stone: "Excadrite", confirmed: true },
+  "Audino-Mega": { baseSpecies: "Audino", stone: "Audinite", confirmed: true },
+  "Chandelure-Mega": { baseSpecies: "Chandelure", stone: "Chandelurite", confirmed: true },
+  "Golurk-Mega": { baseSpecies: "Golurk", stone: "Golurkite", confirmed: true },
+  "Chesnaught-Mega": { baseSpecies: "Chesnaught", stone: "Chesnaughtite", confirmed: true },
+  "Delphox-Mega": { baseSpecies: "Delphox", stone: "Delphoxite", confirmed: true },
+  "Greninja-Mega": { baseSpecies: "Greninja", stone: "Greninjite", confirmed: true },
+  "Floette-Mega": { baseSpecies: "Floette-Eternal", stone: "Floettite", confirmed: true },
+  "Meowstic-M-Mega": { baseSpecies: "Meowstic", stone: "Meowsticite", confirmed: true },
+  "Meowstic-F-Mega": { baseSpecies: "Meowstic-F", stone: "Meowsticite", confirmed: true },
+  "Hawlucha-Mega": { baseSpecies: "Hawlucha", stone: "Hawluchanite", confirmed: true },
+  "Crabominable-Mega": { baseSpecies: "Crabominable", stone: "Crabominite", confirmed: true },
+  "Drampa-Mega": { baseSpecies: "Drampa", stone: "Drampanite", confirmed: true },
+  "Scovillain-Mega": { baseSpecies: "Scovillain", stone: "Scovillainite", confirmed: true },
+  "Glimmora-Mega": { baseSpecies: "Glimmora", stone: "Glimmoranite", confirmed: true },
 };
 
 /**
@@ -266,9 +302,21 @@ export const NO_MEGA_DESPITE_BASE: string[] = [];
 // Helpers
 // ---------------------------------------------------------------------------
 
+const CHAMPIONS_SPECIES_ALIASES: Record<string, string> = {
+  "meowstic-female": "meowstic-f",
+  "basculegion-female": "basculegion-f",
+  "gourgeist-jumbo": "gourgeist-super",
+};
+
+function normalizeChampionsSpeciesName(species: string): string {
+  const normalized = species.trim().toLowerCase();
+  return CHAMPIONS_SPECIES_ALIASES[normalized] ?? normalized;
+}
+
 export function isChampionsPokemon(species: string): boolean {
+  const normalized = normalizeChampionsSpeciesName(species);
   return CHAMPIONS_POKEMON.some(
-    (p) => p.toLowerCase() === species.toLowerCase(),
+    (p) => normalizeChampionsSpeciesName(p) === normalized,
   );
 }
 
@@ -284,27 +332,48 @@ export function isChampionsItem(item: string): boolean {
 }
 
 export function isConfirmedNotInChampions(species: string): boolean {
+  const normalized = normalizeChampionsSpeciesName(species);
   return NOT_IN_CHAMPIONS.some(
-    (p) => p.toLowerCase() === species.toLowerCase(),
+    (p) => normalizeChampionsSpeciesName(p) === normalized,
   );
 }
 
 export function canMegaEvolve(species: string): boolean {
-  return Object.keys(CHAMPIONS_MEGAS).some(
-    (k) => k === species || k.startsWith(`${species}-Mega`),
-  );
+  return getChampionsMegaEntriesForSpecies(species).length > 0;
+}
+
+export function getChampionsMegaEntriesForSpecies(species: string): Array<{
+  megaSpecies: string;
+  baseSpecies: string;
+  stone: string;
+  confirmed: boolean;
+}> {
+  const normalized = normalizeChampionsSpeciesName(species);
+  if (!normalized) return [];
+
+  return Object.entries(CHAMPIONS_MEGAS)
+    .filter(
+      ([, info]) =>
+        normalizeChampionsSpeciesName(info.baseSpecies) === normalized,
+    )
+    .map(([megaSpecies, info]) => ({
+      megaSpecies,
+      baseSpecies: info.baseSpecies,
+      stone: info.stone,
+      confirmed: info.confirmed,
+    }));
 }
 
 /**
- * Look up the Mega Stone → base species / mega species mapping.
- * Returns the mega form name when the held item triggers Mega Evolution
- * for the given base species in Champions; otherwise null.
+ * Look up the Mega Stone → mega species name mapping.
+ * Returns the @pkmn-canonical Mega form name when the held item triggers
+ * Mega Evolution for the given base species in Champions; otherwise null.
  *
  * Examples:
- *   getMegaFormFor("Garchomp", "Garchompite") → "Garchomp-Mega"
+ *   getMegaFormFor("Garchomp", "Garchompite")    → "Garchomp-Mega"
  *   getMegaFormFor("Charizard", "Charizardite X") → "Charizard-Mega-X"
- *   getMegaFormFor("Dragonite", "Dragoninite") → "Dragonite-Mega"
- *   getMegaFormFor("Pikachu", "Focus Sash") → null
+ *   getMegaFormFor("Starmie", "Starminite")      → "Starmie-Mega"
+ *   getMegaFormFor("Pikachu", "Focus Sash")      → null
  */
 export function getMegaFormFor(
   species: string,
@@ -312,12 +381,9 @@ export function getMegaFormFor(
 ): string | null {
   if (!species || !item) return null;
   const itemLc = item.trim().toLowerCase();
-  for (const [megaKey, info] of Object.entries(CHAMPIONS_MEGAS)) {
-    if (info.stone.toLowerCase() !== itemLc) continue;
-    const expectedBase = megaKey.split("-Mega")[0];
-    if (expectedBase.toLowerCase() === species.toLowerCase()) {
-      return megaKey;
-    }
-  }
-  return null;
+  return (
+    getChampionsMegaEntriesForSpecies(species).find(
+      (entry) => entry.stone.toLowerCase() === itemLc,
+    )?.megaSpecies ?? null
+  );
 }

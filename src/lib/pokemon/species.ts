@@ -31,6 +31,7 @@ export function getSpecies(name: string): SpeciesData | null {
   // Narrow accepted shape so we can read from either @pkmn/data (Specie) or
   // @pkmn/dex (Species). Both expose name/types/baseStats/abilities.
   type SpeciesLike = {
+    exists?: boolean;
     name: string;
     types: readonly string[];
     baseStats: { hp: number; atk: number; def: number; spa: number; spd: number; spe: number };
@@ -39,7 +40,7 @@ export function getSpecies(name: string): SpeciesData | null {
 
   const gen9 = defaultGen.species.get(name) as SpeciesLike;
   const species = gen9 ?? (Dex.species.get(name) as SpeciesLike);
-  if (!species) return null;
+  if (!species || species.exists === false) return null;
 
   const abilities: string[] = [];
   const a = species.abilities;

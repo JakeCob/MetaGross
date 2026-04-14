@@ -231,6 +231,7 @@ export function PokemonForm({ value, onChange, slot, format = "", team = [] }: P
           <SpeciesSearch
             onChange={handleSpeciesSelect}
             placeholder="Search Pokemon..."
+            format={format}
           />
         )}
       </div>

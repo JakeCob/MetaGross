@@ -14,6 +14,7 @@ import {
   NOT_IN_CHAMPIONS,
   CHAMPIONS_RULES,
   CHAMPIONS_POINTS,
+  getChampionsMegaEntriesForSpecies,
 } from "@/lib/data/champions";
 import { getSpecies } from "@/lib/pokemon/species";
 
@@ -84,11 +85,7 @@ export async function GET() {
       const data = getSpecies(name);
       if (!data) continue;
 
-      // Find every Mega key belonging to this base (covers X/Y forms).
-      const megaEntries = Object.entries(CHAMPIONS_MEGAS).filter(([key]) => {
-        if (key === name) return true;
-        return key.startsWith(`${name}-Mega`);
-      });
+      const megaEntries = getChampionsMegaEntriesForSpecies(name);
 
       const blocked = NO_MEGA_DESPITE_BASE.some(
         (n) => n.toLowerCase() === name.toLowerCase(),
@@ -97,7 +94,7 @@ export async function GET() {
       const canMegaEvolve = megaEntries.length > 0 && !blocked;
 
       const megaForms = canMegaEvolve
-        ? megaEntries.flatMap(([megaSpecies, info]) => {
+        ? megaEntries.flatMap(({ megaSpecies, stone }) => {
             const mData = getSpecies(megaSpecies);
             if (!mData) return [];
             return [
@@ -106,7 +103,7 @@ export async function GET() {
                 types: mData.types,
                 baseStats: mData.baseStats,
                 abilities: mData.abilities,
-                stone: info.stone,
+                stone,
               },
             ];
           })
@@ -117,7 +114,7 @@ export async function GET() {
         types: data.types,
         baseStats: data.baseStats,
         canMegaEvolve,
-        megaStone: canMegaEvolve ? megaEntries[0][1].stone : null,
+        megaStone: canMegaEvolve ? megaEntries[0].stone : null,
         abilities: data.abilities,
         megaForms,
       });

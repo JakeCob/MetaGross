@@ -6,28 +6,28 @@ import {
 } from "../team";
 
 const validPokemon = {
-  species: "Metagross",
-  ability: "Clear Body",
-  item: "Metagrossite",
-  nature: "Jolly",
+  species: "Incineroar",
+  ability: "Intimidate",
+  item: "Safety Goggles",
+  nature: "Careful",
   level: 50,
-  moves: ["Heavy Slam", "Protect", "Psychic Fangs", "Stomping Tantrum"],
-  evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+  moves: ["Fake Out", "Flare Blitz", "Knock Off", "Parting Shot"],
+  evs: { hp: 252, atk: 0, def: 4, spa: 0, spd: 252, spe: 0 },
   ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
 };
 
 const makeTeam = (overrides: Record<number, Record<string, unknown>> = {}) => {
   const pokemon = [
-    { ...validPokemon, species: "Metagross", item: "Metagrossite" },
     { ...validPokemon, species: "Incineroar", item: "Safety Goggles" },
-    { ...validPokemon, species: "Rillaboom", item: "Miracle Seed" },
-    { ...validPokemon, species: "Garchomp", item: "Life Orb" },
-    { ...validPokemon, species: "Sinistcha", item: "Focus Sash" },
-    { ...validPokemon, species: "Sneasler", item: "Covert Cloak" },
+    { ...validPokemon, species: "Starmie", ability: "Illuminate", item: "Starminite", nature: "Timid", moves: ["Hydro Pump", "Psychic", "Ice Beam", "Protect"], evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 } },
+    { ...validPokemon, species: "Garchomp", ability: "Rough Skin", item: "Clear Amulet", nature: "Jolly", moves: ["Earthquake", "Dragon Claw", "Rock Slide", "Protect"], evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 } },
+    { ...validPokemon, species: "Sinistcha", ability: "Hospitality", item: "Focus Sash", nature: "Calm", moves: ["Matcha Gotcha", "Rage Powder", "Trick Room", "Protect"], evs: { hp: 252, atk: 0, def: 4, spa: 0, spd: 252, spe: 0 } },
+    { ...validPokemon, species: "Sneasler", ability: "Unburden", item: "White Herb", nature: "Jolly", moves: ["Dire Claw", "Close Combat", "Acrobatics", "Protect"], evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 } },
+    { ...validPokemon, species: "Dragonite", ability: "Inner Focus", item: "Dragoninite", nature: "Adamant", moves: ["Extreme Speed", "Scale Shot", "Ice Spinner", "Protect"], evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 } },
   ].map((p, i) => ({ ...p, ...(overrides[i] || {}) }));
   return {
     name: "Test Team",
-    format: "champions-reg-m-a",
+    format: "Champions Reg M-A",
     pokemon,
   };
 };
@@ -133,13 +133,31 @@ describe("teamSchema", () => {
   });
 
   it("rejects duplicate species (Species Clause)", () => {
-    const team = makeTeam({ 1: { species: "Metagross" } });
+    const team = makeTeam({ 1: { species: "Incineroar" } });
     const result = teamSchema.safeParse(team);
     expect(result.success).toBe(false);
   });
 
   it("rejects duplicate items (Item Clause)", () => {
-    const team = makeTeam({ 1: { item: "Metagrossite" } });
+    const team = makeTeam({ 1: { item: "Safety Goggles" } });
+    const result = teamSchema.safeParse(team);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects baby Pokemon in Champions", () => {
+    const team = makeTeam({ 1: { species: "Pichu" } });
+    const result = teamSchema.safeParse(team);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects middle-stage evolutions in Champions", () => {
+    const team = makeTeam({ 1: { species: "Chansey" } });
+    const result = teamSchema.safeParse(team);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects illegal Champions items", () => {
+    const team = makeTeam({ 1: { item: "Mawilite" } });
     const result = teamSchema.safeParse(team);
     expect(result.success).toBe(false);
   });

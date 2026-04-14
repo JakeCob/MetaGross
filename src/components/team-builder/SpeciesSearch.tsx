@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PokemonSprite } from "@/components/pokemon-sprite";
 import type { SpeciesData } from "@/lib/pokemon/species";
+import { CHAMPIONS_POKEMON } from "@/lib/data/champions";
 
 const TYPE_COLORS: Record<string, string> = {
   Normal: "bg-gray-500 text-white",
@@ -31,6 +32,7 @@ const TYPE_COLORS: Record<string, string> = {
 export interface SpeciesSearchProps {
   onChange: (species: SpeciesData) => void;
   placeholder?: string;
+  format?: string;
 }
 
 interface UsageEntry {
@@ -51,10 +53,16 @@ const ARCHETYPE_HINTS = [
   "intimidate",
 ];
 
+const CHAMPIONS_SPECIES_SET = new Set(
+  CHAMPIONS_POKEMON.map((name) => name.toLowerCase()),
+);
+
 export function SpeciesSearch({
   onChange,
   placeholder = "Search Pokemon or type archetype (e.g. 'rain')...",
+  format = "",
 }: SpeciesSearchProps) {
+  const isChampions = format.toLowerCase().startsWith("champions");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SpeciesData[]>([]);
   const [suggestions, setSuggestions] = useState<SpeciesData[]>([]);
@@ -76,6 +84,13 @@ export function SpeciesSearch({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    setLoadedSuggestions(false);
+    setSuggestions([]);
+    setResults([]);
+    setHighlightIndex(-1);
+  }, [format]);
 
   // Calculate dropdown position (for portal rendering)
   const updateDropdownPos = useCallback(() => {
@@ -99,7 +114,10 @@ export function SpeciesSearch({
         const entries: UsageEntry[] = data.pokemon || data.topUsage || [];
         if (entries.length === 0) return;
 
-        const names = entries.slice(0, 15).map((e) => e.species);
+        const names = entries
+          .slice(0, 15)
+          .map((e) => e.species)
+          .filter((name) => !isChampions || CHAMPIONS_SPECIES_SET.has(name.toLowerCase()));
         return Promise.all(
           names.map((name) =>
             fetch(`/api/pokemon/${encodeURIComponent(name)}`)
@@ -112,14 +130,20 @@ export function SpeciesSearch({
         });
       })
       .catch(() => {});
-  }, [loadedSuggestions]);
+  }, [isChampions, loadedSuggestions]);
 
   const performSearch = useCallback((q: string) => {
     if (!q.trim()) {
       setResults([]);
       return;
     }
-    fetch(`/api/pokemon/search?q=${encodeURIComponent(q)}&limit=25`)
+    const params = new URLSearchParams({
+      q,
+      limit: "25",
+    });
+    if (format) params.set("format", format);
+
+    fetch(`/api/pokemon/search?${params.toString()}`)
       .then((res) => res.json())
       .then((data: SpeciesData[]) => {
         setResults(Array.isArray(data) ? data : []);
@@ -128,7 +152,7 @@ export function SpeciesSearch({
       .catch(() => {
         setResults([]);
       });
-  }, []);
+  }, [format]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

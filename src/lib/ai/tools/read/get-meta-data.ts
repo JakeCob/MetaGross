@@ -6,11 +6,11 @@ import {
   CHAMPIONS_ITEMS_CONFIRMED,
   CHAMPIONS_ITEMS_UNCERTAIN,
   NOT_IN_CHAMPIONS,
-  CHAMPIONS_MEGAS,
   NO_MEGA_DESPITE_BASE,
   isChampionsPokemon,
   isConfirmedNotInChampions,
   canMegaEvolve,
+  getChampionsMegaEntriesForSpecies,
 } from "@/lib/data/champions";
 
 export const getMetaDataTool = new DynamicStructuredTool({
@@ -56,14 +56,21 @@ export const getMetaDataTool = new DynamicStructuredTool({
       }
       const available = isChampionsPokemon(species);
       const confirmedAbsent = isConfirmedNotInChampions(species);
-      const mega = canMegaEvolve(species);
+      const megaEntries = getChampionsMegaEntriesForSpecies(species);
+      const mega = megaEntries.length > 0;
       const noMega = NO_MEGA_DESPITE_BASE.includes(species);
       return JSON.stringify({
         species,
         availableInChampions: available,
         confirmedNotAvailable: confirmedAbsent,
         canMegaEvolve: mega,
-        megaStoneInfo: mega ? CHAMPIONS_MEGAS[species] : null,
+        megaStoneInfo: mega
+          ? megaEntries.map(({ megaSpecies, stone, confirmed }) => ({
+              megaSpecies,
+              stone,
+              confirmed,
+            }))
+          : null,
         noMegaDespiteBase: noMega,
         note: confirmedAbsent
           ? `${species} is CONFIRMED NOT in Champions. Do NOT recommend it.`

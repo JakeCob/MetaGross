@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isChampionsItem, isChampionsPokemon } from "@/lib/data/champions";
 
 // Accept 0-252 per stat to cover both traditional EVs (max 252) and Champions points (max 32).
 // The UI enforces the tighter per-format limits; validation is permissive to support both systems.
@@ -64,6 +65,7 @@ export const teamSchema = z
   })
   .check((ctx) => {
     const team = ctx.value;
+    const isChampionsFormat = team.format.toLowerCase().includes("champions");
     // Species Clause
     const species = team.pokemon.map((p) => p.species.toLowerCase());
     if (new Set(species).size !== species.length) {
@@ -84,6 +86,28 @@ export const teamSchema = z
         code: "custom",
         input: team,
         path: ["pokemon"],
+      });
+    }
+
+    if (isChampionsFormat) {
+      team.pokemon.forEach((pokemon, index) => {
+        if (!isChampionsPokemon(pokemon.species)) {
+          ctx.issues.push({
+            message: `${pokemon.species} is not legal in Champions Reg M-A`,
+            code: "custom",
+            input: pokemon,
+            path: ["pokemon", index, "species"],
+          });
+        }
+
+        if (pokemon.item && !isChampionsItem(pokemon.item)) {
+          ctx.issues.push({
+            message: `${pokemon.item} is not a legal Champions Reg M-A item`,
+            code: "custom",
+            input: pokemon,
+            path: ["pokemon", index, "item"],
+          });
+        }
       });
     }
   });

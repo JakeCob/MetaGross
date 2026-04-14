@@ -94,49 +94,14 @@ const TYPE_COLORS: Record<string, string> = {
 
 const ALL_TYPES = Object.keys(TYPE_COLORS);
 
-const MEGA_STONE_SET = new Set<string>([
-  "Charizardite X",
-  "Charizardite Y",
-  "Venusaurite",
-  "Blastoisinite",
-  "Garchompite",
-  "Gengarite",
-  "Tyranitarite",
-  "Kangaskhanite",
-  "Gyaradosite",
-  "Scizorite",
-  "Heracronite",
-  "Houndoominite",
-  "Aerodactylite",
-  "Alakazite",
-  "Ampharosite",
-  "Absolite",
-  "Altarianite",
-  "Banettite",
-  "Beedrillite",
-  "Cameruptite",
-  "Lopunnite",
-  "Lucarionite",
-  "Mawilite",
-  "Medichamite",
-  "Pidgeotite",
-  "Pinsirite",
-  "Sablenite",
-  "Sharpedonite",
-  "Slowbronite",
-  "Steelixite",
-  "Audinite",
-  "Meganiumite",
-  "Typhlosionite",
-  "Feraligatrite",
-  "Dragoninite",
-  "Excadrillinite",
-  "Delphoxite",
-  "Greninjaite",
-  "Hawluchite",
-  "Froslasite",
-  "Gardevoirite",
-]);
+// Mega Stones are items whose name ends in "ite" (Mawilite, Pinsirite, etc.)
+// or contains "ite " for X/Y variants (Charizardite X, Raichunite Y).
+// Using a heuristic avoids drift as new stones are added — but we also
+// keep an explicit deny-list for non-stone items that happen to end in
+// "ite" (none currently, but e.g. "Mental Herb" does not).
+function isMegaStone(item: string): boolean {
+  return /(?:ite(?:\s+[XY])?)$/.test(item.trim());
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -729,10 +694,10 @@ export function ChampionsRoster() {
             {/* Split: non-mega-stones first, mega stones second */}
             {(() => {
               const stones = data.items.confirmed.filter((i) =>
-                MEGA_STONE_SET.has(i),
+                isMegaStone(i),
               );
               const others = data.items.confirmed.filter(
-                (i) => !MEGA_STONE_SET.has(i),
+                (i) => !isMegaStone(i),
               );
 
               return (
