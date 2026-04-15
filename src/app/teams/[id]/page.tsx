@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { getTeamById } from "@/lib/db/queries/teams";
 import { getSpecies } from "@/lib/pokemon/species";
 import { calcStat } from "@/lib/pokemon/stats";
+import { PokemonSprite } from "@/components/pokemon-sprite";
+import { getMegaFormFor } from "@/lib/data/champions";
 
 const TYPE_COLORS: Record<string, string> = {
   Normal: "bg-gray-500 text-white",
@@ -134,21 +136,49 @@ export default async function TeamDetailPage({
             });
             const level = mon.level ?? 50;
             const nature = mon.nature ?? "Hardy";
+            const megaForm = getMegaFormFor(mon.species, mon.item);
+            const spriteSpecies = megaForm ?? mon.species;
+            const isMega = Boolean(megaForm);
+            const displayName = isMega ? `Mega ${mon.species}` : mon.species;
+            // When holding a Mega Stone, show the Mega form's types.
+            const megaSpeciesData = isMega && megaForm ? getSpecies(megaForm) : null;
+            const displayTypes = megaSpeciesData?.types ?? speciesData?.types ?? [];
 
             return (
               <Card key={mon.id ?? i}>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{mon.species}</CardTitle>
-                    <div className="flex gap-1">
-                      {speciesData?.types.map((type) => (
-                        <Badge
-                          key={type}
-                          className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[type] ?? "bg-gray-600 text-white"}`}
-                        >
-                          {type}
-                        </Badge>
-                      ))}
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0">
+                      <PokemonSprite
+                        species={spriteSpecies}
+                        mega={isMega}
+                        size={72}
+                      />
+                    </div>
+                    <div className="flex flex-1 flex-col gap-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="text-base truncate">
+                          {displayName}
+                        </CardTitle>
+                        {isMega && (
+                          <Badge
+                            variant="warning"
+                            className="text-[9px] px-1.5 uppercase tracking-wider shrink-0"
+                          >
+                            Mega
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {displayTypes.map((type) => (
+                          <Badge
+                            key={type}
+                            className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[type] ?? "bg-gray-600 text-white"}`}
+                          >
+                            {type}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </CardHeader>

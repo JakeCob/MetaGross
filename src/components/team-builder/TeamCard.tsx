@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PokemonSprite } from "@/components/pokemon-sprite";
+import { getMegaFormFor } from "@/lib/data/champions";
 
 export interface TeamCardTeam {
   id: string;
   name: string;
   format: string | null;
   isActive: number | null;
-  pokemon: { species: string }[];
+  pokemon: { species: string; item?: string | null }[];
 }
 
 export interface TeamCardProps {
@@ -49,19 +50,33 @@ export function TeamCard({ team, onDelete, onSetActive }: TeamCardProps) {
           {/* Pokemon list */}
           <div className="flex flex-wrap gap-2">
             {team.pokemon.length > 0 ? (
-              team.pokemon.map((mon, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-xs text-foreground"
-                >
-                  <PokemonSprite
-                    species={mon.species}
-                    size={28}
-                    className="shrink-0"
-                  />
-                  {mon.species}
-                </span>
-              ))
+              team.pokemon.map((mon, i) => {
+                const megaForm = getMegaFormFor(mon.species, mon.item);
+                const displaySpecies = megaForm ?? mon.species;
+                const isMega = Boolean(megaForm);
+                return (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-xs text-foreground"
+                    title={isMega ? `Mega ${mon.species}` : mon.species}
+                  >
+                    <PokemonSprite
+                      species={displaySpecies}
+                      mega={isMega}
+                      size={32}
+                      className="shrink-0"
+                    />
+                    <span>
+                      {isMega && (
+                        <span className="text-[9px] font-semibold text-amber-400 uppercase tracking-wider mr-1">
+                          M
+                        </span>
+                      )}
+                      {mon.species}
+                    </span>
+                  </span>
+                );
+              })
             ) : (
               <span className="text-xs text-muted-foreground">No Pokemon</span>
             )}
