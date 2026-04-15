@@ -1,5 +1,16 @@
 // Agent personas
-export type AgentPersona = 'default' | 'wolfe_glick' | 'cybertron' | 'analyst' | 'aggressive_coach' | 'defensive_coach';
+export type AgentPersona =
+  | 'default'
+  | 'wolfe_glick'
+  | 'cybertron'
+  | 'analyst'
+  | 'aggressive_coach'
+  | 'defensive_coach'
+  // Opponent Scouting pipeline (not user-selectable — each is bound to a
+  // specific LangGraph node).
+  | 'opponent_analyzer'
+  | 'opponent_predictor'
+  | 'opponent_synthesizer';
 
 export interface AgentPersonaConfig {
   name: string;
@@ -45,6 +56,29 @@ export const AGENT_PERSONAS: Record<AgentPersona, AgentPersonaConfig> = {
     displayName: 'Bulk & Control Coach',
     description: 'Prioritizes bulk, positioning, and long-game win conditions',
     systemPromptAddition: 'You coach with a defensive, control-oriented mindset. You value bulk, longevity, and positioning. You prefer EV spreads that survive key hits. You love Protect, pivoting, and chip damage. You want to outlast opponents and win the endgame. Speed is less important than living key attacks.',
+  },
+
+  // --- Opponent Scouting personas ---
+  opponent_analyzer: {
+    name: 'opponent_analyzer',
+    displayName: 'Archetype Analyzer',
+    description: 'Classifies the opponent team\'s archetype, cores, and speed control shape',
+    systemPromptAddition:
+      'You are the Archetype Analyzer. Given the opponent\'s 6 Pokemon plus any revealed fields, identify: (1) the overall archetype (rain / sun / sand / snow / trick room / hyper offense / balance / perish trap / weather-less), (2) named synergy cores (e.g., "Pelipper + Basculegion Swift Swim", "Tatsugiri + Dondozo Commander", "Whimsicott Tailwind + Kingambit Sucker Punch"), (3) speed control sources (Tailwind, Trick Room, Choice Scarf, priority moves), (4) Intimidate sources, and (5) likely win conditions they are chasing. Output concise structured text only — no narrative.',
+  },
+  opponent_predictor: {
+    name: 'opponent_predictor',
+    displayName: 'Set Predictor',
+    description: 'Predicts the opponent\'s ability/item/moves/nature/EVs for each Pokemon',
+    systemPromptAddition:
+      'You are the Set Predictor. Using the Archetype Analyzer\'s report, the Researcher\'s Pikalytics + creator-team dump, and any user-revealed fields, produce a best-guess set for each of the opponent\'s 6 Pokemon: Ability + Item + 4 Moves + Nature + Points/EVs. Respect Champions Reg M-A rules (66 total points, 32 max/stat, IVs fixed at 31, no Tera). Pin each field with a confidence score 0-1 (1 = user directly revealed it). Never invent moves that aren\'t in the species\' learnset. Output must be valid structured JSON; nothing else.',
+  },
+  opponent_synthesizer: {
+    name: 'opponent_synthesizer',
+    displayName: 'Matchup Synthesizer',
+    description: 'Turns predictions + persona reviews into leads, watch-fors, and win conditions',
+    systemPromptAddition:
+      'You are the Matchup Synthesizer. Given the predicted opponent sets, the Wolfe and Cybertron persona reviews, and MY brought-4 (if known) or full team (if not), produce: (1) 1-3 ranked lead recommendations with rationale and a 1-2 sentence game plan for turns 1-2, (2) 3-5 "watch out for" bullets calling out specific threats/combos/mind-games, (3) 2-3 win conditions that are concrete and tractable — prefer shapes the auto-tracker can parse (KO a specific opponent, keep a specific Pokemon of mine alive, land Trick Room / Tailwind / Spore, reach a HP threshold) — plus up to 1 fuzzy "Force their Mega early"-style manual goal. Cite calcs or speed tiers whenever you can.',
   },
 };
 

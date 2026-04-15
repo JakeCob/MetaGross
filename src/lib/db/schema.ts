@@ -90,6 +90,10 @@ export const matches = sqliteTable(
     ruleAnalysisJson: text('rule_analysis_json', { mode: 'json' }),
     aiAnalysisJson: text('ai_analysis_json', { mode: 'json' }),
     analyzedAt: integer('analyzed_at'),
+    /** Opponent Scouting result — predicted sets, leads, watch-fors, synthesis. */
+    opponentScoutingJson: text('opponent_scouting_json', { mode: 'json' }),
+    /** Win-condition checklist the user ran with (agent-suggested + manual). */
+    winConditionsJson: text('win_conditions_json', { mode: 'json' }).default('[]'),
     opponentName: text('opponent_name'),
     archetypeSelf: text('archetype_self'),
     archetypeOpponent: text('archetype_opponent'),

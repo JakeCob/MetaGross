@@ -26,6 +26,8 @@ export interface MatchRow {
   ruleAnalysisJson: unknown;
   aiAnalysisJson: unknown;
   analyzedAt: number | null;
+  opponentScoutingJson: unknown;
+  winConditionsJson: unknown;
   opponentName: string | null;
   archetypeSelf: string | null;
   archetypeOpponent: string | null;
@@ -174,6 +176,10 @@ export interface CreateMatchInput {
   teamId?: string | null;
   userId?: string;
   turns?: Turn[];
+  /** Opponent scouting result from the battle-logger store. */
+  opponentScoutingJson?: unknown;
+  /** Win conditions the user ran the match with. */
+  winConditionsJson?: unknown;
 }
 
 export function createMatch(data: CreateMatchInput): MatchRow {
@@ -198,6 +204,10 @@ export function createMatch(data: CreateMatchInput): MatchRow {
         opponentBrought: (data.opponentBrought ?? []) as string,
         myLeads: (data.myLeads ?? []) as string,
         opponentLeads: (data.opponentLeads ?? []) as string,
+        opponentScoutingJson:
+          (data.opponentScoutingJson ?? null) as unknown as string,
+        winConditionsJson:
+          (data.winConditionsJson ?? []) as unknown as string,
         opponentName: data.opponentName ?? null,
         createdAt: now,
         updatedAt: now,
@@ -271,6 +281,8 @@ export interface UpdateMatchInput {
   ruleAnalysisJson?: unknown;
   aiAnalysisJson?: unknown;
   analyzedAt?: number | null;
+  opponentScoutingJson?: unknown;
+  winConditionsJson?: unknown;
 }
 
 export function updateMatch(id: string, data: UpdateMatchInput): MatchRow | null {
@@ -297,6 +309,10 @@ export function updateMatch(id: string, data: UpdateMatchInput): MatchRow | null
   if (data.ruleAnalysisJson !== undefined) updateFields.ruleAnalysisJson = data.ruleAnalysisJson;
   if (data.aiAnalysisJson !== undefined) updateFields.aiAnalysisJson = data.aiAnalysisJson;
   if (data.analyzedAt !== undefined) updateFields.analyzedAt = data.analyzedAt;
+  if (data.opponentScoutingJson !== undefined)
+    updateFields.opponentScoutingJson = data.opponentScoutingJson;
+  if (data.winConditionsJson !== undefined)
+    updateFields.winConditionsJson = data.winConditionsJson;
 
   db.update(matches).set(updateFields).where(eq(matches.id, id)).run();
 

@@ -1,6 +1,11 @@
 import { createStore } from "zustand/vanilla";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import type { BattleMode, BattleResult, Turn } from "@/lib/types/battle";
+import type {
+  ScoutingResult,
+  ScoutingStatus,
+  WinCondition,
+} from "@/lib/ai/opponent-scouting/types";
 
 export type BattlePhase =
   | "idle"
@@ -34,6 +39,12 @@ export interface BattleLoggerState {
   opponentName: string;
   notes: string;
 
+  // Opponent scouting — mirrors the React hook store
+  scoutingAnalysis: ScoutingResult | null;
+  scoutingHash: string | null;
+  scoutingStatus: ScoutingStatus;
+  winConditions: WinCondition[];
+
   // Actions
   startBattle: (mode: BattleMode) => void;
   setMyTeam: (team: TeamPokemon[], teamId?: string) => void;
@@ -42,6 +53,16 @@ export interface BattleLoggerState {
     species: string,
     info: { ability?: string; item?: string },
   ) => void;
+
+  // Opponent scouting
+  setScoutingAnalysis: (result: ScoutingResult | null) => void;
+  setScoutingStatus: (status: ScoutingStatus) => void;
+  setScoutingHash: (hash: string | null) => void;
+  setWinConditions: (list: WinCondition[]) => void;
+  addWinCondition: (cond: WinCondition) => void;
+  updateWinCondition: (id: string, patch: Partial<WinCondition>) => void;
+  removeWinCondition: (id: string) => void;
+
   proceedToTeamPreview: () => void;
   setMyBrought: (species: string[]) => void;
   setOpponentBrought: (species: string[]) => void;
@@ -69,6 +90,8 @@ export interface MatchData {
   turns: Turn[];
   opponentName: string;
   notes: string;
+  scoutingAnalysis: ScoutingResult | null;
+  winConditions: WinCondition[];
 }
 
 const initialState = {
@@ -86,6 +109,10 @@ const initialState = {
   format: "champions-reg-m-a",
   opponentName: "",
   notes: "",
+  scoutingAnalysis: null as ScoutingResult | null,
+  scoutingHash: null as string | null,
+  scoutingStatus: "idle" as ScoutingStatus,
+  winConditions: [] as WinCondition[],
 };
 
 export function createBattleLoggerStore() {
@@ -189,6 +216,24 @@ export function createBattleLoggerStore() {
     setOpponentName: (name) => set({ opponentName: name }),
     setNotes: (notes) => set({ notes }),
 
+    // --- Opponent scouting ---
+    setScoutingAnalysis: (result) => set({ scoutingAnalysis: result }),
+    setScoutingStatus: (status) => set({ scoutingStatus: status }),
+    setScoutingHash: (hash) => set({ scoutingHash: hash }),
+    setWinConditions: (list) => set({ winConditions: list }),
+    addWinCondition: (cond) =>
+      set((state) => ({ winConditions: [...state.winConditions, cond] })),
+    updateWinCondition: (id, patch) =>
+      set((state) => ({
+        winConditions: state.winConditions.map((c) =>
+          c.id === id ? { ...c, ...patch } : c,
+        ),
+      })),
+    removeWinCondition: (id) =>
+      set((state) => ({
+        winConditions: state.winConditions.filter((c) => c.id !== id),
+      })),
+
     reset: () => set({ ...initialState }),
 
     getMatchData: () => {
@@ -208,6 +253,8 @@ export function createBattleLoggerStore() {
         turns: state.turns,
         opponentName: state.opponentName,
         notes: state.notes,
+        scoutingAnalysis: state.scoutingAnalysis,
+        winConditions: state.winConditions,
       };
     },
   }));

@@ -12,6 +12,11 @@ import type {
   Slot,
 } from "@/lib/types/battle";
 import { DEFAULT_FIELD_STATE } from "@/lib/types/battle";
+import type {
+  ScoutingResult,
+  ScoutingStatus,
+  WinCondition,
+} from "@/lib/ai/opponent-scouting/types";
 
 export type BattlePhase =
   | "idle"
@@ -34,6 +39,10 @@ export interface MatchData {
   turns: Turn[];
   opponentName: string;
   notes: string;
+  /** Populated once the Opponent Scouting multi-agent graph has run. */
+  scoutingAnalysis: ScoutingResult | null;
+  /** User-editable checklist (agent-suggested + user-added). */
+  winConditions: WinCondition[];
 }
 
 export interface BattleLoggerState {
@@ -70,6 +79,18 @@ export interface BattleLoggerState {
   opponentName: string;
   notes: string;
 
+  // Opponent scouting — see src/lib/ai/opponent-scouting for the graph
+  scoutingAnalysis: ScoutingResult | null;
+  /**
+   * Hash of the opponent-team snapshot + revealed items/abilities that the
+   * last scouting run was keyed on. When the current hash diverges from
+   * this, the result is stale and needs a re-run.
+   */
+  scoutingHash: string | null;
+  scoutingStatus: ScoutingStatus;
+  /** Win conditions (agent-suggested + user). Auto-tracked by shape. */
+  winConditions: WinCondition[];
+
   // Actions
   startBattle: (mode: BattleMode) => void;
   setMyTeam: (team: TeamPokemon[], teamId?: string) => void;
@@ -93,6 +114,16 @@ export interface BattleLoggerState {
     species: string,
     info: { ability?: string; item?: string },
   ) => void;
+
+  // Opponent scouting actions
+  setScoutingAnalysis: (result: ScoutingResult | null) => void;
+  setScoutingStatus: (status: ScoutingStatus) => void;
+  setScoutingHash: (hash: string | null) => void;
+  setWinConditions: (list: WinCondition[]) => void;
+  addWinCondition: (cond: WinCondition) => void;
+  updateWinCondition: (id: string, patch: Partial<WinCondition>) => void;
+  removeWinCondition: (id: string) => void;
+
   reset: () => void;
   getMatchData: () => MatchData | null;
 
@@ -134,6 +165,11 @@ const initialState = {
   currentTurnActions: [] as TurnAction[],
   faintedP1: [] as string[],
   faintedP2: [] as string[],
+  // Opponent scouting initial state
+  scoutingAnalysis: null as ScoutingResult | null,
+  scoutingHash: null as string | null,
+  scoutingStatus: "idle" as ScoutingStatus,
+  winConditions: [] as WinCondition[],
 };
 
 function makeActivePokemon(species: string): ActivePokemon {
@@ -249,6 +285,24 @@ export const useBattleLogger = create<BattleLoggerState>()(
       setOpponentName: (name) => set({ opponentName: name }),
       setNotes: (notes) => set({ notes }),
 
+      // --- Opponent scouting ---
+      setScoutingAnalysis: (result) => set({ scoutingAnalysis: result }),
+      setScoutingStatus: (status) => set({ scoutingStatus: status }),
+      setScoutingHash: (hash) => set({ scoutingHash: hash }),
+      setWinConditions: (list) => set({ winConditions: list }),
+      addWinCondition: (cond) =>
+        set((state) => ({ winConditions: [...state.winConditions, cond] })),
+      updateWinCondition: (id, patch) =>
+        set((state) => ({
+          winConditions: state.winConditions.map((c) =>
+            c.id === id ? { ...c, ...patch } : c,
+          ),
+        })),
+      removeWinCondition: (id) =>
+        set((state) => ({
+          winConditions: state.winConditions.filter((c) => c.id !== id),
+        })),
+
       reset: () => set({ ...initialState }),
 
       getMatchData: () => {
@@ -268,6 +322,8 @@ export const useBattleLogger = create<BattleLoggerState>()(
           turns: state.turns,
           opponentName: state.opponentName,
           notes: state.notes,
+          scoutingAnalysis: state.scoutingAnalysis,
+          winConditions: state.winConditions,
         };
       },
 
@@ -385,6 +441,11 @@ export const useBattleLogger = create<BattleLoggerState>()(
         currentTurnActions: state.currentTurnActions,
         faintedP1: state.faintedP1,
         faintedP2: state.faintedP2,
+        // Persist scouting state
+        scoutingAnalysis: state.scoutingAnalysis,
+        scoutingHash: state.scoutingHash,
+        scoutingStatus: state.scoutingStatus,
+        winConditions: state.winConditions,
       }),
     },
   ),
