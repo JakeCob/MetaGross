@@ -76,7 +76,8 @@ export interface BattleMatch {
   myTeam: TeamPokemon[];
   opponentTeam: Partial<TeamPokemon>[]; // opponent may have partial info
   myBrought: string[];       // 4 species
-  opponentBrought: string[]; // 4 species (best guess)
+  opponentBrought: string[]; // 2–4 species — starts as the 2 leads and grows
+                             // as the opponent's back Pokemon switch in
   myLeads: string[];         // 2 species
   opponentLeads: string[];   // 2 species
   // Turns

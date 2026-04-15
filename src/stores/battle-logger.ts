@@ -121,8 +121,11 @@ export function createBattleLoggerStore() {
       }
     },
 
+    // Opponent's brought-4 can't be known up front — the user only sees the
+    // 2 leads at match start. We accept 2-4 entries here (starts at 2, grows
+    // as the opponent's back Pokemon switch in during the match).
     setOpponentBrought: (species) => {
-      if (species.length !== 4) return;
+      if (species.length < 2 || species.length > 4) return;
       const teamSpecies = get().opponentTeam.map((p) => p.species!);
       if (species.every((s) => teamSpecies.includes(s))) {
         set({ opponentBrought: species });
@@ -137,20 +140,21 @@ export function createBattleLoggerStore() {
       }
     },
 
+    // Opponent leads must be on their revealed 6, not on `opponentBrought`
+    // (which is only seeded with 2 at match start).
     setOpponentLeads: (species) => {
       if (species.length !== 2) return;
-      const brought = get().opponentBrought;
-      if (species.every((s) => brought.includes(s))) {
+      const teamSpecies = get().opponentTeam.map((p) => p.species!);
+      if (species.every((s) => teamSpecies.includes(s))) {
         set({ opponentLeads: species });
       }
     },
 
     proceedToBattle: () => {
-      const { myBrought, myLeads, opponentBrought, opponentLeads } = get();
+      const { myBrought, myLeads, opponentLeads } = get();
       if (
         myBrought.length === 4 &&
         myLeads.length === 2 &&
-        opponentBrought.length === 4 &&
         opponentLeads.length === 2
       ) {
         set({ phase: "inProgress" });

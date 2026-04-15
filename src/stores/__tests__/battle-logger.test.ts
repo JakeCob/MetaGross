@@ -134,6 +134,47 @@ describe("battle-logger store", () => {
     expect(store.getState().phase).toBe("inProgress");
   });
 
+  it("accepts opponentBrought seeded with only 2 leads (unknown back)", () => {
+    // Real-world flow: user doesn't know the opponent's brought-4, so
+    // opponentBrought starts with just the 2 leads. proceedToBattle
+    // should still succeed as long as opponentLeads is set.
+    store.getState().startBattle("realtime");
+    store.getState().setMyTeam(myTeam);
+    store.getState().setOpponentTeam(opponentTeam);
+    store.getState().proceedToTeamPreview();
+    store.getState().setMyBrought(["Metagross", "Incineroar", "Garchomp", "Rillaboom"]);
+    store.getState().setMyLeads(["Metagross", "Incineroar"]);
+    store.getState().setOpponentLeads(["Kyogre", "Tornadus"]);
+    store.getState().setOpponentBrought(["Kyogre", "Tornadus"]); // length 2
+    store.getState().proceedToBattle();
+    expect(store.getState().phase).toBe("inProgress");
+    expect(store.getState().opponentBrought).toEqual(["Kyogre", "Tornadus"]);
+  });
+
+  it("rejects opponentBrought of length 1 (must have at least the 2 leads)", () => {
+    store.getState().startBattle("realtime");
+    store.getState().setMyTeam(myTeam);
+    store.getState().setOpponentTeam(opponentTeam);
+    store.getState().proceedToTeamPreview();
+    store.getState().setOpponentBrought(["Kyogre"]);
+    expect(store.getState().opponentBrought).toHaveLength(0);
+  });
+
+  it("accepts opponentBrought growing from 2 to 3 as back Pokemon revealed", () => {
+    store.getState().startBattle("realtime");
+    store.getState().setMyTeam(myTeam);
+    store.getState().setOpponentTeam(opponentTeam);
+    store.getState().proceedToTeamPreview();
+    store.getState().setOpponentBrought(["Kyogre", "Tornadus"]);
+    // A back Pokemon switches in during the match
+    store.getState().setOpponentBrought(["Kyogre", "Tornadus", "Rillaboom"]);
+    expect(store.getState().opponentBrought).toEqual([
+      "Kyogre",
+      "Tornadus",
+      "Rillaboom",
+    ]);
+  });
+
   it("ends battle with result", () => {
     store.getState().startBattle("quick");
     store.getState().setMyTeam(myTeam);
