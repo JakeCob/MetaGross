@@ -233,17 +233,33 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
       >
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Log opponent move</DialogTitle>
+            <DialogTitle>Log opponent action</DialogTitle>
           </DialogHeader>
-          {selectedOppSlot != null && store.activeP2[selectedOppSlot - 1] && (
-            <OpponentActionMenu
-              pokemon={store.activeP2[selectedOppSlot - 1]}
-              slot={selectedOppSlot}
-              myActive={store.activeP1}
-              onAction={handleAction}
-              onClose={() => setSelectedOppSlot(null)}
-            />
-          )}
+          {selectedOppSlot != null && store.activeP2[selectedOppSlot - 1] && (() => {
+            const activeOpp = store.activeP2[selectedOppSlot - 1];
+            const teamEntry = store.opponentTeam.find(
+              (p) => p.species === activeOpp.species,
+            );
+            return (
+              <OpponentActionMenu
+                pokemon={activeOpp}
+                slot={selectedOppSlot}
+                knownAbility={teamEntry?.ability ?? ""}
+                knownItem={teamEntry?.item ?? ""}
+                myActive={store.activeP1}
+                onUpdateInfo={(info) => {
+                  store.updateOpponentPokemonInfo(activeOpp.species, info);
+                }}
+                onToggleMega={(isMega) => {
+                  if (selectedOppSlot != null) {
+                    store.updateActivePokemon("p2", selectedOppSlot, { isMega });
+                  }
+                }}
+                onAction={handleAction}
+                onClose={() => setSelectedOppSlot(null)}
+              />
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

@@ -83,6 +83,16 @@ export interface BattleLoggerState {
   endBattle: (result: BattleResult) => void;
   setOpponentName: (name: string) => void;
   setNotes: (notes: string) => void;
+  /**
+   * Reveal / correct known fields for an opponent's Pokemon mid-battle.
+   * E.g., after seeing "Intimidate cut Attack!", log the Pokemon's
+   * ability; after they flinch from a Covert Cloak-negated Fake Out,
+   * log the item; etc. Matches by species name in opponentTeam.
+   */
+  updateOpponentPokemonInfo: (
+    species: string,
+    info: { ability?: string; item?: string },
+  ) => void;
   reset: () => void;
   getMatchData: () => MatchData | null;
 
@@ -158,6 +168,23 @@ export const useBattleLogger = create<BattleLoggerState>()(
         set({
           opponentTeam: team,
         }),
+
+      updateOpponentPokemonInfo: (species, info) => {
+        const current = get().opponentTeam;
+        set({
+          opponentTeam: current.map((p) =>
+            p.species === species
+              ? {
+                  ...p,
+                  ...(info.ability !== undefined
+                    ? { ability: info.ability }
+                    : {}),
+                  ...(info.item !== undefined ? { item: info.item } : {}),
+                }
+              : p,
+          ),
+        });
+      },
 
       proceedToTeamPreview: () => {
         const { myTeam, opponentTeam } = get();

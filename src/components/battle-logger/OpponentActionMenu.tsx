@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { DamageInput } from "./DamageInput";
+import { getMegaFormFor } from "@/lib/data/champions";
 import type { ActivePokemon, Slot, TurnAction } from "@/lib/types/battle";
 
 type MenuPhase = "moves" | "target" | "damage" | "status-confirm";
@@ -14,8 +16,15 @@ export interface OpponentActionMenuProps {
   pokemon: ActivePokemon;
   /** Slot index (1 or 2) the opponent's Pokemon is in. */
   slot: Slot;
+  /** Known ability/item (from team preview or prior reveals). */
+  knownAbility: string;
+  knownItem: string;
   /** My active Pokemon — possible targets. */
   myActive: ActivePokemon[];
+  /** Persist a reveal (ability / item) to the opponent team snapshot. */
+  onUpdateInfo: (info: { ability?: string; item?: string }) => void;
+  /** Mark the opponent's Pokemon as having Mega Evolved. */
+  onToggleMega: (isMega: boolean) => void;
   onAction: (action: TurnAction) => void;
   onClose: () => void;
 }
@@ -29,18 +38,45 @@ interface MoveRow {
 export function OpponentActionMenu({
   pokemon,
   slot,
+  knownAbility,
+  knownItem,
   myActive,
+  onUpdateInfo,
+  onToggleMega,
   onAction,
   onClose,
 }: OpponentActionMenuProps) {
   const [phase, setPhase] = useState<MenuPhase>("moves");
   const [query, setQuery] = useState("");
   const [selectedMove, setSelectedMove] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [, setSelectedCategory] = useState<string>("");
   const [targetSlot, setTargetSlot] = useState<Slot | null>(null);
   const [legalMoves, setLegalMoves] = useState<MoveRow[]>([]);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Reveal-info local state — kept in sync with the props when the
+  // Pokemon/slot changes so you can edit and save.
+  const [abilityDraft, setAbilityDraft] = useState(knownAbility ?? "");
+  const [itemDraft, setItemDraft] = useState(knownItem ?? "");
+  useEffect(() => {
+    setAbilityDraft(knownAbility ?? "");
+    setItemDraft(knownItem ?? "");
+  }, [knownAbility, knownItem, pokemon.species]);
+
+  const abilityDirty = (abilityDraft ?? "").trim() !== (knownAbility ?? "").trim();
+  const itemDirty = (itemDraft ?? "").trim() !== (knownItem ?? "").trim();
+  const infoDirty = abilityDirty || itemDirty;
+
+  const canMegaEvolve = Boolean(getMegaFormFor(pokemon.species, itemDraft));
+  const isMegaNow = Boolean(pokemon.isMega);
+
+  const saveInfo = () => {
+    const payload: { ability?: string; item?: string } = {};
+    if (abilityDirty) payload.ability = abilityDraft.trim();
+    if (itemDirty) payload.item = itemDraft.trim();
+    if (Object.keys(payload).length > 0) onUpdateInfo(payload);
+  };
 
   useEffect(() => {
     if (!pokemon.species) return;
@@ -118,6 +154,9 @@ export function OpponentActionMenu({
     wasKo: boolean,
   ) => {
     if (!selectedMove) return;
+    // Persist any dirty reveal-info first so a single confirmation
+    // commits both the move and the ability/item reveal.
+    saveInfo();
     const action: TurnAction = {
       side: "p2",
       slot,
@@ -157,6 +196,81 @@ export function OpponentActionMenu({
           </svg>
         </button>
       </div>
+
+      {/* Reveal-info panel — always visible on the Move phase */}
+      {phase === "moves" && (
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Reveal opponent info
+            </span>
+            {isMegaNow && (
+              <Badge
+                variant="warning"
+                className="text-[9px] px-1.5 uppercase tracking-wider"
+              >
+                Mega
+              </Badge>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="opp-ability" className="text-[11px]">
+                Ability
+              </Label>
+              <Input
+                id="opp-ability"
+                value={abilityDraft}
+                onChange={(e) => setAbilityDraft(e.target.value)}
+                placeholder="e.g. Intimidate"
+                className="h-8 text-xs"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="opp-item" className="text-[11px]">
+                Item
+              </Label>
+              <Input
+                id="opp-item"
+                value={itemDraft}
+                onChange={(e) => setItemDraft(e.target.value)}
+                placeholder="e.g. Focus Sash"
+                className="h-8 text-xs"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            {canMegaEvolve && (
+              <Button
+                type="button"
+                variant={isMegaNow ? "default" : "outline"}
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => onToggleMega(!isMegaNow)}
+                title={
+                  isMegaNow
+                    ? "Unmark as Mega (if logged in error)"
+                    : "Mark this Pokemon as having Mega Evolved"
+                }
+              >
+                {isMegaNow ? "✓ Mega Evolved" : "Mega Evolve"}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs h-7 ml-auto"
+              onClick={saveInfo}
+              disabled={!infoDirty}
+            >
+              Save info
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Phase: Move entry */}
       {phase === "moves" && (
@@ -213,6 +327,18 @@ export function OpponentActionMenu({
           <p className="text-[11px] text-muted-foreground">
             Unknown move? Just type it and hit Enter — moves aren&apos;t validated.
           </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs"
+            onClick={() => {
+              saveInfo();
+              onClose();
+            }}
+          >
+            Save info only (skip move)
+          </Button>
         </div>
       )}
 

@@ -38,6 +38,10 @@ export interface BattleLoggerState {
   startBattle: (mode: BattleMode) => void;
   setMyTeam: (team: TeamPokemon[], teamId?: string) => void;
   setOpponentTeam: (team: Partial<TeamPokemon>[]) => void;
+  updateOpponentPokemonInfo: (
+    species: string,
+    info: { ability?: string; item?: string },
+  ) => void;
   proceedToTeamPreview: () => void;
   setMyBrought: (species: string[]) => void;
   setOpponentBrought: (species: string[]) => void;
@@ -104,6 +108,21 @@ export function createBattleLoggerStore() {
       set({
         opponentTeam: team,
       }),
+
+    updateOpponentPokemonInfo: (species, info) => {
+      const current = get().opponentTeam;
+      set({
+        opponentTeam: current.map((p) =>
+          p.species === species
+            ? {
+                ...p,
+                ...(info.ability !== undefined ? { ability: info.ability } : {}),
+                ...(info.item !== undefined ? { item: info.item } : {}),
+              }
+            : p,
+        ),
+      });
+    },
 
     proceedToTeamPreview: () => {
       const { myTeam, opponentTeam } = get();
