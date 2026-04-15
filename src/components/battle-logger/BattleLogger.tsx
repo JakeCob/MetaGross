@@ -12,6 +12,7 @@ import { useBattleLogger } from "@/stores/use-battle-logger";
 import { BattleField } from "./BattleField";
 import { FieldStateBar } from "./FieldStateBar";
 import { ActionMenu } from "./ActionMenu";
+import { OpponentActionMenu } from "./OpponentActionMenu";
 import { TurnLog } from "./TurnLog";
 import { TurnControls } from "./TurnControls";
 import type { TurnAction, Slot } from "@/lib/types/battle";
@@ -24,6 +25,7 @@ export interface BattleLoggerProps {
 export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
   const store = useBattleLogger();
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [selectedOppSlot, setSelectedOppSlot] = useState<Slot | null>(null);
   const [showTurnLog, setShowTurnLog] = useState(false);
 
   // Initialize battle state on mount
@@ -59,6 +61,15 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
       setSelectedSlot(slot);
     },
     [store.activeP1],
+  );
+
+  const handleOpponentPokemonTap = useCallback(
+    (slot: Slot) => {
+      const active = store.activeP2[slot - 1];
+      if (!active || active.hpPercent <= 0) return;
+      setSelectedOppSlot(slot);
+    },
+    [store.activeP2],
   );
 
   const handleAction = useCallback(
@@ -135,9 +146,16 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
         activeP2={store.activeP2}
         currentTurnActions={store.currentTurnActions}
         isTargeting={false}
-        selectedSide={selectedSlot != null ? "p1" : null}
-        selectedSlot={selectedSlot}
+        selectedSide={
+          selectedSlot != null
+            ? "p1"
+            : selectedOppSlot != null
+              ? "p2"
+              : null
+        }
+        selectedSlot={selectedSlot ?? selectedOppSlot}
         onMyPokemonTap={handleMyPokemonTap}
+        onOpponentPokemonTap={handleOpponentPokemonTap}
       />
 
       {/* Turn Controls */}
@@ -184,7 +202,7 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
         )}
       </div>
 
-      {/* Action Menu Dialog */}
+      {/* Action Menu Dialog — my side */}
       <Dialog
         open={selectedSlot != null && selectedPokemon != null}
         onOpenChange={(open: boolean) => { if (!open) setSelectedSlot(null); }}
@@ -203,6 +221,27 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
               hasMegaEvolved={selectedActivePokemon?.isMega ?? false}
               onAction={handleAction}
               onClose={() => setSelectedSlot(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Opponent Action Menu Dialog — tap their Pokemon to log their move */}
+      <Dialog
+        open={selectedOppSlot != null}
+        onOpenChange={(open: boolean) => { if (!open) setSelectedOppSlot(null); }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Log opponent move</DialogTitle>
+          </DialogHeader>
+          {selectedOppSlot != null && store.activeP2[selectedOppSlot - 1] && (
+            <OpponentActionMenu
+              pokemon={store.activeP2[selectedOppSlot - 1]}
+              slot={selectedOppSlot}
+              myActive={store.activeP1}
+              onAction={handleAction}
+              onClose={() => setSelectedOppSlot(null)}
             />
           )}
         </DialogContent>

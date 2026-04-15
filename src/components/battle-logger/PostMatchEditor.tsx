@@ -11,7 +11,6 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { useBattleLogger } from "@/stores/use-battle-logger";
 import type { TurnAction, ActionType, Side, Slot } from "@/lib/types/battle";
 
@@ -321,12 +320,19 @@ export function PostMatchEditor({ onEndBattle }: PostMatchEditorProps) {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label>Damage % ({damage})</Label>
-                <Slider
+                <Label htmlFor="post-damage">Damage % ({damage})</Label>
+                <input
+                  id="post-damage"
+                  type="range"
                   min={0}
                   max={100}
-                  value={[damage]}
-                  onValueChange={(val: number | readonly number[]) => setDamage(Array.isArray(val) ? val[0] : val)}
+                  step={1}
+                  value={damage}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!Number.isNaN(v)) setDamage(v);
+                  }}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
                 />
               </div>
 

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 
 export interface DamageInputProps {
   targetName: string;
@@ -36,18 +35,24 @@ export function DamageInput({
         Damage to <span className="font-medium text-foreground">{targetName}</span>
       </p>
 
-      {/* Slider */}
+      {/* Native range input — replaces Base UI Slider, which emitted a
+          dev-only "script tag in React component" warning in v1.x. */}
       <div className="flex flex-col gap-1.5">
-        <Label>Damage ({damage}%)</Label>
-        <Slider
+        <Label htmlFor="damage-range">Damage ({damage}%)</Label>
+        <input
+          id="damage-range"
+          type="range"
           min={0}
           max={100}
-          value={[damage]}
-          onValueChange={(val: number | readonly number[]) => {
-            const v = Array.isArray(val) ? val[0] : val;
+          step={1}
+          value={damage}
+          onChange={(e) => {
+            const v = parseInt(e.target.value, 10);
+            if (Number.isNaN(v)) return;
             setDamage(v);
             if (v < 100 && isKo) setIsKo(false);
           }}
+          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
         />
       </div>
 
