@@ -379,6 +379,11 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
                     store.updateActivePokemon("p2", selectedOppSlot, { isMega });
                   }
                 }}
+                onRevealDisguise={(realSpecies) => {
+                  if (selectedOppSlot != null) {
+                    store.revealDisguise("p2", selectedOppSlot, realSpecies);
+                  }
+                }}
                 onAction={handleAction}
                 onClose={() => setSelectedOppSlot(null)}
               />

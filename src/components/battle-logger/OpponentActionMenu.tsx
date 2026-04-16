@@ -52,6 +52,8 @@ export interface OpponentActionMenuProps {
   onUpdateInfo: (info: { ability?: string; item?: string }) => void;
   /** Mark the opponent's Pokemon as having Mega Evolved. */
   onToggleMega: (isMega: boolean) => void;
+  /** Reveal this slot's true species (Zoroark Illusion, Ditto Imposter). */
+  onRevealDisguise: (realSpecies: string) => void;
   onAction: (action: TurnAction) => void;
   onClose: () => void;
 }
@@ -75,6 +77,7 @@ export function OpponentActionMenu({
   format,
   onUpdateInfo,
   onToggleMega,
+  onRevealDisguise,
   onAction,
   onClose,
 }: OpponentActionMenuProps) {
@@ -91,9 +94,13 @@ export function OpponentActionMenu({
   // Pokemon/slot changes so you can edit and save.
   const [abilityDraft, setAbilityDraft] = useState(knownAbility ?? "");
   const [itemDraft, setItemDraft] = useState(knownItem ?? "");
+  const [disguiseDraft, setDisguiseDraft] = useState("");
+  const [showDisguise, setShowDisguise] = useState(false);
   useEffect(() => {
     setAbilityDraft(knownAbility ?? "");
     setItemDraft(knownItem ?? "");
+    setDisguiseDraft("");
+    setShowDisguise(false);
   }, [knownAbility, knownItem, pokemon.species]);
 
   const abilityDirty = (abilityDraft ?? "").trim() !== (knownAbility ?? "").trim();
@@ -333,6 +340,60 @@ export function OpponentActionMenu({
               Save info
             </Button>
           </div>
+
+          {/* Illusion / Imposter — reveal the true species */}
+          {!showDisguise ? (
+            <button
+              type="button"
+              onClick={() => setShowDisguise(true)}
+              className="text-[10px] text-muted-foreground underline hover:text-foreground text-left cursor-pointer"
+            >
+              Actually a disguise? (Zoroark / Ditto) →
+            </button>
+          ) : (
+            <div className="flex flex-col gap-1 rounded border border-border/40 bg-muted/30 p-2">
+              <Label htmlFor="disguise-real" className="text-[11px]">
+                True species (Illusion / Imposter)
+              </Label>
+              <div className="flex gap-1">
+                <Input
+                  id="disguise-real"
+                  value={disguiseDraft}
+                  onChange={(e) => setDisguiseDraft(e.target.value)}
+                  placeholder={
+                    pokemon.disguisedAs
+                      ? `Currently shown as ${pokemon.species}`
+                      : "e.g. Zoroark"
+                  }
+                  className="h-7 text-xs"
+                  autoComplete="off"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={
+                    !disguiseDraft.trim() ||
+                    disguiseDraft.trim() === pokemon.species
+                  }
+                  onClick={() => {
+                    onRevealDisguise(disguiseDraft.trim());
+                    setDisguiseDraft("");
+                    setShowDisguise(false);
+                  }}
+                >
+                  Reveal
+                </Button>
+              </div>
+              {pokemon.disguisedAs && (
+                <span className="text-[10px] text-muted-foreground">
+                  Already revealed — was{" "}
+                  <span className="line-through">{pokemon.disguisedAs}</span>.
+                  Enter a new value only to correct a mistake.
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 

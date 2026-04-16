@@ -94,9 +94,16 @@ export function PokemonSlot({
             size={32}
             className="shrink-0"
           />
-          <span className="text-sm font-semibold text-foreground truncate">
-            {pokemon.isMega ? `Mega ${pokemon.species}` : pokemon.species}
-          </span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold text-foreground truncate">
+              {pokemon.isMega ? `Mega ${pokemon.species}` : pokemon.species}
+            </span>
+            {pokemon.disguisedAs && (
+              <span className="text-[9px] text-muted-foreground truncate">
+                was <span className="line-through">{pokemon.disguisedAs}</span>
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {pokemon.isMega && (

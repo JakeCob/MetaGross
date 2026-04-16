@@ -41,6 +41,13 @@ export interface ActivePokemon {
    * Pokemon as item-less for damage calcs — and Unburden doubles speed.
    */
   itemRemoved?: boolean;
+  /**
+   * Set when this slot was disguised (Zoroark Illusion, Ditto Imposter).
+   * When the disguise is revealed, `species` is swapped to the real
+   * species and `disguisedAs` stores what it was showing before — so
+   * the UI can render "was Tyranitar" and history stays intact.
+   */
+  disguisedAs?: string;
 }
 
 export interface TurnAction {

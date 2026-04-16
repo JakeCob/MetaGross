@@ -145,6 +145,12 @@ export interface BattleLoggerState {
   ) => void;
   handleKo: (side: Side, slot: Slot) => void;
   handleSwitch: (side: Side, slot: Slot, newSpecies: string) => void;
+  /**
+   * Reveal a disguise (Zoroark Illusion, Ditto Imposter). Swaps the
+   * active slot's species to the real one and stores the previously-
+   * shown species on `disguisedAs` for display/history.
+   */
+  revealDisguise: (side: Side, slot: Slot, realSpecies: string) => void;
 }
 
 const initialState = {
@@ -503,6 +509,24 @@ export const useBattleLogger = create<BattleLoggerState>()(
           }
 
           return patch as Partial<BattleLoggerState>;
+        });
+      },
+
+      revealDisguise: (side, slot, realSpecies) => {
+        const key = side === "p1" ? "activeP1" : "activeP2";
+        set((state) => {
+          const list = [...state[key]];
+          const idx = slot - 1;
+          const current = list[idx];
+          if (!current) return {};
+          // No-op if the revealed species matches what's already shown.
+          if (current.species === realSpecies) return {};
+          list[idx] = {
+            ...current,
+            disguisedAs: current.disguisedAs ?? current.species,
+            species: realSpecies,
+          };
+          return { [key]: list } as Partial<BattleLoggerState>;
         });
       },
     }),
