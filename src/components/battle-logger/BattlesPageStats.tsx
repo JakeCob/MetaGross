@@ -1,33 +1,22 @@
-"use client";
-
-import { use } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { calculateWinRate } from "@/lib/utils/stats";
+import { getAllMatches } from "@/lib/db/queries/matches";
 
-async function fetchStats() {
-  const res = await fetch("/api/matches");
-  if (!res.ok) return null;
-  const data = await res.json();
-  const raw = (data.matches ?? []) as Record<string, unknown>[];
-  const matches = raw
-    .filter((m) => typeof m.result === "string")
-    .map((m) => ({ result: m.result as string }));
-  return calculateWinRate(matches);
-}
-
-let statsPromise: ReturnType<typeof fetchStats> | null = null;
-
-function getStatsPromise() {
-  if (!statsPromise) {
-    statsPromise = fetchStats();
-  }
-  return statsPromise;
-}
-
+/**
+ * Server component — reads matches straight from the DB. Rendered inside
+ * /battles, which is itself a server component. Previously this was a
+ * Client Component that called fetch("/api/matches") via React's
+ * use(promise) API; that works in the browser but throws "Failed to
+ * parse URL from /api/matches" during the server-render pass because
+ * relative URLs aren't resolvable on the server.
+ */
 export function BattlesPageStats() {
-  const stats = use(getStatsPromise());
+  const matches = getAllMatches()
+    .filter((m): m is typeof m & { result: string } => typeof m.result === "string")
+    .map((m) => ({ result: m.result as string }));
 
-  if (!stats || stats.total === 0) return null;
+  const stats = calculateWinRate(matches);
+  if (stats.total === 0) return null;
 
   return (
     <div className="grid grid-cols-3 gap-4">
