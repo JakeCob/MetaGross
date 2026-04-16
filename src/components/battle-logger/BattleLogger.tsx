@@ -219,6 +219,11 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
               myBrought={myBroughtPokemon}
               myActive={store.activeP1}
               hasMegaEvolved={selectedActivePokemon?.isMega ?? false}
+              myTeam={store.myTeam}
+              opponentTeam={store.opponentTeam}
+              predictions={store.scoutingAnalysis?.predictedSets}
+              fieldState={store.fieldState}
+              format={store.format}
               onAction={handleAction}
               onClose={() => setSelectedSlot(null)}
             />
@@ -247,6 +252,11 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
                 knownAbility={teamEntry?.ability ?? ""}
                 knownItem={teamEntry?.item ?? ""}
                 myActive={store.activeP1}
+                myTeam={store.myTeam}
+                opponentTeam={store.opponentTeam}
+                predictions={store.scoutingAnalysis?.predictedSets}
+                fieldState={store.fieldState}
+                format={store.format}
                 onUpdateInfo={(info) => {
                   store.updateOpponentPokemonInfo(activeOpp.species, info);
                 }}

@@ -6,8 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { DamageInput } from "./DamageInput";
+import { DamagePreviewTag } from "./DamagePreviewTag";
 import { getMegaFormFor } from "@/lib/data/champions";
-import type { ActivePokemon, Slot, TurnAction } from "@/lib/types/battle";
+import {
+  resolveToTeamPokemon,
+  getDamagePreview,
+  type DamagePreview,
+} from "@/lib/engine/damage-preview";
+import type { TeamPokemon } from "@/lib/types/pokemon";
+import type { ActivePokemon, FieldState, Slot, TurnAction } from "@/lib/types/battle";
+import type { PredictedSet } from "@/lib/ai/opponent-scouting/types";
 
 type MenuPhase = "moves" | "target" | "damage" | "status-confirm";
 
@@ -21,6 +29,12 @@ export interface OpponentActionMenuProps {
   knownItem: string;
   /** My active Pokemon — possible targets. */
   myActive: ActivePokemon[];
+  /** Context for damage preview resolution. */
+  myTeam?: TeamPokemon[];
+  opponentTeam?: Partial<TeamPokemon>[];
+  predictions?: PredictedSet[];
+  fieldState?: Partial<FieldState>;
+  format?: string;
   /** Persist a reveal (ability / item) to the opponent team snapshot. */
   onUpdateInfo: (info: { ability?: string; item?: string }) => void;
   /** Mark the opponent's Pokemon as having Mega Evolved. */
@@ -41,6 +55,11 @@ export function OpponentActionMenu({
   knownAbility,
   knownItem,
   myActive,
+  myTeam = [],
+  opponentTeam = [],
+  predictions,
+  fieldState,
+  format,
   onUpdateInfo,
   onToggleMega,
   onAction,
@@ -342,26 +361,49 @@ export function OpponentActionMenu({
         </div>
       )}
 
-      {/* Phase: Target selection (damaging moves) */}
-      {phase === "target" && (
+      {/* Phase: Target selection (with damage previews) */}
+      {phase === "target" && (() => {
+        // Pre-compute damage previews: opponent attacker → each of my actives.
+        const ctx = { myTeam, opponentTeam, predictions, format };
+        const attackerResolved = resolveToTeamPokemon(pokemon, "p2", ctx);
+        // Override ability/item with the draft reveals if the user just typed them.
+        if (abilityDraft.trim()) attackerResolved.ability = abilityDraft.trim();
+        if (itemDraft.trim()) attackerResolved.item = itemDraft.trim();
+        const myPreviews = new Map<string, DamagePreview | null>();
+        if (selectedMove) {
+          for (const m of myActive) {
+            if (m.hpPercent <= 0) continue;
+            const defender = resolveToTeamPokemon(m, "p1", ctx);
+            myPreviews.set(m.species, getDamagePreview(attackerResolved, defender, selectedMove, fieldState));
+          }
+        }
+        return (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Which of your Pokemon did it hit?
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            {myActive.map((m, i) => (
+          <div className="grid grid-cols-1 gap-2">
+            {myActive.map((m, i) => {
+              const preview = myPreviews.get(m.species) ?? null;
+              return (
               <Button
                 key={`my-${i}-${m.species}`}
                 variant="outline"
                 size="lg"
-                className="w-full justify-center border-destructive/30 hover:bg-destructive/10"
+                className="w-full justify-between border-destructive/30 hover:bg-destructive/10"
                 disabled={m.hpPercent <= 0}
                 onClick={() => handleTarget((i + 1) as Slot)}
               >
-                {m.species}
-                {m.hpPercent <= 0 ? " (KO)" : ""}
+                <span>
+                  {m.species}
+                  {m.hpPercent <= 0 ? " (KO)" : ""}
+                </span>
+                {preview && m.hpPercent > 0 && (
+                  <DamagePreviewTag preview={preview} />
+                )}
               </Button>
-            ))}
+              );
+            })}
           </div>
           <Button
             variant="outline"
@@ -371,11 +413,22 @@ export function OpponentActionMenu({
           >
             Spread (hit both)
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setPhase("moves")}>
-            Back
-          </Button>
+          <div className="flex items-center justify-between">
+            <Button variant="ghost" size="sm" onClick={() => setPhase("moves")}>
+              Back
+            </Button>
+            <a
+              href="https://calc.pokemonshowdown.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-primary hover:underline"
+            >
+              Open Showdown Calc
+            </a>
+          </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Phase: Damage */}
       {phase === "damage" && targetSlot != null && (
