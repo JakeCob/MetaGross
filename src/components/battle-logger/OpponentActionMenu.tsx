@@ -14,7 +14,7 @@ import {
   type DamagePreview,
 } from "@/lib/engine/damage-preview";
 import type { TeamPokemon } from "@/lib/types/pokemon";
-import type { ActivePokemon, FieldState, Slot, TurnAction } from "@/lib/types/battle";
+import type { ActivePokemon, FieldState, Side, Slot, StatChange, TurnAction } from "@/lib/types/battle";
 import type { PredictedSet } from "@/lib/ai/opponent-scouting/types";
 
 type MenuPhase = "moves" | "target" | "damage" | "status-confirm" | "switch";
@@ -172,6 +172,17 @@ export function OpponentActionMenu({
     // Persist any dirty reveal-info first so a single confirmation
     // commits both the move and the ability/item reveal.
     saveInfo();
+    const statChanges: StatChange[] = [];
+    if (r?.targetStatChanges?.length && targetSlot) {
+      for (const sc of r.targetStatChanges) {
+        statChanges.push({ side: "p1" as Side, slot: targetSlot, stat: sc.stat, delta: sc.delta });
+      }
+    }
+    if (r?.selfStatChanges?.length) {
+      for (const sc of r.selfStatChanges) {
+        statChanges.push({ side: "p2" as Side, slot, stat: sc.stat, delta: sc.delta });
+      }
+    }
     const action: TurnAction = {
       side: "p2",
       slot,
@@ -185,6 +196,8 @@ export function OpponentActionMenu({
       wasMiss: r?.wasMiss ?? false,
       causedFlinch: r?.causedFlinch ?? false,
       inflictedStatus: r?.inflictedStatus ?? null,
+      removedItem: r?.removedItem ?? false,
+      statChanges: statChanges.length > 0 ? statChanges : undefined,
     };
     onAction(action);
     onClose();
@@ -408,7 +421,17 @@ export function OpponentActionMenu({
           for (const m of myActive) {
             if (m.hpPercent <= 0) continue;
             const defender = resolveToTeamPokemon(m, "p1", ctx);
-            myPreviews.set(m.species, getDamagePreview(attackerResolved, defender, selectedMove, fieldState));
+            myPreviews.set(
+              m.species,
+              getDamagePreview(
+                attackerResolved,
+                defender,
+                selectedMove,
+                fieldState,
+                pokemon.boosts,
+                m.boosts,
+              ),
+            );
           }
         }
         return (

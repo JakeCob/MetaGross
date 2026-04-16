@@ -6,7 +6,7 @@ import { DamageInput, type DamageInputResult } from "./DamageInput";
 import { DamagePreviewTag } from "./DamagePreviewTag";
 import { SwitchSelector } from "./SwitchSelector";
 import type { TeamPokemon } from "@/lib/types/pokemon";
-import type { TurnAction, ActivePokemon, FieldState, Slot, Side } from "@/lib/types/battle";
+import type { TurnAction, ActivePokemon, FieldState, Slot, Side, StatChange } from "@/lib/types/battle";
 import {
   resolveToTeamPokemon,
   getDamagePreview,
@@ -69,13 +69,25 @@ export function ActionMenu({
     const map = new Map<string, DamagePreview | null>();
     if (!selectedMove) return map;
     const ctx = { myTeam, opponentTeam, predictions, format };
+    const myActiveThis = myActive[slot - 1];
+    const attackerBoosts = myActiveThis?.boosts ?? undefined;
     for (const opp of opponentActive) {
       if (opp.hpPercent <= 0) continue;
       const defender = resolveToTeamPokemon(opp, "p2", ctx);
-      map.set(opp.species, getDamagePreview(pokemon, defender, selectedMove, fieldState));
+      map.set(
+        opp.species,
+        getDamagePreview(
+          pokemon,
+          defender,
+          selectedMove,
+          fieldState,
+          attackerBoosts,
+          opp.boosts,
+        ),
+      );
     }
     return map;
-  }, [selectedMove, pokemon, opponentActive, myTeam, opponentTeam, predictions, format, fieldState]);
+  }, [selectedMove, pokemon, opponentActive, myActive, slot, myTeam, opponentTeam, predictions, format, fieldState]);
 
   // ----- Move selection -----
   const handleMoveSelect = (move: string, withMega: boolean) => {
@@ -102,6 +114,20 @@ export function ActionMenu({
   // ----- Damage confirmation -----
   const handleDamageConfirm = (r: DamageInputResult) => {
     if (!selectedMove || !targetSide || !targetSlot) return;
+    const statChanges: StatChange[] = [
+      ...r.targetStatChanges.map((sc) => ({
+        side: targetSide,
+        slot: targetSlot,
+        stat: sc.stat,
+        delta: sc.delta,
+      })),
+      ...r.selfStatChanges.map((sc) => ({
+        side: "p1" as Side,
+        slot,
+        stat: sc.stat,
+        delta: sc.delta,
+      })),
+    ];
     const action: TurnAction = {
       side: "p1",
       slot,
@@ -115,6 +141,8 @@ export function ActionMenu({
       wasMiss: r.wasMiss,
       causedFlinch: r.causedFlinch,
       inflictedStatus: r.inflictedStatus,
+      removedItem: r.removedItem,
+      statChanges: statChanges.length > 0 ? statChanges : undefined,
       megaEvolved: megaWithMove,
     };
     onAction(action);

@@ -132,3 +132,39 @@ export function ignoresOpponentAbility(
 ): boolean {
   return !!attackerAbility && ABILITY_IGNORING.has(attackerAbility);
 }
+
+// ---------------------------------------------------------------------------
+// Intimidate
+// ---------------------------------------------------------------------------
+
+/**
+ * Abilities that are immune to Intimidate's Atk drop (or other
+ * Intimidate-adjacent effects like Scrappy making Ghost susceptible).
+ * Source: https://bulbapedia.bulbagarden.net/wiki/Intimidate
+ */
+const INTIMIDATE_IMMUNE = new Set<string>([
+  "Clear Body",
+  "Full Metal Body",
+  "Hyper Cutter",
+  "Inner Focus",
+  "Oblivious",
+  "Own Tempo",
+  "Scrappy",
+  "Guard Dog", // absorbs + inverts Intimidate into a +1 for itself
+  "Rattled",   // still gets the -1, but also gets +1 Spe. Treat as not-immune.
+]);
+
+/** Does the defender's ability block Intimidate's attack drop? */
+export function resistsIntimidate(ability: string | null | undefined): boolean {
+  if (!ability) return false;
+  // Rattled doesn't block the Atk drop — it just also triggers +1 Spe.
+  if (ability === "Rattled") return false;
+  return INTIMIDATE_IMMUNE.has(ability);
+}
+
+/** Guard Dog flips Intimidate into a +1 Atk instead of a -1. */
+export function guardDogFlipsIntimidate(
+  ability: string | null | undefined,
+): boolean {
+  return ability === "Guard Dog";
+}

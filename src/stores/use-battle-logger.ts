@@ -17,7 +17,11 @@ import type {
   ScoutingStatus,
   WinCondition,
 } from "@/lib/ai/opponent-scouting/types";
-import { getSwitchInEffect } from "@/lib/engine/ability-effects";
+import {
+  getSwitchInEffect,
+  guardDogFlipsIntimidate,
+  resistsIntimidate,
+} from "@/lib/engine/ability-effects";
 
 export type BattlePhase =
   | "idle"
@@ -183,6 +187,28 @@ function makeActivePokemon(species: string): ActivePokemon {
   };
 }
 
+/**
+ * Apply Intimidate: drop target's Atk by -1 (clamped to -6). Guard Dog
+ * absorbs the drop and grants +1 Atk to the Guard Dog user instead.
+ * Immune abilities (Clear Body, Hyper Cutter, ...) skip the drop.
+ */
+function applyIntimidateOn(
+  targets: ActivePokemon[],
+  targetTeamAbilityOf: (species: string) => string | undefined,
+): ActivePokemon[] {
+  return targets.map((t) => {
+    if (t.hpPercent <= 0) return t;
+    const ability = targetTeamAbilityOf(t.species);
+    if (resistsIntimidate(ability)) return t;
+    if (guardDogFlipsIntimidate(ability)) {
+      const cur = t.boosts.atk ?? 0;
+      return { ...t, boosts: { ...t.boosts, atk: Math.max(-6, Math.min(6, cur + 1)) } };
+    }
+    const cur = t.boosts.atk ?? 0;
+    return { ...t, boosts: { ...t.boosts, atk: Math.max(-6, cur - 1) } };
+  });
+}
+
 export const useBattleLogger = create<BattleLoggerState>()(
   persist(
     (set, get) => ({
@@ -335,9 +361,13 @@ export const useBattleLogger = create<BattleLoggerState>()(
         // Start with clean field state, then layer in any ability-driven
         // weather/terrain from the four leads.
         const field: FieldState = { ...DEFAULT_FIELD_STATE };
+        const myAbilityOf = (sp: string) =>
+          myTeam.find((p) => p.species === sp)?.ability;
+        const oppAbilityOf = (sp: string) =>
+          opponentTeam.find((p) => p.species === sp)?.ability;
         const leadAbilities = [
-          ...myLeads.map((s) => myTeam.find((p) => p.species === s)?.ability),
-          ...opponentLeads.map((s) => opponentTeam.find((p) => p.species === s)?.ability),
+          ...myLeads.map(myAbilityOf),
+          ...opponentLeads.map(oppAbilityOf),
         ];
         for (const ability of leadAbilities) {
           const effect = getSwitchInEffect(ability);
@@ -345,11 +375,27 @@ export const useBattleLogger = create<BattleLoggerState>()(
           if (effect.weather) field.weather = effect.weather;
           if (effect.terrain) field.terrain = effect.terrain;
         }
+
+        let activeP1 = myLeads.map(makeActivePokemon);
+        let activeP2 = opponentLeads.map(makeActivePokemon);
+        // Intimidate on my leads → drop opponent lead Atk.
+        for (const sp of myLeads) {
+          if (myAbilityOf(sp) === "Intimidate") {
+            activeP2 = applyIntimidateOn(activeP2, oppAbilityOf);
+          }
+        }
+        // Intimidate on opponent leads → drop my lead Atk.
+        for (const sp of opponentLeads) {
+          if (oppAbilityOf(sp) === "Intimidate") {
+            activeP1 = applyIntimidateOn(activeP1, myAbilityOf);
+          }
+        }
+
         set({
           currentTurn: 1,
           fieldState: field,
-          activeP1: myLeads.map(makeActivePokemon),
-          activeP2: opponentLeads.map(makeActivePokemon),
+          activeP1,
+          activeP2,
           currentTurnActions: [],
         });
       },
@@ -422,6 +468,7 @@ export const useBattleLogger = create<BattleLoggerState>()(
 
       handleSwitch: (side, slot, newSpecies) => {
         const key = side === "p1" ? "activeP1" : "activeP2";
+        const oppKey = side === "p1" ? "activeP2" : "activeP1";
         set((state) => {
           const list = [...state[key]];
           const idx = slot - 1;
@@ -430,21 +477,32 @@ export const useBattleLogger = create<BattleLoggerState>()(
           // Auto-apply ability switch-in effects (Drizzle → rain, Electric
           // Surge → electric terrain, etc.). Look up the ability from
           // myTeam / opponentTeam — respects any user-entered reveals.
-          const ability =
-            side === "p1"
-              ? state.myTeam.find((p) => p.species === newSpecies)?.ability
-              : state.opponentTeam.find((p) => p.species === newSpecies)?.ability;
+          const myAbilityOf = (sp: string) =>
+            state.myTeam.find((p) => p.species === sp)?.ability;
+          const oppAbilityOf = (sp: string) =>
+            state.opponentTeam.find((p) => p.species === sp)?.ability;
+          const resolveAbility = (s: Side, sp: string) =>
+            s === "p1" ? myAbilityOf(sp) : oppAbilityOf(sp);
+
+          const ability = resolveAbility(side, newSpecies);
           const effect = getSwitchInEffect(ability);
+          const patch: { [k: string]: unknown } = { [key]: list };
           if (effect) {
             const next: Partial<FieldState> = {};
             if (effect.weather) next.weather = effect.weather;
             if (effect.terrain) next.terrain = effect.terrain;
-            return {
-              [key]: list,
-              fieldState: { ...state.fieldState, ...next },
-            };
+            patch.fieldState = { ...state.fieldState, ...next };
           }
-          return { [key]: list };
+
+          // Intimidate: if the switched-in Pokemon has Intimidate, drop
+          // the OPPOSING side's Atk (respecting immunity + Guard Dog).
+          if (ability === "Intimidate") {
+            const opposingAbilityOf =
+              side === "p1" ? oppAbilityOf : myAbilityOf;
+            patch[oppKey] = applyIntimidateOn(state[oppKey], opposingAbilityOf);
+          }
+
+          return patch as Partial<BattleLoggerState>;
         });
       },
     }),

@@ -126,6 +126,41 @@ export function PokemonSlot({
           {Math.round(pokemon.hpPercent)}%
         </span>
       </div>
+
+      {/* Boosts + item-removed row (compact) */}
+      {(hasAnyBoost(pokemon.boosts) || pokemon.itemRemoved) && (
+        <div className="flex flex-wrap gap-1 pt-0.5">
+          {pokemon.itemRemoved && (
+            <span
+              className="inline-flex items-center rounded border border-rose-500/40 bg-rose-500/10 px-1 text-[9px] font-mono font-semibold text-rose-300 line-through"
+              title="Item knocked off"
+            >
+              ITEM
+            </span>
+          )}
+          {Object.entries(pokemon.boosts).map(([stat, delta]) => {
+            if (!delta) return null;
+            const label = `${stat.toUpperCase()}${delta > 0 ? "+" : ""}${delta}`;
+            const color =
+              delta > 0
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                : "border-rose-500/40 bg-rose-500/10 text-rose-300";
+            return (
+              <span
+                key={stat}
+                className={`inline-flex items-center rounded border px-1 text-[9px] font-mono font-semibold ${color}`}
+              >
+                {label}
+              </span>
+            );
+          })}
+        </div>
+      )}
     </button>
   );
+}
+
+function hasAnyBoost(boosts: Record<string, number>): boolean {
+  for (const v of Object.values(boosts)) if (v !== 0) return true;
+  return false;
 }

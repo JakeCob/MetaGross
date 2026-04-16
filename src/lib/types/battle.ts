@@ -33,7 +33,14 @@ export interface ActivePokemon {
   hpPercent: number;    // 0-100
   status: string | null; // 'burn' | 'paralysis' | 'sleep' | 'freeze' | 'poison' | 'toxic' | null
   isMega: boolean;
-  boosts: Record<string, number>;  // stat boosts/drops
+  /** Stat stage boosts keyed by BoostableStat; absent keys default to 0. */
+  boosts: Record<string, number>;
+  /**
+   * Held item was removed (Knock Off, Trick, Switcheroo, Corrosive Gas,
+   * Fling, Incinerate on berry, etc.). When true, resolvers treat the
+   * Pokemon as item-less for damage calcs — and Unburden doubles speed.
+   */
+  itemRemoved?: boolean;
 }
 
 export interface TurnAction {
@@ -53,6 +60,10 @@ export interface TurnAction {
   inflictedStatus?: StatusCondition | null;
   /** Target flinched (either from this move's flinch chance or King's Rock etc.). */
   causedFlinch?: boolean;
+  /** Move knocked off / stole / tricked the target's held item. */
+  removedItem?: boolean;
+  /** Stat changes applied as a side effect (Icy Wind Spe -1, Growl Atk -1, Power-Up Punch Atk +1, etc.). */
+  statChanges?: StatChange[];
   // Switch data
   switchInSpecies?: string;
   switchOutSpecies?: string;
@@ -70,6 +81,27 @@ export interface TurnAction {
    * sides, the lower moveOrder went first.
    */
   moveOrder?: number;
+}
+
+/** Stats whose battle-stage changes we track on ActivePokemon.boosts. */
+export type BoostableStat =
+  | "atk"
+  | "def"
+  | "spa"
+  | "spd"
+  | "spe"
+  | "accuracy"
+  | "evasion";
+
+/** A single stat change recorded on a TurnAction. */
+export interface StatChange {
+  /** Side whose Pokemon is affected. */
+  side: Side;
+  /** Which active slot is affected. */
+  slot: Slot;
+  stat: BoostableStat;
+  /** Signed integer stage change: -6 to +6 per move, usually ±1 or ±2. */
+  delta: number;
 }
 
 /** Status conditions we can track on an ActivePokemon or record as an action side-effect. */

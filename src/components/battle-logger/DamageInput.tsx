@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import type { StatusCondition } from "@/lib/types/battle";
+import type { BoostableStat, StatusCondition } from "@/lib/types/battle";
+
+export interface StatChangeDraft {
+  stat: BoostableStat;
+  delta: number;
+}
 
 export interface DamageInputResult {
   damage: number;
@@ -12,6 +17,11 @@ export interface DamageInputResult {
   wasMiss: boolean;
   causedFlinch: boolean;
   inflictedStatus: StatusCondition | null;
+  removedItem: boolean;
+  /** Stat changes to apply to the target (defender). */
+  targetStatChanges: StatChangeDraft[];
+  /** Stat changes to apply to the attacker (self-boost / self-drop). */
+  selfStatChanges: StatChangeDraft[];
 }
 
 export interface DamageInputProps {
@@ -44,6 +54,9 @@ export function DamageInput({
   const [isMiss, setIsMiss] = useState(false);
   const [causedFlinch, setCausedFlinch] = useState(false);
   const [status, setStatus] = useState<StatusCondition | "none">("none");
+  const [removedItem, setRemovedItem] = useState(false);
+  const [targetStatChanges, setTargetStatChanges] = useState<StatChangeDraft[]>([]);
+  const [selfStatChanges, setSelfStatChanges] = useState<StatChangeDraft[]>([]);
 
   const handleKoToggle = () => {
     const next = !isKo;
@@ -74,6 +87,9 @@ export function DamageInput({
       wasMiss: isMiss,
       causedFlinch: !isMiss && causedFlinch,
       inflictedStatus: isMiss ? null : status === "none" ? null : status,
+      removedItem: !isMiss && removedItem,
+      targetStatChanges: isMiss ? [] : targetStatChanges,
+      selfStatChanges,
     });
   };
 
@@ -175,6 +191,31 @@ export function DamageInput({
         </select>
       </div>
 
+      {/* Item / stat side-effects */}
+      <div className={`flex flex-col gap-2 ${isMiss ? "opacity-40 pointer-events-none" : ""}`}>
+        <Label className="text-[11px]">Side effects</Label>
+        <Button
+          type="button"
+          variant={removedItem ? "default" : "outline"}
+          size="sm"
+          className="text-xs"
+          onClick={() => setRemovedItem(!removedItem)}
+        >
+          {removedItem ? "✓ Item knocked off" : "Knocked off / stole item"}
+        </Button>
+
+        <StatChangeRow
+          label="Target stat change"
+          value={targetStatChanges}
+          onChange={setTargetStatChanges}
+        />
+        <StatChangeRow
+          label="Self stat change"
+          value={selfStatChanges}
+          onChange={setSelfStatChanges}
+        />
+      </div>
+
       {/* Confirm / Cancel */}
       <div className="flex gap-2 pt-1">
         <Button variant="outline" size="sm" className="flex-1" onClick={onCancel}>
@@ -184,6 +225,82 @@ export function DamageInput({
           Confirm
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline stat-change editor: add rows of { stat, delta }. Kept compact so
+// it fits inside the damage dialog without dominating the UI.
+// ---------------------------------------------------------------------------
+const STAT_OPTIONS: BoostableStat[] = ["atk", "def", "spa", "spd", "spe", "accuracy", "evasion"];
+
+function StatChangeRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: StatChangeDraft[];
+  onChange: (next: StatChangeDraft[]) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      {value.map((row, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <select
+            value={row.stat}
+            onChange={(e) => {
+              const next = [...value];
+              next[i] = { ...row, stat: e.target.value as BoostableStat };
+              onChange(next);
+            }}
+            className="h-7 rounded border border-border bg-card px-1.5 text-[11px]"
+          >
+            {STAT_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s.toUpperCase()}
+              </option>
+            ))}
+          </select>
+          <select
+            value={row.delta}
+            onChange={(e) => {
+              const next = [...value];
+              next[i] = { ...row, delta: parseInt(e.target.value, 10) };
+              onChange(next);
+            }}
+            className="h-7 rounded border border-border bg-card px-1.5 text-[11px]"
+          >
+            {[-6, -3, -2, -1, 1, 2, 3, 6].map((d) => (
+              <option key={d} value={d}>
+                {d > 0 ? `+${d}` : d}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+            onClick={() => onChange(value.filter((_, j) => j !== i))}
+            aria-label="Remove stat change"
+            title="Remove"
+          >
+            ×
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-7 text-[11px] self-start"
+        onClick={() => onChange([...value, { stat: "atk", delta: -1 }])}
+      >
+        + Add {label.toLowerCase()}
+      </Button>
     </div>
   );
 }

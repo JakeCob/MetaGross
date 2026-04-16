@@ -166,6 +166,32 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
           status: stamped.inflictedStatus,
         });
       }
+
+      // Item knocked off — clear item on the target's active + snapshot.
+      if (stamped.removedItem && stamped.targetSide && stamped.targetSlot) {
+        const targetKey = stamped.targetSide === "p1" ? "activeP1" : "activeP2";
+        const target = store[targetKey][stamped.targetSlot - 1];
+        store.updateActivePokemon(stamped.targetSide, stamped.targetSlot, {
+          itemRemoved: true,
+        });
+        if (stamped.targetSide === "p2" && target) {
+          store.updateOpponentPokemonInfo(target.species, { item: "" });
+        }
+      }
+
+      // Stat changes — merge into the target's boosts (clamped to ±6).
+      if (stamped.statChanges && stamped.statChanges.length > 0) {
+        for (const sc of stamped.statChanges) {
+          const activeKey = sc.side === "p1" ? "activeP1" : "activeP2";
+          const target = store[activeKey][sc.slot - 1];
+          if (!target) continue;
+          const prev = target.boosts[sc.stat] ?? 0;
+          const next = Math.max(-6, Math.min(6, prev + sc.delta));
+          store.updateActivePokemon(sc.side, sc.slot, {
+            boosts: { ...target.boosts, [sc.stat]: next },
+          });
+        }
+      }
     },
     [store],
   );

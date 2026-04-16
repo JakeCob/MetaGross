@@ -86,7 +86,8 @@ export function resolveToTeamPokemon(
   return {
     species: active.species,
     ability: store?.ability || predicted?.ability || "",
-    item: store?.item || predicted?.item || "",
+    // Clear item when the user logged it as knocked off mid-battle.
+    item: active.itemRemoved ? "" : store?.item || predicted?.item || "",
     nature: predicted?.nature || store?.nature || "Hardy",
     level: predicted?.level ?? store?.level ?? 50,
     moves: predicted?.moves ?? (store?.moves as [string, string, string, string]) ?? ["", "", "", ""],
@@ -125,6 +126,8 @@ export function getDamagePreview(
   defender: TeamPokemon,
   moveName: string,
   fieldState?: Partial<FieldState>,
+  attackerBoosts?: Record<string, number>,
+  defenderBoosts?: Record<string, number>,
 ): DamagePreview | null {
   // --- Ability-based short-circuits ---
   const moveData = getMove(moveName);
@@ -156,6 +159,8 @@ export function getDamagePreview(
     isDoubles: true,
     weather: fieldState?.weather ?? undefined,
     terrain: fieldState?.terrain ?? undefined,
+    attackerBoosts: attackerBoosts ?? undefined,
+    defenderBoosts: defenderBoosts ?? undefined,
   });
   if (!result) return null;
   return resultToPreview(result);
