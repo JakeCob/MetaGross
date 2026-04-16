@@ -17,13 +17,34 @@ import { getMove } from "@/lib/pokemon/moves";
 import type { PredictedSet } from "@/lib/ai/opponent-scouting/types";
 
 /**
- * Move target categories that hit both opponents in doubles — the
- * action menu auto-runs the spread flow instead of a single-target
- * damage prompt.
+ * Damaging-spread targets — blast every live foe in doubles.
  */
 const SPREAD_TARGETS = new Set([
   "allAdjacentFoes",
   "allAdjacent",
+]);
+
+/**
+ * "No-target" move categories. These moves target the user, allies, or
+ * the field, not an opposing Pokemon — so they have no damage prompt
+ * and no target picker.
+ *
+ * - self: Protect, Detect, Swords Dance, Recover, Substitute, Nasty Plot…
+ * - allies / adjacentAlly / adjacentAllyOrSelf: Helping Hand, Life Dew…
+ * - allySide: Reflect, Light Screen, Aurora Veil, Tailwind, Safeguard
+ * - allyTeam: (whole-team heals — rare in VGC)
+ * - foeSide: Stealth Rock, Spikes, Sticky Web, Toxic Spikes
+ * - all: Trick Room, Rain Dance, Sunny Day, Snowscape, Hail, Misty
+ *        Terrain, Psychic Terrain, Grassy Terrain, Electric Terrain,
+ *        Haze, Defog, Gravity
+ */
+const NO_TARGET_TARGETS = new Set([
+  "self",
+  "allies",
+  "adjacentAlly",
+  "adjacentAllyOrSelf",
+  "allySide",
+  "allyTeam",
   "foeSide",
   "all",
 ]);
@@ -121,9 +142,26 @@ export function ActionMenu({
     setSelectedMove(move);
     setMegaWithMove(withMega);
 
+    const moveData = getMove(move);
+
+    // No-target move (Protect, Swords Dance, Tailwind, Trick Room,
+    // Rain Dance, Stealth Rock, etc.) — skip target + damage entirely
+    // and emit the action immediately.
+    if (moveData && NO_TARGET_TARGETS.has(moveData.target)) {
+      const action: TurnAction = {
+        side: "p1",
+        slot,
+        actionType: withMega ? "mega_move" : "move",
+        moveName: move,
+        megaEvolved: withMega,
+      };
+      onAction(action);
+      onClose();
+      return;
+    }
+
     // Spread-move detection: skip single-target phase and queue every
     // live opponent for sequential damage logging.
-    const moveData = getMove(move);
     const isSpread = moveData && SPREAD_TARGETS.has(moveData.target);
     if (isSpread) {
       const liveOpps = opponentActive

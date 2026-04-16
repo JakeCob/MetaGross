@@ -8,6 +8,19 @@ import { Badge } from "@/components/ui/badge";
 import { DamageInput, type DamageInputResult } from "./DamageInput";
 import { DamagePreviewTag } from "./DamagePreviewTag";
 import { getMegaFormFor } from "@/lib/data/champions";
+import { getMove } from "@/lib/pokemon/moves";
+
+/** Move targets that take no enemy target + no damage prompt. */
+const NO_TARGET_TARGETS = new Set([
+  "self",
+  "allies",
+  "adjacentAlly",
+  "adjacentAllyOrSelf",
+  "allySide",
+  "allyTeam",
+  "foeSide",
+  "all",
+]);
 import {
   resolveToTeamPokemon,
   getDamagePreview,
@@ -137,7 +150,27 @@ export function OpponentActionMenu({
   const pickMove = (move: { name: string; category: string }) => {
     setSelectedMove(move.name);
     setSelectedCategory(move.category || "");
-    // Status moves usually don't deal damage → skip target/damage prompts.
+
+    // No-target moves (Protect / Swords Dance / Tailwind / Trick Room /
+    // Stealth Rock / Rain Dance / ...): log immediately, no target and
+    // no damage prompt.
+    const moveData = getMove(move.name);
+    if (moveData && NO_TARGET_TARGETS.has(moveData.target)) {
+      saveInfo();
+      const action: TurnAction = {
+        side: "p2",
+        slot,
+        actionType: "move",
+        moveName: move.name,
+      };
+      onAction(action);
+      onClose();
+      return;
+    }
+
+    // Status moves that target an enemy (Thunder Wave / Taunt /
+    // Will-O-Wisp / Spore): skip the damage dialog, let the user
+    // confirm — they can still log status inflicted or flinch.
     if ((move.category || "").toLowerCase() === "status") {
       setPhase("status-confirm");
     } else {
