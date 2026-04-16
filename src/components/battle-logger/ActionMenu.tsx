@@ -60,6 +60,9 @@ export function ActionMenu({
   const [phase, setPhase] = useState<MenuPhase>("moves");
   const [selectedMove, setSelectedMove] = useState<string | null>(null);
   const [megaWithMove, setMegaWithMove] = useState(false);
+  /** When true, the next move selection fires as a Mega move. Toggled by
+   *  the "Mega Evolve" button above the move grid. */
+  const [megaPrimed, setMegaPrimed] = useState(false);
   const [targetSide, setTargetSide] = useState<Side | null>(null);
   const [targetSlot, setTargetSlot] = useState<Slot | null>(null);
 
@@ -207,6 +210,29 @@ export function ActionMenu({
       {/* Phase: Move selection */}
       {phase === "moves" && (
         <div className="space-y-3">
+          {/* Mega Evolve toggle — sits above the moves so it clearly
+              modifies whatever the user taps next. Only rendered when
+              the held item is a valid Mega Stone for this species. */}
+          {canMega && (
+            <button
+              type="button"
+              onClick={() => setMegaPrimed((v) => !v)}
+              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors cursor-pointer ${
+                megaPrimed
+                  ? "border-warning bg-warning/15 text-warning"
+                  : "border-warning/40 bg-warning/5 text-warning hover:bg-warning/10"
+              }`}
+              title="Next move will trigger Mega Evolution"
+            >
+              <span className="font-semibold">
+                {megaPrimed ? "✓ Mega Evolve + next move" : "Mega Evolve with this move"}
+              </span>
+              <span className="text-[10px] uppercase tracking-wider opacity-80">
+                {megaPrimed ? "primed" : "tap to arm"}
+              </span>
+            </button>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             {pokemon.moves.map((move) => {
               if (!move) return null;
@@ -215,37 +241,18 @@ export function ActionMenu({
                   key={move}
                   variant="outline"
                   size="lg"
-                  className="w-full justify-center text-sm font-medium"
-                  onClick={() => handleMoveSelect(move, false)}
+                  className={`w-full justify-center text-sm font-medium ${
+                    megaPrimed
+                      ? "border-warning/60 text-warning hover:bg-warning/10"
+                      : ""
+                  }`}
+                  onClick={() => handleMoveSelect(move, megaPrimed)}
                 >
-                  {move}
+                  {megaPrimed ? `⚡ ${move}` : move}
                 </Button>
               );
             })}
           </div>
-
-          {/* Mega + Move (if available) */}
-          {canMega && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Mega Evolve + Move:</p>
-              <div className="grid grid-cols-2 gap-2">
-                {pokemon.moves.map((move) => {
-                  if (!move) return null;
-                  return (
-                    <Button
-                      key={`mega-${move}`}
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-center text-xs border-warning/40 text-warning hover:bg-warning/10"
-                      onClick={() => handleMoveSelect(move, true)}
-                    >
-                      Mega + {move}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Switch button */}
           <Button
