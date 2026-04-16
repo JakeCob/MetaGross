@@ -13,12 +13,26 @@ import {
   type DamagePreview,
 } from "@/lib/engine/damage-preview";
 import { getMegaFormFor } from "@/lib/data/champions";
+import { getMove } from "@/lib/pokemon/moves";
 import type { PredictedSet } from "@/lib/ai/opponent-scouting/types";
+
+/**
+ * Move target categories that hit both opponents in doubles — the
+ * action menu auto-runs the spread flow instead of a single-target
+ * damage prompt.
+ */
+const SPREAD_TARGETS = new Set([
+  "allAdjacentFoes",
+  "allAdjacent",
+  "foeSide",
+  "all",
+]);
 
 type MenuPhase =
   | "moves"
   | "target"
   | "damage"
+  | "spread-damage"
   | "switch";
 
 export interface ActionMenuProps {
@@ -65,6 +79,11 @@ export function ActionMenu({
   const [megaPrimed, setMegaPrimed] = useState(false);
   const [targetSide, setTargetSide] = useState<Side | null>(null);
   const [targetSlot, setTargetSlot] = useState<Slot | null>(null);
+  /** Remaining opponent slots to prompt for damage during a spread move. */
+  const [spreadQueue, setSpreadQueue] = useState<Slot[]>([]);
+  /** Has the Mega trigger already been recorded? Only the first action in
+   *  a spread gets megaEvolved=true — we don't double-count it. */
+  const [spreadMegaApplied, setSpreadMegaApplied] = useState(false);
 
   // Can Mega Evolve if the held item is that species' Mega Stone and
   // this Pokemon hasn't Mega'd yet. The legacy `pokemon.megaEvolution`
@@ -101,6 +120,28 @@ export function ActionMenu({
   const handleMoveSelect = (move: string, withMega: boolean) => {
     setSelectedMove(move);
     setMegaWithMove(withMega);
+
+    // Spread-move detection: skip single-target phase and queue every
+    // live opponent for sequential damage logging.
+    const moveData = getMove(move);
+    const isSpread = moveData && SPREAD_TARGETS.has(moveData.target);
+    if (isSpread) {
+      const liveOpps = opponentActive
+        .map((opp, i) => ({ opp, slot: (i + 1) as Slot }))
+        .filter(({ opp }) => opp.hpPercent > 0)
+        .map(({ slot }) => slot);
+      if (liveOpps.length === 0) {
+        // Nothing to hit — bail back to the move grid.
+        setSelectedMove(null);
+        return;
+      }
+      setSpreadQueue(liveOpps);
+      setSpreadMegaApplied(false);
+      setTargetSide("p2");
+      setTargetSlot(liveOpps[0]);
+      setPhase("spread-damage");
+      return;
+    }
     setPhase("target");
   };
 
@@ -119,9 +160,15 @@ export function ActionMenu({
     setPhase("damage");
   };
 
-  // ----- Damage confirmation -----
-  const handleDamageConfirm = (r: DamageInputResult) => {
-    if (!selectedMove || !targetSide || !targetSlot) return;
+  /**
+   * Build a TurnAction from a damage-input result against the current
+   * targetSide/targetSlot.
+   */
+  const buildActionFromDamage = (
+    r: DamageInputResult,
+    overrides: Partial<TurnAction> = {},
+  ): TurnAction | null => {
+    if (!selectedMove || !targetSide || !targetSlot) return null;
     const statChanges: StatChange[] = [
       ...r.targetStatChanges.map((sc) => ({
         side: targetSide,
@@ -136,7 +183,7 @@ export function ActionMenu({
         delta: sc.delta,
       })),
     ];
-    const action: TurnAction = {
+    return {
       side: "p1",
       slot,
       actionType: megaWithMove ? "mega_move" : "move",
@@ -152,9 +199,37 @@ export function ActionMenu({
       removedItem: r.removedItem,
       statChanges: statChanges.length > 0 ? statChanges : undefined,
       megaEvolved: megaWithMove,
+      ...overrides,
     };
+  };
+
+  // ----- Single-target damage confirmation -----
+  const handleDamageConfirm = (r: DamageInputResult) => {
+    const action = buildActionFromDamage(r);
+    if (!action) return;
     onAction(action);
     onClose();
+  };
+
+  // ----- Spread damage — fire one action per queued target, then close -----
+  const handleSpreadDamageConfirm = (r: DamageInputResult) => {
+    // Only the FIRST spread action carries megaEvolved — subsequent
+    // hits share the same Mega Evolve event.
+    const action = buildActionFromDamage(r, {
+      megaEvolved: megaWithMove && !spreadMegaApplied,
+      actionType: megaWithMove && !spreadMegaApplied ? "mega_move" : "move",
+    });
+    if (!action) return;
+    onAction(action);
+
+    const remaining = spreadQueue.slice(1);
+    if (remaining.length === 0) {
+      onClose();
+      return;
+    }
+    setSpreadQueue(remaining);
+    setSpreadMegaApplied(true);
+    setTargetSlot(remaining[0]);
   };
 
   // ----- Switch -----
@@ -332,6 +407,32 @@ export function ActionMenu({
           onConfirm={handleDamageConfirm}
           onCancel={() => setPhase("target")}
         />
+      )}
+
+      {/* Phase: Spread damage — sequential per-opponent prompts */}
+      {phase === "spread-damage" && targetSlot && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              Spread move — damage vs{" "}
+              <span className="font-semibold text-foreground">
+                {opponentActive[targetSlot - 1]?.species ?? "opponent"}
+              </span>
+            </span>
+            <span className="text-[10px] font-mono">
+              {spreadQueue.length} target{spreadQueue.length !== 1 ? "s" : ""} left
+            </span>
+          </div>
+          <DamageInput
+            targetName={opponentActive[targetSlot - 1]?.species ?? "Target"}
+            onConfirm={handleSpreadDamageConfirm}
+            onCancel={() => {
+              // Bail out of the spread entirely.
+              setSpreadQueue([]);
+              setPhase("moves");
+            }}
+          />
+        </div>
       )}
 
       {/* Phase: Switch */}

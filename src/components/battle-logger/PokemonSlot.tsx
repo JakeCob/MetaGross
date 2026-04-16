@@ -90,11 +90,12 @@ export function PokemonSlot({
         <div className="flex items-center gap-1.5 min-w-0">
           <PokemonSprite
             species={pokemon.species}
+            mega={pokemon.isMega}
             size={32}
             className="shrink-0"
           />
           <span className="text-sm font-semibold text-foreground truncate">
-            {pokemon.species}
+            {pokemon.isMega ? `Mega ${pokemon.species}` : pokemon.species}
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
