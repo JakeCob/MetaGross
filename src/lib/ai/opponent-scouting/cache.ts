@@ -6,41 +6,12 @@
  * Pattern mirrors src/lib/pokemon/pikalytics.ts (positive + negative
  * cache, short circuit on upstream failure).
  */
-import { createHash } from "crypto";
-import type { TeamPokemon } from "@/lib/types/pokemon";
 import type { ScoutingResult } from "./types";
 
-// ---------------------------------------------------------------------------
-// Hashing
-// ---------------------------------------------------------------------------
-
-/**
- * Produce a stable short hash of the opponent team snapshot.
- *
- * Includes species + revealed ability + revealed item, sorted by species
- * so order-independent. Reveals (mid-battle updates to ability/item)
- * change the hash and force a re-scout.
- */
-export function hashOpponentSnapshot(
-  opponentTeam: Partial<TeamPokemon>[],
-  format: string,
-): string {
-  const normalized = opponentTeam
-    .map((p) => ({
-      species: (p.species ?? "").trim().toLowerCase(),
-      ability: (p.ability ?? "").trim().toLowerCase(),
-      item: (p.item ?? "").trim().toLowerCase(),
-    }))
-    .filter((p) => p.species.length > 0)
-    .sort((a, b) => a.species.localeCompare(b.species));
-
-  const payload = JSON.stringify({
-    format: format.toLowerCase(),
-    team: normalized,
-  });
-
-  return createHash("sha1").update(payload).digest("hex").slice(0, 16);
-}
+// Re-export the client-safe hash so callers can keep importing from
+// `./cache`. The implementation lives in ./hash so Client Components
+// can import it without pulling in node-only deps.
+export { hashOpponentSnapshot } from "./hash";
 
 // ---------------------------------------------------------------------------
 // TTL caches

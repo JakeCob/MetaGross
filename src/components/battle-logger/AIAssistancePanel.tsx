@@ -6,7 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { PokemonSprite } from "@/components/pokemon-sprite";
 import { useBattleLogger } from "@/stores/use-battle-logger";
 import { useScoutingRunner } from "@/hooks/use-scouting-runner";
-import { hashOpponentSnapshot } from "@/lib/ai/opponent-scouting";
+// Client-safe import (no node deps) — DO NOT import from the barrel
+// "@/lib/ai/opponent-scouting", which transitively pulls in pikalytics
+// and the LangGraph runtime.
+import { hashOpponentSnapshot } from "@/lib/ai/opponent-scouting/hash";
 
 /**
  * In-battle AI advisor. Piggybacks on the Opponent Scouting pipeline
