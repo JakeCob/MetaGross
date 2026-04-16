@@ -6,6 +6,11 @@
  * in the ActionMenu and OpponentActionMenu.
  */
 import { calculateDamage, type DamageResult } from "./damage-calc";
+import {
+  typeImmunityReason,
+  blocksPriorityMove,
+} from "./ability-effects";
+import { getMove } from "@/lib/pokemon/moves";
 import type { TeamPokemon, EVSpread, IVSpread } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
 import type { ActivePokemon, FieldState } from "@/lib/types/battle";
@@ -110,6 +115,10 @@ export interface DamagePreview {
 /**
  * Run the damage calc and return a compact preview. Requires full
  * TeamPokemon for both sides (use resolveToTeamPokemon first).
+ *
+ * Short-circuits to an IMMUNE preview when the defender's ability
+ * grants type immunity (Levitate vs Ground, Flash Fire vs Fire, etc.)
+ * or blocks priority (Armor Tail / Dazzling / Queenly Majesty).
  */
 export function getDamagePreview(
   attacker: TeamPokemon,
@@ -117,6 +126,32 @@ export function getDamagePreview(
   moveName: string,
   fieldState?: Partial<FieldState>,
 ): DamagePreview | null {
+  // --- Ability-based short-circuits ---
+  const moveData = getMove(moveName);
+  if (moveData) {
+    const immunity = typeImmunityReason(defender.ability, moveData.type);
+    if (immunity) {
+      return {
+        minPercent: 0,
+        maxPercent: 0,
+        label: `Immune (${immunity})`,
+        severity: "safe",
+        description: `${defender.species}'s ${immunity} makes it immune to ${moveData.type}-type moves.`,
+        koN: 0,
+      };
+    }
+    if (blocksPriorityMove(defender.ability, moveData.priority)) {
+      return {
+        minPercent: 0,
+        maxPercent: 0,
+        label: `Blocked (${defender.ability})`,
+        severity: "safe",
+        description: `${defender.species}'s ${defender.ability} blocks priority moves in doubles.`,
+        koN: 0,
+      };
+    }
+  }
+
   const result = calculateDamage(attacker, defender, moveName, {
     isDoubles: true,
     weather: fieldState?.weather ?? undefined,

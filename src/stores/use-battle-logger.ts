@@ -17,6 +17,7 @@ import type {
   ScoutingStatus,
   WinCondition,
 } from "@/lib/ai/opponent-scouting/types";
+import { getSwitchInEffect } from "@/lib/engine/ability-effects";
 
 export type BattlePhase =
   | "idle"
@@ -330,10 +331,23 @@ export const useBattleLogger = create<BattleLoggerState>()(
       // --- Turn management actions ---
 
       initializeBattle: () => {
-        const { myLeads, opponentLeads } = get();
+        const { myLeads, opponentLeads, myTeam, opponentTeam } = get();
+        // Start with clean field state, then layer in any ability-driven
+        // weather/terrain from the four leads.
+        const field: FieldState = { ...DEFAULT_FIELD_STATE };
+        const leadAbilities = [
+          ...myLeads.map((s) => myTeam.find((p) => p.species === s)?.ability),
+          ...opponentLeads.map((s) => opponentTeam.find((p) => p.species === s)?.ability),
+        ];
+        for (const ability of leadAbilities) {
+          const effect = getSwitchInEffect(ability);
+          if (!effect) continue;
+          if (effect.weather) field.weather = effect.weather;
+          if (effect.terrain) field.terrain = effect.terrain;
+        }
         set({
           currentTurn: 1,
-          fieldState: { ...DEFAULT_FIELD_STATE },
+          fieldState: field,
           activeP1: myLeads.map(makeActivePokemon),
           activeP2: opponentLeads.map(makeActivePokemon),
           currentTurnActions: [],
@@ -412,6 +426,24 @@ export const useBattleLogger = create<BattleLoggerState>()(
           const list = [...state[key]];
           const idx = slot - 1;
           list[idx] = makeActivePokemon(newSpecies);
+
+          // Auto-apply ability switch-in effects (Drizzle → rain, Electric
+          // Surge → electric terrain, etc.). Look up the ability from
+          // myTeam / opponentTeam — respects any user-entered reveals.
+          const ability =
+            side === "p1"
+              ? state.myTeam.find((p) => p.species === newSpecies)?.ability
+              : state.opponentTeam.find((p) => p.species === newSpecies)?.ability;
+          const effect = getSwitchInEffect(ability);
+          if (effect) {
+            const next: Partial<FieldState> = {};
+            if (effect.weather) next.weather = effect.weather;
+            if (effect.terrain) next.terrain = effect.terrain;
+            return {
+              [key]: list,
+              fieldState: { ...state.fieldState, ...next },
+            };
+          }
           return { [key]: list };
         });
       },

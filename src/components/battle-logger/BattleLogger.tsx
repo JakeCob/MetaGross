@@ -17,6 +17,9 @@ import { TurnLog } from "./TurnLog";
 import { TurnControls } from "./TurnControls";
 import type { TurnAction, Slot, BattleResult } from "@/lib/types/battle";
 import type { TeamPokemon } from "@/lib/types/pokemon";
+import { CHAMPIONS_MEGAS } from "@/lib/data/champions";
+import { getSpecies } from "@/lib/pokemon/species";
+import { getSwitchInEffect } from "@/lib/engine/ability-effects";
 
 export interface BattleLoggerProps {
   /**
@@ -113,6 +116,48 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
 
       if (stamped.megaEvolved) {
         store.updateActivePokemon(stamped.side, stamped.slot, { isMega: true });
+
+        // Back-fill Mega data: find the Mega form entry from
+        // CHAMPIONS_MEGAS, look up the Mega species' ability, set
+        // held item = Mega Stone + ability = Mega ability, then apply
+        // any switch-in field effect that ability brings.
+        const activeSlot = stamped.side === "p1"
+          ? store.activeP1[stamped.slot - 1]
+          : store.activeP2[stamped.slot - 1];
+        const baseSpecies = activeSlot?.species;
+        if (baseSpecies) {
+          const megaEntry = Object.entries(CHAMPIONS_MEGAS).find(
+            ([megaKey, info]) => {
+              if (info.baseSpecies === baseSpecies) return true;
+              return megaKey === `${baseSpecies}-Mega`;
+            },
+          );
+          if (megaEntry) {
+            const [megaSpecies, info] = megaEntry;
+            const megaData = getSpecies(megaSpecies);
+            const megaAbility = megaData?.abilities?.[0] ?? "";
+
+            if (stamped.side === "p2") {
+              // Patch opponent snapshot: item + ability.
+              store.updateOpponentPokemonInfo(baseSpecies, {
+                ability: megaAbility,
+                item: info.stone,
+              });
+            }
+
+            // Apply any ability switch-in effect (e.g., Charizard-Mega-Y
+            // Drought → sun; Kangaskhan-Mega Parental Bond has none).
+            const effect = getSwitchInEffect(megaAbility);
+            if (effect) {
+              const patch: Partial<import("@/lib/types/battle").FieldState> = {};
+              if (effect.weather) patch.weather = effect.weather;
+              if (effect.terrain) patch.terrain = effect.terrain;
+              if (patch.weather || patch.terrain) {
+                store.setFieldState(patch);
+              }
+            }
+          }
+        }
       }
 
       // Status inflicted on the target (paralysis / burn / sleep / etc.)
