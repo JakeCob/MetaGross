@@ -8,6 +8,7 @@
 
 import { Annotation } from "@langchain/langgraph";
 import type { TeamPokemon } from "@/lib/types/pokemon";
+import type { DamageObservation, SpeedObservation } from "@/lib/types/ev";
 import type {
   PredictedSet,
   SuggestedLead,
@@ -79,6 +80,16 @@ export const ScoutingState = Annotation.Root({
   scoutingHash: Annotation<string>({
     reducer: (_prev, next) => next,
     default: () => "",
+  }),
+  /** Mid-match speed observations extracted from turn history. */
+  speedObservations: Annotation<SpeedObservation[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
+  /** Mid-match damage observations extracted from turn history. */
+  damageObservations: Annotation<DamageObservation[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
   }),
 
   // ----- Analyzer (LLM) -----

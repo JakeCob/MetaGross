@@ -74,35 +74,40 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
 
   const handleAction = useCallback(
     (action: TurnAction) => {
-      store.addAction(action);
+      // Auto-stamp moveOrder: sequential within the current turn.
+      const stamped: TurnAction = {
+        ...action,
+        moveOrder: store.currentTurnActions.length + 1,
+      };
+      store.addAction(stamped);
 
       // Apply side effects from the action
-      if (action.wasKo && action.targetSide && action.targetSlot) {
-        store.handleKo(action.targetSide, action.targetSlot);
+      if (stamped.wasKo && stamped.targetSide && stamped.targetSlot) {
+        store.handleKo(stamped.targetSide, stamped.targetSlot);
       }
 
       if (
-        action.damageDealtPercent != null &&
-        action.targetSide &&
-        action.targetSlot &&
-        !action.wasKo
+        stamped.damageDealtPercent != null &&
+        stamped.targetSide &&
+        stamped.targetSlot &&
+        !stamped.wasKo
       ) {
-        const key = action.targetSide === "p1" ? "activeP1" : "activeP2";
-        const target = store[key][action.targetSlot - 1];
+        const key = stamped.targetSide === "p1" ? "activeP1" : "activeP2";
+        const target = store[key][stamped.targetSlot - 1];
         if (target) {
-          const newHp = Math.max(0, target.hpPercent - action.damageDealtPercent);
-          store.updateActivePokemon(action.targetSide, action.targetSlot, {
+          const newHp = Math.max(0, target.hpPercent - stamped.damageDealtPercent);
+          store.updateActivePokemon(stamped.targetSide, stamped.targetSlot, {
             hpPercent: newHp,
           });
         }
       }
 
-      if (action.actionType === "switch" && action.switchInSpecies) {
-        store.handleSwitch("p1", action.slot, action.switchInSpecies);
+      if (stamped.actionType === "switch" && stamped.switchInSpecies) {
+        store.handleSwitch(stamped.side, stamped.slot, stamped.switchInSpecies);
       }
 
-      if (action.megaEvolved) {
-        store.updateActivePokemon("p1", action.slot, { isMega: true });
+      if (stamped.megaEvolved) {
+        store.updateActivePokemon(stamped.side, stamped.slot, { isMega: true });
       }
     },
     [store],

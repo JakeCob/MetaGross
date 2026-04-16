@@ -52,6 +52,18 @@ export interface TurnAction {
   switchOutSpecies?: string;
   // Mega
   megaEvolved?: boolean;
+  /**
+   * 1-based move order within this turn. The action logged first gets 1,
+   * second gets 2, etc. Used by the EV reverse-calc engine to infer
+   * speed order — "if the opponent's Froslass has moveOrder=1 and my
+   * Sneasler has moveOrder=2, Froslass moved first."
+   *
+   * Switches and Mega declarations may share an order number with a
+   * move (they happen at priority bracket boundaries in the real game),
+   * but the key signal is: among two *move* actions from different
+   * sides, the lower moveOrder went first.
+   */
+  moveOrder?: number;
 }
 
 export interface Turn {

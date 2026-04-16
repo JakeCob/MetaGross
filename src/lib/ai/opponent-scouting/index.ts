@@ -17,6 +17,7 @@ import { wolfeReviewNode } from "./nodes/wolfe";
 import { cybertronReviewNode } from "./nodes/cybertron";
 import { synthesizerNode } from "./nodes/synthesizer";
 import type { TeamPokemon } from "@/lib/types/pokemon";
+import type { DamageObservation, SpeedObservation } from "@/lib/types/ev";
 import type { ScoutingResult } from "./types";
 import {
   hashOpponentSnapshot,
@@ -65,6 +66,9 @@ export interface ScoutingInput {
   myTeam?: TeamPokemon[];
   myBrought?: string[];
   format?: string;
+  /** Mid-battle speed/damage observations from turn history. */
+  speedObservations?: SpeedObservation[];
+  damageObservations?: DamageObservation[];
   /** When true, skip the positive cache and force a fresh run. */
   forceRefresh?: boolean;
 }
@@ -97,6 +101,8 @@ export async function scoutOpponent(
     myBrought: input.myBrought ?? [],
     format,
     scoutingHash: hash,
+    speedObservations: input.speedObservations ?? [],
+    damageObservations: input.damageObservations ?? [],
   });
   const durationMs = Date.now() - startTime;
 
@@ -131,6 +137,8 @@ export async function* streamScouting(
       myBrought: input.myBrought ?? [],
       format,
       scoutingHash: hash,
+      speedObservations: input.speedObservations ?? [],
+      damageObservations: input.damageObservations ?? [],
     },
     { streamMode: "updates" },
   );

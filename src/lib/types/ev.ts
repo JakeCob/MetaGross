@@ -25,9 +25,19 @@ export interface DamageObservation {
 }
 
 export interface SpeedObservation {
+  /** The species whose speed we're trying to infer (the opponent). */
   pokemonA: string;
+  /** The reference species (on our team — known speed). */
   pokemonB: string;
+  /** True if pokemonA acted before pokemonB this turn. */
   aMovedFirst: boolean;
+  /**
+   * The exact effective speed of pokemonB (the reference), computed
+   * from our team's known EVs/nature/ability/item/field state. When
+   * set, the engine produces a tight bound instead of a base-stat
+   * heuristic.
+   */
+  knownSpeedB?: number;
   fieldState?: {
     trickRoom?: boolean;
     tailwind?: 'a' | 'b' | null;

@@ -1,14 +1,16 @@
 /**
- * Set Predictor — STUB (Phase 2).
+ * Set Predictor — Phase 2 stub + Phase-4-ready EV refinement.
  *
- * Real implementation in Phase 3 will call an LLM with the
- * `opponent_predictor` persona and force a structured-JSON output. For
- * now, it derives a best-guess set from the Researcher's top-usage
- * Pikalytics fields — good enough to smoke-test the end-to-end flow.
+ * Derives a best-guess set per opponent species from the Researcher's
+ * top-usage Pikalytics data. When mid-battle speed and damage
+ * observations are available, calls the reverse-calc engine
+ * (`predictEVs`) to sharpen EV and nature predictions.
  */
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
 import type { ScoutingStateType, ScoutingStateUpdate } from "../state";
 import type { PredictedSet } from "../types";
+import { predictEVs } from "@/lib/ev/reverse-calc";
+import { getMetaSpreads } from "@/lib/ev/meta-lookup";
 
 function top<T extends { name: string; usage: number }>(
   list: T[] | undefined,
@@ -83,12 +85,66 @@ export async function predictorNode(
     } satisfies PredictedSet;
   });
 
+  // --- Refine with mid-battle observations (speed + damage) ---
+  const hasObs =
+    state.speedObservations.length > 0 || state.damageObservations.length > 0;
+
+  if (hasObs) {
+    for (const pred of predictions) {
+      // Filter observations relevant to this species.
+      const speedObs = state.speedObservations.filter(
+        (o) => o.pokemonA === pred.species,
+      );
+      const damageObs = state.damageObservations.filter(
+        (o) =>
+          o.defenderSpecies === pred.species ||
+          o.attackerSpecies === pred.species,
+      );
+
+      if (speedObs.length === 0 && damageObs.length === 0) continue;
+
+      const metaSpreads = getMetaSpreads(pred.species, state.format);
+      const evPrediction = predictEVs(damageObs, speedObs, metaSpreads);
+
+      if (evPrediction.confidence > 20) {
+        // Merge the reverse-calc results into the prediction. Higher
+        // confidence observations override meta defaults.
+        if (evPrediction.predictedEvs.spe !== undefined) {
+          pred.evs.spe = evPrediction.predictedEvs.spe;
+        }
+        if (evPrediction.predictedEvs.hp !== undefined) {
+          pred.evs.hp = evPrediction.predictedEvs.hp;
+        }
+        if (evPrediction.predictedEvs.def !== undefined) {
+          pred.evs.def = evPrediction.predictedEvs.def;
+        }
+        if (evPrediction.predictedEvs.spd !== undefined) {
+          pred.evs.spd = evPrediction.predictedEvs.spd;
+        }
+        if (evPrediction.predictedEvs.atk !== undefined) {
+          pred.evs.atk = evPrediction.predictedEvs.atk;
+        }
+        if (evPrediction.predictedEvs.spa !== undefined) {
+          pred.evs.spa = evPrediction.predictedEvs.spa;
+        }
+        if (evPrediction.predictedNature !== "Hardy") {
+          pred.nature = evPrediction.predictedNature;
+        }
+        pred.confidence = Math.min(
+          0.95,
+          pred.confidence + evPrediction.confidence / 200,
+        );
+        pred.rationale += ` | reverse-calc (${speedObs.length} speed + ${damageObs.length} damage obs): nature=${evPrediction.predictedNature}, conf=${evPrediction.confidence}%`;
+      }
+    }
+  }
+
   return {
     predictions,
     history: [
       {
         source: "predictor",
-        summary: `predicted ${predictions.length} sets, avg confidence ${(
+        summary: `predicted ${predictions.length} sets${hasObs ? ` (refined with ${state.speedObservations.length} speed + ${state.damageObservations.length} damage obs)` : ""}, avg confidence ${(
           predictions.reduce((a, p) => a + p.confidence, 0) /
           Math.max(1, predictions.length)
         ).toFixed(2)}`,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useBattleLogger } from "@/stores/use-battle-logger";
 import { consumeSSEStream } from "@/lib/sse-client";
+import { collectObservations } from "@/lib/ev/collect-observations";
 import type { ScoutingResult } from "@/lib/ai/opponent-scouting/types";
 
 /**
@@ -46,6 +47,9 @@ export function useScoutingRunner() {
       s.setScoutingStatus("running");
 
       try {
+        // Collect speed + damage observations from the match so far.
+        const obs = collectObservations(s.turns, s.myTeam, s.opponentTeam);
+
         const res = await fetch("/api/opponent-scouting", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -54,6 +58,8 @@ export function useScoutingRunner() {
             myTeam: s.myTeam,
             myBrought: s.myBrought,
             format: s.format,
+            speedObservations: obs.speed,
+            damageObservations: obs.damage,
             forceRefresh: Boolean(opts.forceRefresh),
           }),
           signal: controller.signal,

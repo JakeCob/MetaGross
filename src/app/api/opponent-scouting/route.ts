@@ -27,6 +27,8 @@ export async function POST(request: Request) {
     const myTeam: TeamPokemon[] = body.myTeam ?? [];
     const myBrought: string[] = body.myBrought ?? [];
     const format: string = body.format ?? "champions-reg-m-a";
+    const speedObservations = body.speedObservations ?? [];
+    const damageObservations = body.damageObservations ?? [];
     const forceRefresh: boolean = Boolean(body.forceRefresh);
 
     if (!Array.isArray(opponentTeam) || opponentTeam.length === 0) {
@@ -75,6 +77,8 @@ export async function POST(request: Request) {
             myTeam,
             myBrought,
             format,
+            speedObservations,
+            damageObservations,
             forceRefresh,
           })) {
             const s = state as Record<string, unknown>;

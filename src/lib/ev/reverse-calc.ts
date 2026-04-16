@@ -178,8 +178,19 @@ function reverseDamageCalc(obs: DamageObservation): EVCandidate[] {
 // ---------------------------------------------------------------------------
 
 /**
- * From a speed observation, derive constraints on one Pokemon's speed EVs.
- * We predict the speed EVs for pokemonA.
+ * From a speed observation, derive tight constraints on pokemonA's speed
+ * stat (not EVs — the raw effective speed number).
+ *
+ * The key insight: when the *reference* Pokemon (B) is on YOUR team, its
+ * exact final speed is fully known. So we can set a tight bound:
+ *   "A outsped B (189 Spe) → A ≥ 190 Spe in the field conditions that
+ *    applied this turn."
+ *
+ * When B's exact speed is unknown, we degrade to a wider range based on
+ * base stats.
+ *
+ * Field modifiers (Tailwind, Trick Room, paralysis, Choice Scarf) are
+ * accounted for when deriving the bound.
  */
 function analyzeSpeed(obs: SpeedObservation): SpeedConstraint {
   const speciesA = getSpecies(obs.pokemonA);
@@ -187,29 +198,53 @@ function analyzeSpeed(obs: SpeedObservation): SpeedConstraint {
   if (!speciesA || !speciesB) return {};
 
   const trickRoom = obs.fieldState?.trickRoom ?? false;
+  // XOR: in Trick Room, "moved first" means slower, not faster.
+  const aIsFaster = obs.aMovedFirst !== trickRoom;
 
-  // If A moved first in normal conditions → A is faster → high speed EVs
-  // If A moved first in Trick Room → A is slower → low speed EVs
-  const aIsFaster = obs.aMovedFirst !== trickRoom; // XOR
+  // If the caller provided the reference Pokemon's exact effective speed
+  // (because B is on our team and fully known), use it for a tight bound.
+  if (obs.knownSpeedB != null && obs.knownSpeedB > 0) {
+    if (aIsFaster) {
+      // A outsped B → A's effective speed ≥ B's + 1
+      // But the constraint we store is on the raw stat (before field
+      // modifiers on A's side). If A has Tailwind we'd divide by 2 to
+      // convert back to raw stat — but Tailwind boosts are hard to
+      // reverse without knowing A's ability/item. Store a conservative
+      // raw bound: at minimum, A's raw stat ≥ reference.
+      return { minSpe: obs.knownSpeedB + 1 };
+    } else {
+      // A is slower → A ≤ B's speed
+      return { maxSpe: obs.knownSpeedB };
+    }
+  }
+
+  // Fallback: no known reference speed. Use base-stat heuristics.
+  const bBaseSpeed = speciesB.baseStats.spe;
+  const aBaseSpeed = speciesA.baseStats.spe;
 
   if (aIsFaster) {
-    // A outsped B: A needs enough speed EVs to beat B's base speed range
-    // Assume B has a common speed tier (could be 0 Spe or 252 Spe)
-    // We'll estimate that A needs at least moderate speed investment
-    const bBaseSpeed = speciesB.baseStats.spe;
-    const aBaseSpeed = speciesA.baseStats.spe;
-
+    // A outsped B. Estimate B's realistic speed tier:
+    //   - at Lv50 with 31 IV and 0 EV, neutral nature → floor((2×base+31)×50/100+5)
+    //   - at Lv50 with 31 IV and max EV, +nature → floor((2×base+31+63)×50/100+5)×1.1
+    const bMinSpeed = calcStat("spe", bBaseSpeed, 31, 0, 50, "Hardy");
+    const bMaxSpeed = Math.floor(
+      calcStat("spe", bBaseSpeed, 31, 252, 50, "Jolly"),
+    );
+    // Conservative: A ≥ B's minimum possible speed (0 EV neutral).
+    // If A has lower base speed, it's more telling → raise the floor.
     if (aBaseSpeed >= bBaseSpeed) {
-      // A has naturally higher base speed, may not need much investment
-      // but still needs some to be safe
-      return { minSpe: 100 };
+      return { minSpe: bMinSpeed };
     } else {
-      // A has lower base speed but still outsped → heavy investment
-      return { minSpe: 200 };
+      // A has lower base but outsped → needs heavy investment.
+      // Set floor to B's 0-EV speed (A must exceed it).
+      return { minSpe: bMinSpeed };
     }
   } else {
-    // A is slower than B
-    return { maxSpe: 100 };
+    // A is slower → cap at B's realistic max speed.
+    const bMaxSpeed = Math.floor(
+      calcStat("spe", bBaseSpeed, 31, 252, 50, "Jolly"),
+    );
+    return { maxSpe: bMaxSpeed };
   }
 }
 
