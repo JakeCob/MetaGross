@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { DamageInput } from "./DamageInput";
+import { DamageInput, type DamageInputResult } from "./DamageInput";
 import { DamagePreviewTag } from "./DamagePreviewTag";
 import { getMegaFormFor } from "@/lib/data/champions";
 import {
@@ -17,7 +17,7 @@ import type { TeamPokemon } from "@/lib/types/pokemon";
 import type { ActivePokemon, FieldState, Slot, TurnAction } from "@/lib/types/battle";
 import type { PredictedSet } from "@/lib/ai/opponent-scouting/types";
 
-type MenuPhase = "moves" | "target" | "damage" | "status-confirm";
+type MenuPhase = "moves" | "target" | "damage" | "status-confirm" | "switch";
 
 export interface OpponentActionMenuProps {
   /** The opponent's active Pokemon whose action we're logging. */
@@ -167,11 +167,7 @@ export function OpponentActionMenu({
     setPhase("damage");
   };
 
-  const emitAndClose = (
-    damage: number | null,
-    wasCrit: boolean,
-    wasKo: boolean,
-  ) => {
+  const emitAndClose = (r: DamageInputResult | null) => {
     if (!selectedMove) return;
     // Persist any dirty reveal-info first so a single confirmation
     // commits both the move and the ability/item reveal.
@@ -183,9 +179,12 @@ export function OpponentActionMenu({
       moveName: selectedMove,
       targetSide: targetSlot ? "p1" : undefined,
       targetSlot: targetSlot ?? undefined,
-      damageDealtPercent: damage ?? undefined,
-      wasCriticalHit: wasCrit,
-      wasKo,
+      damageDealtPercent: r?.damage ?? undefined,
+      wasCriticalHit: r?.wasCrit ?? false,
+      wasKo: r?.wasKo ?? false,
+      wasMiss: r?.wasMiss ?? false,
+      causedFlinch: r?.causedFlinch ?? false,
+      inflictedStatus: r?.inflictedStatus ?? null,
     };
     onAction(action);
     onClose();
@@ -346,19 +345,54 @@ export function OpponentActionMenu({
           <p className="text-[11px] text-muted-foreground">
             Unknown move? Just type it and hit Enter — moves aren&apos;t validated.
           </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="w-full text-xs"
-            onClick={() => {
-              saveInfo();
-              onClose();
-            }}
-          >
-            Save info only (skip move)
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs"
+              onClick={() => {
+                saveInfo();
+                setPhase("switch");
+              }}
+            >
+              Switched out
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="flex-1 text-xs"
+              onClick={() => {
+                saveInfo();
+                onClose();
+              }}
+            >
+              Save info only
+            </Button>
+          </div>
         </div>
+      )}
+
+      {/* Phase: Switch (opponent pulled a Pokemon back or forced-switched) */}
+      {phase === "switch" && (
+        <OpponentSwitchPicker
+          currentSpecies={pokemon.species}
+          opponentTeam={opponentTeam ?? []}
+          onBack={() => setPhase("moves")}
+          onPick={(newSpecies) => {
+            saveInfo();
+            const action: TurnAction = {
+              side: "p2",
+              slot,
+              actionType: "switch",
+              switchOutSpecies: pokemon.species,
+              switchInSpecies: newSpecies,
+            };
+            onAction(action);
+            onClose();
+          }}
+        />
       )}
 
       {/* Phase: Target selection (with damage previews) */}
@@ -434,7 +468,7 @@ export function OpponentActionMenu({
       {phase === "damage" && targetSlot != null && (
         <DamageInput
           targetName={myActive[targetSlot - 1]?.species ?? "My Pokemon"}
-          onConfirm={(dmg, wasCrit, wasKo) => emitAndClose(dmg, wasCrit, wasKo)}
+          onConfirm={(r) => emitAndClose(r)}
           onCancel={() => setPhase("target")}
         />
       )}
@@ -458,7 +492,7 @@ export function OpponentActionMenu({
             <Button
               size="sm"
               className="flex-1"
-              onClick={() => emitAndClose(null, false, false)}
+              onClick={() => emitAndClose(null)}
             >
               Log move (no damage)
             </Button>
@@ -476,6 +510,79 @@ export function OpponentActionMenu({
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Opponent switch picker — pick a replacement from the revealed 6 or type
+// a new species name (opponent may reveal one we haven't scouted yet).
+// ---------------------------------------------------------------------------
+function OpponentSwitchPicker({
+  currentSpecies,
+  opponentTeam,
+  onPick,
+  onBack,
+}: {
+  currentSpecies: string;
+  opponentTeam: Partial<TeamPokemon>[];
+  onPick: (newSpecies: string) => void;
+  onBack: () => void;
+}) {
+  const [custom, setCustom] = useState("");
+  const candidates = (opponentTeam ?? [])
+    .map((p) => p.species ?? "")
+    .filter((s) => s && s !== currentSpecies);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Who did the opponent switch in for{" "}
+        <span className="font-medium text-foreground">{currentSpecies}</span>?
+      </p>
+
+      {candidates.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {candidates.map((sp) => (
+            <Button
+              key={sp}
+              variant="outline"
+              size="sm"
+              className="w-full justify-center"
+              onClick={() => onPick(sp)}
+            >
+              {sp}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="opp-switch-custom" className="text-[11px]">
+          Not in the known 6? Type the species:
+        </Label>
+        <div className="flex gap-2">
+          <Input
+            id="opp-switch-custom"
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            placeholder="e.g. Grimmsnarl"
+            className="text-sm"
+            autoComplete="off"
+          />
+          <Button
+            size="sm"
+            disabled={!custom.trim() || custom.trim() === currentSpecies}
+            onClick={() => onPick(custom.trim())}
+          >
+            Switch in
+          </Button>
+        </div>
+      </div>
+
+      <Button variant="ghost" size="sm" onClick={onBack}>
+        Back
+      </Button>
     </div>
   );
 }

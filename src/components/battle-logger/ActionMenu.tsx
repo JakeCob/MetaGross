@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { DamageInput } from "./DamageInput";
+import { DamageInput, type DamageInputResult } from "./DamageInput";
 import { DamagePreviewTag } from "./DamagePreviewTag";
 import { SwitchSelector } from "./SwitchSelector";
 import type { TeamPokemon } from "@/lib/types/pokemon";
@@ -100,11 +100,7 @@ export function ActionMenu({
   };
 
   // ----- Damage confirmation -----
-  const handleDamageConfirm = (
-    damage: number,
-    wasCrit: boolean,
-    wasKo: boolean,
-  ) => {
+  const handleDamageConfirm = (r: DamageInputResult) => {
     if (!selectedMove || !targetSide || !targetSlot) return;
     const action: TurnAction = {
       side: "p1",
@@ -113,9 +109,12 @@ export function ActionMenu({
       moveName: selectedMove,
       targetSide,
       targetSlot,
-      damageDealtPercent: damage,
-      wasCriticalHit: wasCrit,
-      wasKo: wasKo,
+      damageDealtPercent: r.damage,
+      wasCriticalHit: r.wasCrit,
+      wasKo: r.wasKo,
+      wasMiss: r.wasMiss,
+      causedFlinch: r.causedFlinch,
+      inflictedStatus: r.inflictedStatus,
       megaEvolved: megaWithMove,
     };
     onAction(action);

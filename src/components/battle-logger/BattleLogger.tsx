@@ -15,11 +15,16 @@ import { ActionMenu } from "./ActionMenu";
 import { OpponentActionMenu } from "./OpponentActionMenu";
 import { TurnLog } from "./TurnLog";
 import { TurnControls } from "./TurnControls";
-import type { TurnAction, Slot } from "@/lib/types/battle";
+import type { TurnAction, Slot, BattleResult } from "@/lib/types/battle";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 
 export interface BattleLoggerProps {
-  onEndBattle: () => void;
+  /**
+   * Called when the logger should hand off to the result step.
+   * `prefillResult` is set when the user picks a surrender option, so
+   * the result page can skip the manual win/loss radio.
+   */
+  onEndBattle: (prefillResult?: BattleResult) => void;
 }
 
 export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
@@ -109,6 +114,13 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
       if (stamped.megaEvolved) {
         store.updateActivePokemon(stamped.side, stamped.slot, { isMega: true });
       }
+
+      // Status inflicted on the target (paralysis / burn / sleep / etc.)
+      if (stamped.inflictedStatus && stamped.targetSide && stamped.targetSlot) {
+        store.updateActivePokemon(stamped.targetSide, stamped.targetSlot, {
+          status: stamped.inflictedStatus,
+        });
+      }
     },
     [store],
   );
@@ -132,11 +144,37 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
   return (
     <div className="flex flex-col gap-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-lg font-bold text-foreground">Battle Logger</h2>
-        <Button variant="destructive" size="sm" onClick={onEndBattle}>
-          End Battle
-        </Button>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              store.endBattle("win");
+              onEndBattle("win");
+            }}
+            title="Opponent surrendered — record as a win"
+            className="border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+          >
+            Opp. surrendered (Win)
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              store.endBattle("loss");
+              onEndBattle("loss");
+            }}
+            title="You surrendered — record as a loss"
+            className="border-rose-500/40 text-rose-300 hover:bg-rose-500/10"
+          >
+            I surrender (Loss)
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => onEndBattle()}>
+            End Battle
+          </Button>
+        </div>
       </div>
 
       {/* Field State Bar */}

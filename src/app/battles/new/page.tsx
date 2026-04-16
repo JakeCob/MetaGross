@@ -194,9 +194,14 @@ export default function NewBattlePage() {
     [store],
   );
 
-  const handleEndBattle = useCallback(() => {
-    setStep("result");
-  }, []);
+  const handleEndBattle = useCallback(
+    (_prefillResult?: BattleResultType) => {
+      // The pre-fill is already persisted on the store via endBattle()
+      // before this callback fires — nothing else to do here.
+      setStep("result");
+    },
+    [],
+  );
 
   const handleSave = useCallback(
     async (result: BattleResultType) => {
@@ -428,6 +433,7 @@ export default function NewBattlePage() {
             <BattleResult
               opponentName={store.opponentName}
               notes={store.notes}
+              initialResult={store.result}
               onOpponentNameChange={store.setOpponentName}
               onNotesChange={store.setNotes}
               onSave={handleSave}

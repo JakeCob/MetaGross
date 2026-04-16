@@ -140,6 +140,7 @@ function collectDamageFromTurn(
       continue;
     if (!action.moveName || action.damageDealtPercent == null) continue;
     if (action.wasCriticalHit) continue; // crits are unreliable for reverse-calc
+    if (action.wasMiss) continue; // missed moves deal no damage, no EV signal
 
     if (action.side === "p2" && action.targetSide === "p1") {
       // Opponent attacked my Pokemon → infer their offensive EVs.

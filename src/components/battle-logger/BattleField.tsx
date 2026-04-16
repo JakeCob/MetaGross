@@ -22,6 +22,18 @@ function slotHasAction(
   return actions.some((a) => a.side === side && a.slot === slot);
 }
 
+/** The lowest moveOrder assigned to this slot this turn (if any). */
+function slotMoveOrder(
+  actions: TurnAction[],
+  side: Side,
+  slot: Slot,
+): number | undefined {
+  const relevant = actions
+    .filter((a) => a.side === side && a.slot === slot && a.moveOrder != null)
+    .map((a) => a.moveOrder as number);
+  return relevant.length === 0 ? undefined : Math.min(...relevant);
+}
+
 export function BattleField({
   activeP1,
   activeP2,
@@ -43,6 +55,7 @@ export function BattleField({
           {activeP2.map((mon, i) => {
             const slot = (i + 1) as Slot;
             const done = slotHasAction(currentTurnActions, "p2", slot);
+            const order = slotMoveOrder(currentTurnActions, "p2", slot);
             return (
               <PokemonSlot
                 key={`p2-${i}-${mon.species}`}
@@ -51,6 +64,7 @@ export function BattleField({
                 isSelected={selectedSide === "p2" && selectedSlot === slot}
                 isTargeting={isTargeting}
                 hasAction={done}
+                moveOrder={order}
                 onClick={
                   onOpponentPokemonTap && mon.hpPercent > 0 && !done
                     ? () => onOpponentPokemonTap(slot)
@@ -80,6 +94,7 @@ export function BattleField({
           {activeP1.map((mon, i) => {
             const slot = (i + 1) as Slot;
             const done = slotHasAction(currentTurnActions, "p1", slot);
+            const order = slotMoveOrder(currentTurnActions, "p1", slot);
             return (
               <PokemonSlot
                 key={`p1-${i}-${mon.species}`}
@@ -88,6 +103,7 @@ export function BattleField({
                 isSelected={selectedSide === "p1" && selectedSlot === slot}
                 isTargeting={isTargeting}
                 hasAction={done}
+                moveOrder={order}
                 onClick={
                   mon.hpPercent > 0 && !done
                     ? () => onMyPokemonTap(slot)

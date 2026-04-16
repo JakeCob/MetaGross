@@ -9,6 +9,8 @@ import type { BattleResult as BattleResultType } from "@/lib/types/battle";
 export interface BattleResultProps {
   opponentName: string;
   notes: string;
+  /** Pre-selected result (set by surrender buttons before step transition). */
+  initialResult?: BattleResultType | null;
   onOpponentNameChange: (name: string) => void;
   onNotesChange: (notes: string) => void;
   onSave: (result: BattleResultType) => void;
@@ -18,13 +20,14 @@ export interface BattleResultProps {
 export function BattleResult({
   opponentName,
   notes,
+  initialResult = null,
   onOpponentNameChange,
   onNotesChange,
   onSave,
   saving = false,
 }: BattleResultProps) {
   const [selectedResult, setSelectedResult] =
-    useState<BattleResultType | null>(null);
+    useState<BattleResultType | null>(initialResult);
 
   const handleSave = useCallback(() => {
     if (selectedResult) {

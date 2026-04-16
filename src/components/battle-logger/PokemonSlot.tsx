@@ -2,16 +2,8 @@
 
 import { Badge } from "@/components/ui/badge";
 import { PokemonSprite } from "@/components/pokemon-sprite";
-import type { ActivePokemon } from "@/lib/types/battle";
-
-const STATUS_LABELS: Record<string, string> = {
-  burn: "BRN",
-  paralysis: "PAR",
-  sleep: "SLP",
-  freeze: "FRZ",
-  poison: "PSN",
-  toxic: "TOX",
-};
+import type { ActivePokemon, StatusCondition } from "@/lib/types/battle";
+import { STATUS_CODES } from "@/lib/types/battle";
 
 function hpColor(hp: number): string {
   if (hp > 50) return "bg-success";
@@ -26,6 +18,15 @@ export interface PokemonSlotProps {
   isSelected?: boolean;
   isTargeting?: boolean;
   hasAction?: boolean;
+  /** 1-based move order within the current turn (1 = moved first). */
+  moveOrder?: number;
+}
+
+function orderLabel(n: number): string {
+  if (n === 1) return "1st";
+  if (n === 2) return "2nd";
+  if (n === 3) return "3rd";
+  return `${n}th`;
 }
 
 export function PokemonSlot({
@@ -35,6 +36,7 @@ export function PokemonSlot({
   isSelected = false,
   isTargeting = false,
   hasAction = false,
+  moveOrder,
 }: PokemonSlotProps) {
   const isFainted = pokemon.hpPercent <= 0;
 
@@ -66,9 +68,17 @@ export function PokemonSlot({
         </div>
       )}
 
-      {/* Action done indicator */}
+      {/* Action done indicator + move-order badge */}
       {hasAction && !isFainted && (
-        <div className="absolute top-1 right-1 z-10">
+        <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
+          {moveOrder != null && (
+            <span
+              className="flex h-4 items-center rounded border border-primary/40 bg-primary/15 px-1 text-[9px] font-mono font-bold text-primary"
+              title={`Moved ${orderLabel(moveOrder)} this turn`}
+            >
+              {orderLabel(moveOrder)}
+            </span>
+          )}
           <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success text-[10px] text-white font-bold">
             &#10003;
           </span>
@@ -93,10 +103,13 @@ export function PokemonSlot({
               Mega
             </Badge>
           )}
-          {pokemon.status && STATUS_LABELS[pokemon.status] && (
-            <Badge variant="error" className="text-[10px] px-1.5 py-0">
-              {STATUS_LABELS[pokemon.status]}
-            </Badge>
+          {pokemon.status && STATUS_CODES[pokemon.status as StatusCondition] && (
+            <span
+              className={`inline-flex items-center rounded border px-1.5 py-0 text-[10px] font-mono font-bold ${STATUS_CODES[pokemon.status as StatusCondition].color}`}
+              title={pokemon.status}
+            >
+              {STATUS_CODES[pokemon.status as StatusCondition].code}
+            </span>
           )}
         </div>
       </div>

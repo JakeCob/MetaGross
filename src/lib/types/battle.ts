@@ -47,6 +47,12 @@ export interface TurnAction {
   damageDealtPercent?: number;
   wasCriticalHit?: boolean;
   wasKo?: boolean;
+  /** The move missed (accuracy roll) or was blocked (Protect, Wide Guard, etc.). */
+  wasMiss?: boolean;
+  /** Status inflicted on the target as a side-effect. */
+  inflictedStatus?: StatusCondition | null;
+  /** Target flinched (either from this move's flinch chance or King's Rock etc.). */
+  causedFlinch?: boolean;
   // Switch data
   switchInSpecies?: string;
   switchOutSpecies?: string;
@@ -65,6 +71,30 @@ export interface TurnAction {
    */
   moveOrder?: number;
 }
+
+/** Status conditions we can track on an ActivePokemon or record as an action side-effect. */
+export type StatusCondition =
+  | "burn"
+  | "paralysis"
+  | "sleep"
+  | "freeze"
+  | "poison"
+  | "toxic"
+  | "confusion";
+
+/**
+ * Short codes used by the UI for compact status badges on Pokemon slots.
+ * Confusion is a volatile status (resets on switch) but worth flagging.
+ */
+export const STATUS_CODES: Record<StatusCondition, { code: string; color: string }> = {
+  burn:      { code: "BRN",  color: "bg-orange-500/20 text-orange-300 border-orange-500/40" },
+  paralysis: { code: "PAR",  color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40" },
+  sleep:     { code: "SLP",  color: "bg-slate-500/20 text-slate-300 border-slate-500/40" },
+  freeze:    { code: "FRZ",  color: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40" },
+  poison:    { code: "PSN",  color: "bg-purple-500/20 text-purple-300 border-purple-500/40" },
+  toxic:     { code: "TOX",  color: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40" },
+  confusion: { code: "CONF", color: "bg-pink-500/20 text-pink-300 border-pink-500/40" },
+};
 
 export interface Turn {
   number: number;
