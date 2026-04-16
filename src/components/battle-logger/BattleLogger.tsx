@@ -15,6 +15,7 @@ import { ActionMenu } from "./ActionMenu";
 import { OpponentActionMenu } from "./OpponentActionMenu";
 import { TurnLog } from "./TurnLog";
 import { TurnControls } from "./TurnControls";
+import { AIAssistancePanel } from "./AIAssistancePanel";
 import type { TurnAction, Slot, BattleResult } from "@/lib/types/battle";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { CHAMPIONS_MEGAS } from "@/lib/data/champions";
@@ -247,6 +248,9 @@ export function BattleLogger({ onEndBattle }: BattleLoggerProps) {
           </Button>
         </div>
       </div>
+
+      {/* AI Coach — surfaces scouting output (leads, watch-fors, win conds) */}
+      <AIAssistancePanel />
 
       {/* Field State Bar */}
       <FieldStateBar
