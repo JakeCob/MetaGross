@@ -12,6 +12,7 @@ import {
   getDamagePreview,
   type DamagePreview,
 } from "@/lib/engine/damage-preview";
+import { getMegaFormFor } from "@/lib/data/champions";
 import type { PredictedSet } from "@/lib/ai/opponent-scouting/types";
 
 type MenuPhase =
@@ -62,7 +63,11 @@ export function ActionMenu({
   const [targetSide, setTargetSide] = useState<Side | null>(null);
   const [targetSlot, setTargetSlot] = useState<Slot | null>(null);
 
-  const canMega = !!pokemon.megaEvolution && !hasMegaEvolved;
+  // Can Mega Evolve if the held item is that species' Mega Stone and
+  // this Pokemon hasn't Mega'd yet. The legacy `pokemon.megaEvolution`
+  // field is unused by the team builder, so derive from the item.
+  const canMega =
+    !hasMegaEvolved && Boolean(getMegaFormFor(pokemon.species, pokemon.item));
 
   // Pre-compute damage previews for the target phase.
   const oppPreviews = useMemo<Map<string, DamagePreview | null>>(() => {
