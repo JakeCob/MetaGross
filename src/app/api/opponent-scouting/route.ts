@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     const opponentTeam: Partial<TeamPokemon>[] = body.opponentTeam ?? [];
     const myTeam: TeamPokemon[] = body.myTeam ?? [];
     const myBrought: string[] = body.myBrought ?? [];
+    const myTeamDescription: string = body.myTeamDescription ?? "";
     const format: string = body.format ?? "champions-reg-m-a";
     const speedObservations = body.speedObservations ?? [];
     const damageObservations = body.damageObservations ?? [];
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
             opponentTeam,
             myTeam,
             myBrought,
+            myTeamDescription,
             format,
             speedObservations,
             damageObservations,

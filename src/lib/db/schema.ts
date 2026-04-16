@@ -25,6 +25,9 @@ export const teams = sqliteTable(
     format: text('format').default('champions-reg-m-a'),
     isActive: integer('is_active').default(0),
     pokepaste: text('pokepaste'),
+    /** Short strategy summary — why this team was built, win condition, core gameplan. */
+    description: text('description'),
+    /** Free-form notes — results, matchup thoughts, etc. */
     notes: text('notes'),
     createdAt: integer('created_at').$defaultFn(() => Date.now()),
     updatedAt: integer('updated_at').$defaultFn(() => Date.now()),

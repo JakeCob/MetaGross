@@ -64,9 +64,13 @@ export async function synthesizerNode(
     },
   ];
 
+  const descriptionLine = state.myTeamDescription.trim().length > 0
+    ? ` User's stated strategy: "${state.myTeamDescription.trim()}".`
+    : "";
+
   const synthesis =
     `Placeholder synthesis (Phase 2 stub). Archetype detected: ${state.archetype || "unknown"}. ` +
-    `Predicted ${state.predictions.length} sets. Phase 4 will produce a full-text matchup report.`;
+    `Predicted ${state.predictions.length} sets.${descriptionLine} Phase 4 will produce a full-text matchup report.`;
 
   return {
     suggestedLeads,

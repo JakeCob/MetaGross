@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       format,
       userId: DEFAULT_USER_ID,
       pokepaste: body.pokepaste,
+      description: body.description,
       notes: body.notes,
       pokemon,
     });

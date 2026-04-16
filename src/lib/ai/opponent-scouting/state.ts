@@ -72,6 +72,11 @@ export const ScoutingState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => [],
   }),
+  /** MY team's user-written strategy description — used by the synthesizer. */
+  myTeamDescription: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
+  }),
   format: Annotation<string>({
     reducer: (_prev, next) => next,
     default: () => "champions-reg-m-a",

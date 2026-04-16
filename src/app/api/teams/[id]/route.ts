@@ -69,6 +69,7 @@ export async function PUT(
       name: body.name,
       format: body.format,
       pokepaste: body.pokepaste,
+      description: body.description,
       notes: body.notes,
       pokemon: body.pokemon,
     });

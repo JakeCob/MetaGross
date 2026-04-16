@@ -15,6 +15,8 @@ export interface TeamRow {
   format: string | null;
   isActive: number | null;
   pokepaste: string | null;
+  /** Short strategy summary written by the user. */
+  description: string | null;
   notes: string | null;
   createdAt: number | null;
   updatedAt: number | null;
@@ -105,6 +107,7 @@ export interface CreateTeamInput {
   format: string;
   userId?: string;
   pokepaste?: string;
+  description?: string;
   notes?: string;
   pokemon: TeamPokemonInput[];
 }
@@ -121,6 +124,7 @@ export function createTeam(data: CreateTeamInput): TeamWithPokemon {
         name: data.name,
         format: data.format,
         pokepaste: data.pokepaste ?? null,
+        description: data.description ?? null,
         notes: data.notes ?? null,
         isActive: 0,
         createdAt: now,
@@ -167,6 +171,7 @@ export interface UpdateTeamInput {
   name?: string;
   format?: string;
   pokepaste?: string | null;
+  description?: string | null;
   notes?: string | null;
   isActive?: number;
   pokemon?: TeamPokemonInput[];
@@ -184,6 +189,7 @@ export function updateTeam(id: string, data: UpdateTeamInput): TeamWithPokemon |
     if (data.name !== undefined) teamUpdate.name = data.name;
     if (data.format !== undefined) teamUpdate.format = data.format;
     if (data.pokepaste !== undefined) teamUpdate.pokepaste = data.pokepaste;
+    if (data.description !== undefined) teamUpdate.description = data.description;
     if (data.notes !== undefined) teamUpdate.notes = data.notes;
     if (data.isActive !== undefined) teamUpdate.isActive = data.isActive;
 

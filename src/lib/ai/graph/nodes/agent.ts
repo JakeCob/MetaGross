@@ -123,6 +123,14 @@ function buildSystemPrompt(state: AgentStateType): string {
         const species = (ctx.pokemon as { species: string }[]).map((p) => p.species).join(", ");
         parts.push(`- Pokemon: ${species}`);
       }
+      if (typeof ctx.description === "string" && ctx.description.trim().length > 0) {
+        parts.push(
+          `\n- User's stated strategy (READ THIS CAREFULLY — respect it before suggesting changes):\n  "${ctx.description.trim()}"`,
+        );
+      }
+      if (typeof ctx.notes === "string" && ctx.notes.trim().length > 0) {
+        parts.push(`- Notes: ${ctx.notes.trim()}`);
+      }
       parts.push(`\nYou have access to the full team data via the get_team tool.`);
     }
   }

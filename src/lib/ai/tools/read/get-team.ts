@@ -5,7 +5,7 @@ import { getTeamById } from "@/lib/db/queries/teams";
 export const getTeamTool = new DynamicStructuredTool({
   name: "get_team",
   description:
-    "Load a saved team by ID, including all Pokemon with their sets (species, ability, item, nature, EVs, IVs, moves).",
+    "Load a saved team by ID, including all Pokemon with their sets (species, ability, item, nature, EVs, IVs, moves). The `description` field is the user's own explanation of the team's strategy — ALWAYS read and respect it before suggesting changes.",
   schema: z.object({
     teamId: z.string().describe("The team UUID to look up"),
   }),
@@ -20,6 +20,7 @@ export const getTeamTool = new DynamicStructuredTool({
       id: team.id,
       name: team.name,
       format: team.format,
+      description: team.description,
       notes: team.notes,
       pokemon: team.pokemon.map((p) => ({
         species: p.species,

@@ -114,6 +114,8 @@ export function TeamBuilder({
   const isEditing = Boolean(teamId);
 
   const [teamName, setTeamName] = useState("");
+  const [description, setDescription] = useState("");
+  const [notes, setNotes] = useState("");
   const [format, setFormat] = useState(FORMATS[0]);
   const [pokemon, setPokemon] = useState<Partial<TeamPokemon>[]>(() =>
     Array.from({ length: 6 }, () => emptyPokemon()),
@@ -176,6 +178,8 @@ export function TeamBuilder({
         if (cancelled) return;
         const team = data.team;
         setTeamName(team.name ?? "");
+        setDescription(team.description ?? "");
+        setNotes(team.notes ?? "");
         setFormat(team.format ?? FORMATS[0]);
 
         // Map stored pokemon rows into form state
@@ -364,6 +368,8 @@ export function TeamBuilder({
       format,
       pokemon: payloadPokemon,
       pokepaste,
+      description: description.trim() || null,
+      notes: notes.trim() || null,
     };
 
     setSaving(true);
@@ -396,7 +402,7 @@ export function TeamBuilder({
     } finally {
       setSaving(false);
     }
-  }, [teamName, format, pokemon, isEditing, teamId, router]);
+  }, [teamName, format, pokemon, description, notes, isEditing, teamId, router]);
 
   if (loadingTeam) {
     return (
@@ -424,7 +430,7 @@ export function TeamBuilder({
 
       {/* Team Info */}
       <Card>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>Team Name</Label>
@@ -449,6 +455,42 @@ export function TeamBuilder({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Description — short strategy summary. Read by the agents. */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="team-description">
+              Strategy / Description
+              <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                (the AI reads this — explain your win condition + gameplan)
+              </span>
+            </Label>
+            <textarea
+              id="team-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Rain hyper offense built around Archaludon Stamina stacking. Pelipper leads with Focus Sash for guaranteed Rain + Tailwind turn 1. Basculegion is the late-game cleaner under Rain. Kingambit handles Ghost / Psychic threats."
+              rows={3}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y min-h-[72px]"
+            />
+          </div>
+
+          {/* Notes — free-form memo. Also read by agents but less primary. */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="team-notes">
+              Notes
+              <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                (results, matchup thoughts, anything else)
+              </span>
+            </Label>
+            <textarea
+              id="team-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. 7-2 at Portland regional. Struggles into Tatsugiri+Dondozo — need a better answer than Kingambit."
+              rows={2}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y min-h-[56px]"
+            />
           </div>
         </CardContent>
       </Card>

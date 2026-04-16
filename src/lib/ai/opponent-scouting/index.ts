@@ -65,6 +65,8 @@ export interface ScoutingInput {
   opponentTeam: Partial<TeamPokemon>[];
   myTeam?: TeamPokemon[];
   myBrought?: string[];
+  /** User-written strategy description for MY team (shown to the synthesizer). */
+  myTeamDescription?: string;
   format?: string;
   /** Mid-battle speed/damage observations from turn history. */
   speedObservations?: SpeedObservation[];
@@ -99,6 +101,7 @@ export async function scoutOpponent(
     opponentTeam: input.opponentTeam,
     myTeam: input.myTeam ?? [],
     myBrought: input.myBrought ?? [],
+    myTeamDescription: input.myTeamDescription ?? "",
     format,
     scoutingHash: hash,
     speedObservations: input.speedObservations ?? [],

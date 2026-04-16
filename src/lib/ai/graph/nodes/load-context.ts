@@ -58,6 +58,7 @@ export async function loadContextNode(
         id: team.id,
         name: team.name,
         format: team.format,
+        description: team.description,
         notes: team.notes,
         isActive: team.isActive,
         pokemon: team.pokemon.map((p) => ({
