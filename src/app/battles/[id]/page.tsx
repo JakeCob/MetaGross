@@ -5,6 +5,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getMatchById } from "@/lib/db/queries/matches";
 import { DeleteMatchButton } from "@/components/battle-logger/DeleteMatchButton";
+import { PostMatchAnalysisCard } from "@/components/battle-logger/PostMatchAnalysisCard";
+import type { PostMatchInput } from "@/lib/ai/battle-coach/post-match";
+import type { Turn } from "@/lib/types/battle";
+import type { TeamPokemon } from "@/lib/types/pokemon";
+import type { ScoutingResult } from "@/lib/ai/opponent-scouting/types";
+
+function jsonOrNull<T>(v: unknown): T | null {
+  if (v == null) return null;
+  if (typeof v === "string") {
+    try {
+      return JSON.parse(v) as T;
+    } catch {
+      return null;
+    }
+  }
+  return v as T;
+}
 
 function formatDate(timestamp: number | null): string {
   if (!timestamp) return "Unknown date";
@@ -296,6 +313,33 @@ export default async function MatchDetailPage({
               )}
             </CardContent>
           </Card>
+
+          {/* AI post-match analysis */}
+          <PostMatchAnalysisCard
+            matchId={match.id}
+            input={{
+              result: (match.result as "win" | "loss") ?? "win",
+              mode: (match.mode as "realtime" | "quick") ?? "realtime",
+              format: match.format ?? "champions-reg-m-a",
+              opponentName: match.opponentName ?? "",
+              notes: match.notes ?? "",
+              myTeam: (jsonOrNull<TeamPokemon[]>(match.myTeam) ?? []),
+              opponentTeam:
+                jsonOrNull<Partial<TeamPokemon>[]>(match.opponentTeam) ?? [],
+              myBrought: jsonOrNull<string[]>(match.myBrought) ?? [],
+              opponentBrought:
+                jsonOrNull<string[]>(match.opponentBrought) ?? [],
+              myLeads: jsonOrNull<string[]>(match.myLeads) ?? [],
+              opponentLeads: jsonOrNull<string[]>(match.opponentLeads) ?? [],
+              turns: (match.turns as unknown as Turn[]) ?? [],
+              faintedP1: [],
+              faintedP2: [],
+              scouting: jsonOrNull<ScoutingResult>(
+                match.opponentScoutingJson,
+              ) ?? null,
+            } satisfies PostMatchInput}
+            initial={jsonOrNull(match.aiAnalysisJson)}
+          />
 
           {/* Back link */}
           <Link href="/battles">
