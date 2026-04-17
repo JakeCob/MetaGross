@@ -9,6 +9,7 @@ import { useBattleLogger } from "@/stores/use-battle-logger";
 import { NewBattleDialog } from "@/components/battle-logger/NewBattleDialog";
 import { OpponentTeamEntry } from "@/components/battle-logger/OpponentTeamEntry";
 import { TeamPreview } from "@/components/battle-logger/TeamPreview";
+import { AIAssistancePanel } from "@/components/battle-logger/AIAssistancePanel";
 import { BattleResult } from "@/components/battle-logger/BattleResult";
 import { BattleLogger } from "@/components/battle-logger/BattleLogger";
 import { PostMatchEditor } from "@/components/battle-logger/PostMatchEditor";
@@ -411,13 +412,19 @@ export default function NewBattlePage() {
             <OpponentTeamEntry onComplete={handleOpponentComplete} />
           )}
 
-          {/* Step 4: Team Preview */}
+          {/* Step 4: Team Preview — with AI lead suggestion above */}
           {step === "preview" && (
-            <TeamPreview
-              myTeam={store.myTeam}
-              opponentTeam={store.opponentTeam}
-              onComplete={handlePreviewComplete}
-            />
+            <div className="flex flex-col gap-4">
+              {/* The AIAssistancePanel auto-runs scouting when the opponent
+                  team is set, so by the time we hit this step the lead
+                  recommendation is ready (or streaming). */}
+              <AIAssistancePanel />
+              <TeamPreview
+                myTeam={store.myTeam}
+                opponentTeam={store.opponentTeam}
+                onComplete={handlePreviewComplete}
+              />
+            </div>
           )}
 
           {/* Step 5: Battle logging (realtime / postmatch) */}
