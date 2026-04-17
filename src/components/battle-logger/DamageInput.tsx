@@ -24,10 +24,66 @@ export interface DamageInputResult {
   selfStatChanges: StatChangeDraft[];
 }
 
+export interface DamageSuggestion {
+  minPercent: number;
+  maxPercent: number;
+  /** One-line summary from @smogon/calc for context (optional). */
+  description?: string;
+}
+
 export interface DamageInputProps {
   targetName: string;
+  /** Move name — used to pre-fill the status dropdown for moves that
+   *  always inflict a specific status (Thunder Wave, Will-O-Wisp, …). */
+  moveName?: string;
+  /** Damage range computed by @smogon/calc — shows as a tap-to-apply chip. */
+  suggestedDamage?: DamageSuggestion | null;
   onConfirm: (result: DamageInputResult) => void;
   onCancel: () => void;
+}
+
+/**
+ * Moves that always inflict a specific status on the target when they
+ * hit. Saves the user from manually picking the status every time.
+ */
+const GUARANTEED_STATUS: Record<string, StatusCondition> = {
+  "Thunder Wave": "paralysis",
+  "Stun Spore": "paralysis",
+  "Glare": "paralysis",
+  "Nuzzle": "paralysis",
+  "Will-O-Wisp": "burn",
+  "Inferno": "burn",
+  "Spore": "sleep",
+  "Sleep Powder": "sleep",
+  "Hypnosis": "sleep",
+  "Dark Void": "sleep",
+  "Lovely Kiss": "sleep",
+  "Sing": "sleep",
+  "Grass Whistle": "sleep",
+  "Yawn": "sleep",
+  "Toxic": "toxic",
+  "Poison Powder": "poison",
+  "Poison Gas": "poison",
+  "Confuse Ray": "confusion",
+  "Supersonic": "confusion",
+  "Swagger": "confusion",
+  "Teeter Dance": "confusion",
+};
+
+function defaultStatusFor(moveName?: string): StatusCondition | "none" {
+  if (!moveName) return "none";
+  return GUARANTEED_STATUS[moveName] ?? "none";
+}
+
+/**
+ * Pick the default damage value shown on the slider. When the caller
+ * provides a calc-based suggestion, anchor to the midpoint so the chip
+ * and the slider start in the same spot.
+ */
+function defaultDamage(suggestion?: DamageSuggestion | null): number {
+  if (!suggestion) return 50;
+  const mid = Math.round((suggestion.minPercent + suggestion.maxPercent) / 2);
+  return Math.max(0, Math.min(100, mid));
 }
 
 const PRESETS = [25, 50, 75] as const;
@@ -45,15 +101,19 @@ const STATUS_OPTIONS: Array<{ value: StatusCondition | "none"; label: string }> 
 
 export function DamageInput({
   targetName,
+  moveName,
+  suggestedDamage,
   onConfirm,
   onCancel,
 }: DamageInputProps) {
-  const [damage, setDamage] = useState(50);
+  const [damage, setDamage] = useState(() => defaultDamage(suggestedDamage));
   const [isCrit, setIsCrit] = useState(false);
   const [isKo, setIsKo] = useState(false);
   const [isMiss, setIsMiss] = useState(false);
   const [causedFlinch, setCausedFlinch] = useState(false);
-  const [status, setStatus] = useState<StatusCondition | "none">("none");
+  const [status, setStatus] = useState<StatusCondition | "none">(
+    () => defaultStatusFor(moveName),
+  );
   const [removedItem, setRemovedItem] = useState(false);
   const [targetStatChanges, setTargetStatChanges] = useState<StatChangeDraft[]>([]);
   const [selfStatChanges, setSelfStatChanges] = useState<StatChangeDraft[]>([]);
@@ -98,6 +158,35 @@ export function DamageInput({
       <p className="text-sm text-muted-foreground">
         Result against <span className="font-medium text-foreground">{targetName}</span>
       </p>
+
+      {/* Calc suggestion chip — tap to apply */}
+      {suggestedDamage && !isMiss && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2 py-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-primary">
+            Calc says
+          </span>
+          <span className="text-sm font-mono font-medium text-foreground">
+            {suggestedDamage.minPercent.toFixed(0)}–
+            {suggestedDamage.maxPercent.toFixed(0)}%
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 text-[10px] ml-auto"
+            onClick={() => {
+              const mid = Math.round(
+                (suggestedDamage.minPercent + suggestedDamage.maxPercent) / 2,
+              );
+              setDamage(Math.max(0, Math.min(100, mid)));
+              if (suggestedDamage.maxPercent < 100 && isKo) setIsKo(false);
+            }}
+            title={suggestedDamage.description}
+          >
+            Use midpoint
+          </Button>
+        </div>
+      )}
 
       {/* Damage slider */}
       <div className={`flex flex-col gap-1.5 ${isMiss ? "opacity-40 pointer-events-none" : ""}`}>

@@ -117,6 +117,48 @@ export function OpponentActionMenu({
     if (Object.keys(payload).length > 0) onUpdateInfo(payload);
   };
 
+  /**
+   * Damage previews for the opponent's move against each of my actives —
+   * used both in the target-selection screen (to render per-target
+   * preview tags) and in the damage screen (as the `suggestedDamage`
+   * chip on DamageInput).
+   */
+  const myPreviews = useMemo<Map<string, DamagePreview | null>>(() => {
+    const map = new Map<string, DamagePreview | null>();
+    if (!selectedMove) return map;
+    const ctx = { myTeam, opponentTeam, predictions, format };
+    const attackerResolved = resolveToTeamPokemon(pokemon, "p2", ctx);
+    if (abilityDraft.trim()) attackerResolved.ability = abilityDraft.trim();
+    if (itemDraft.trim()) attackerResolved.item = itemDraft.trim();
+    for (const m of myActive) {
+      if (m.hpPercent <= 0) continue;
+      const defender = resolveToTeamPokemon(m, "p1", ctx);
+      map.set(
+        m.species,
+        getDamagePreview(
+          attackerResolved,
+          defender,
+          selectedMove,
+          fieldState,
+          pokemon.boosts,
+          m.boosts,
+        ),
+      );
+    }
+    return map;
+  }, [
+    selectedMove,
+    pokemon,
+    myActive,
+    myTeam,
+    opponentTeam,
+    predictions,
+    format,
+    fieldState,
+    abilityDraft,
+    itemDraft,
+  ]);
+
   useEffect(() => {
     if (!pokemon.species) return;
     let cancelled = false;
@@ -425,12 +467,38 @@ export function OpponentActionMenu({
             />
           </div>
 
+          {/* Always-visible "use typed query" action when the user has
+              typed something — works whether or not the learnset has a
+              match. Solves "I couldn't enter a move when searching". */}
+          {query.trim().length > 0 && (
+            <button
+              type="button"
+              onClick={() =>
+                pickMove({ name: query.trim(), category: "" })
+              }
+              className="flex items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm text-primary hover:bg-primary/20 cursor-pointer"
+              title="Log this exact text as the move name — no learnset check"
+            >
+              <span className="font-medium">Use &quot;{query.trim()}&quot; as move</span>
+              <span className="text-[10px] opacity-80">↵ Enter</span>
+            </button>
+          )}
+
           <div className="max-h-56 overflow-y-auto rounded-md border border-border/60 bg-card">
             {filtered.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted-foreground">
-                {loading
-                  ? "Loading…"
-                  : "No matches. Press Enter to use the typed move anyway."}
+              <div className="px-3 py-3 text-center">
+                <p className="text-sm text-muted-foreground">
+                  {loading
+                    ? "Loading…"
+                    : `No learnset match for "${query.trim() || "…"}".`}
+                </p>
+                {!loading && query.trim().length > 0 && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Click the blue button above (or press Enter) to log the
+                    typed move anyway. Useful for tutor-only moves, renamed
+                    moves, or when learnset data is out of date.
+                  </p>
+                )}
               </div>
             ) : (
               filtered.map((m) => (
@@ -503,32 +571,7 @@ export function OpponentActionMenu({
       )}
 
       {/* Phase: Target selection (with damage previews) */}
-      {phase === "target" && (() => {
-        // Pre-compute damage previews: opponent attacker → each of my actives.
-        const ctx = { myTeam, opponentTeam, predictions, format };
-        const attackerResolved = resolveToTeamPokemon(pokemon, "p2", ctx);
-        // Override ability/item with the draft reveals if the user just typed them.
-        if (abilityDraft.trim()) attackerResolved.ability = abilityDraft.trim();
-        if (itemDraft.trim()) attackerResolved.item = itemDraft.trim();
-        const myPreviews = new Map<string, DamagePreview | null>();
-        if (selectedMove) {
-          for (const m of myActive) {
-            if (m.hpPercent <= 0) continue;
-            const defender = resolveToTeamPokemon(m, "p1", ctx);
-            myPreviews.set(
-              m.species,
-              getDamagePreview(
-                attackerResolved,
-                defender,
-                selectedMove,
-                fieldState,
-                pokemon.boosts,
-                m.boosts,
-              ),
-            );
-          }
-        }
-        return (
+      {phase === "target" && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Which of your Pokemon did it hit?
@@ -578,13 +621,18 @@ export function OpponentActionMenu({
             </a>
           </div>
         </div>
-        );
-      })()}
+      )}
 
       {/* Phase: Damage */}
       {phase === "damage" && targetSlot != null && (
         <DamageInput
           targetName={myActive[targetSlot - 1]?.species ?? "My Pokemon"}
+          moveName={selectedMove ?? undefined}
+          suggestedDamage={
+            selectedMove
+              ? myPreviews.get(myActive[targetSlot - 1]?.species ?? "") ?? null
+              : null
+          }
           onConfirm={(r) => emitAndClose(r)}
           onCancel={() => setPhase("target")}
         />

@@ -442,6 +442,14 @@ export function ActionMenu({
               ? opponentActive[targetSlot - 1]?.species ?? "Target"
               : myActive[targetSlot - 1]?.species ?? "Target"
           }
+          moveName={selectedMove ?? undefined}
+          suggestedDamage={
+            targetSide === "p2" && selectedMove
+              ? oppPreviews.get(
+                  opponentActive[targetSlot - 1]?.species ?? "",
+                ) ?? null
+              : null
+          }
           onConfirm={handleDamageConfirm}
           onCancel={() => setPhase("target")}
         />
@@ -463,6 +471,14 @@ export function ActionMenu({
           </div>
           <DamageInput
             targetName={opponentActive[targetSlot - 1]?.species ?? "Target"}
+            moveName={selectedMove ?? undefined}
+            suggestedDamage={
+              selectedMove
+                ? oppPreviews.get(
+                    opponentActive[targetSlot - 1]?.species ?? "",
+                  ) ?? null
+                : null
+            }
             onConfirm={handleSpreadDamageConfirm}
             onCancel={() => {
               // Bail out of the spread entirely.
