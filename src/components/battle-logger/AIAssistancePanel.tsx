@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { PokemonSprite } from "@/components/pokemon-sprite";
 import { useBattleLogger } from "@/stores/use-battle-logger";
 import { useScoutingRunner } from "@/hooks/use-scouting-runner";
+import { useTurnAdvice } from "@/hooks/use-turn-advice";
+import type { TurnAdvice } from "@/lib/ai/battle-coach/types";
 // Client-safe import (no node deps) — DO NOT import from the barrel
 // "@/lib/ai/opponent-scouting", which transitively pulls in pikalytics
 // and the LangGraph runtime.
@@ -26,6 +28,7 @@ import { hashOpponentSnapshot } from "@/lib/ai/opponent-scouting/hash";
 export function AIAssistancePanel() {
   const store = useBattleLogger();
   const { run, status, result } = useScoutingRunner();
+  const turnAdvice = useTurnAdvice();
   const [open, setOpen] = useState(true);
 
   const currentHash = useMemo(
@@ -87,7 +90,18 @@ export function AIAssistancePanel() {
 
       {open && (
         <div className="flex flex-col gap-3 px-3 pb-3">
-          {!result && status === "idle" && (
+          {/* Turn advice — highest priority during an active battle */}
+          {store.phase === "inProgress" && (
+            <TurnAdviceSection
+              turn={store.currentTurn}
+              advice={turnAdvice.advice}
+              status={turnAdvice.status}
+              stale={turnAdvice.isStale}
+              onRefresh={turnAdvice.refresh}
+            />
+          )}
+
+          {!result && status === "idle" && store.phase !== "inProgress" && (
             <p className="text-xs text-muted-foreground">
               Click <strong>Refresh</strong> to ask the AI what to lead, what
               to watch for, and what your win conditions are.
@@ -270,5 +284,154 @@ export function AIAssistancePanel() {
         </div>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TurnAdviceSection — renders the live coach output for the current turn.
+// Compact block styled to read at a glance during a real battle.
+// ---------------------------------------------------------------------------
+
+function winProbTone(p: number): string {
+  if (p >= 70) return "text-emerald-400";
+  if (p >= 45) return "text-amber-400";
+  return "text-rose-400";
+}
+
+function TurnAdviceSection({
+  turn,
+  advice,
+  status,
+  stale,
+  onRefresh,
+}: {
+  turn: number;
+  advice: TurnAdvice | null;
+  status: "idle" | "running" | "done" | "error";
+  stale: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <section className="rounded-lg border border-primary/40 bg-primary/10 p-2">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+            Turn {turn} — Live coach
+          </span>
+          {status === "running" && (
+            <Badge variant="info" className="text-[9px] animate-pulse">
+              Thinking…
+            </Badge>
+          )}
+          {stale && status !== "running" && (
+            <Badge variant="warning" className="text-[9px]">
+              Stale
+            </Badge>
+          )}
+          {advice && (
+            <span
+              className={`text-[10px] font-mono ${winProbTone(advice.winProbability)}`}
+              title="Coach's win-probability estimate for this turn"
+            >
+              Win {advice.winProbability}%
+            </span>
+          )}
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 text-[10px]"
+          onClick={onRefresh}
+          disabled={status === "running"}
+        >
+          {status === "running" ? "Running…" : "Refresh"}
+        </Button>
+      </div>
+
+      {status === "running" && !advice && (
+        <p className="text-xs text-muted-foreground animate-pulse">
+          Reading the board…
+        </p>
+      )}
+      {status === "error" && (
+        <p className="text-xs text-destructive">
+          Coach unavailable — try Refresh.
+        </p>
+      )}
+
+      {advice && (
+        <div className="flex flex-col gap-2 text-xs">
+          {/* Per-slot action recommendations */}
+          {advice.myActions.length > 0 && (
+            <ul className="flex flex-col gap-1.5">
+              {advice.myActions.map((a, i) => (
+                <li
+                  key={`${a.species}-${i}`}
+                  className="flex gap-2 rounded border border-border/40 bg-card/80 p-1.5"
+                >
+                  <PokemonSprite species={a.species} size={24} />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-semibold text-foreground leading-tight">
+                      {a.species}: {a.recommendation}
+                      {a.target && (
+                        <span className="ml-1 text-primary/90">→ {a.target}</span>
+                      )}
+                    </span>
+                    <span className="text-muted-foreground leading-snug">
+                      {a.reasoning}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Opponent prediction + backup plan */}
+          {(advice.opponentPlan || advice.backupPlan) && (
+            <div className="grid grid-cols-1 gap-1">
+              {advice.opponentPlan && (
+                <div className="rounded border border-rose-500/30 bg-rose-500/5 px-2 py-1">
+                  <span className="text-[10px] uppercase tracking-wider text-rose-400">
+                    Expect
+                  </span>
+                  <p className="text-xs text-foreground/90 mt-0.5">
+                    {advice.opponentPlan}
+                  </p>
+                </div>
+              )}
+              {advice.backupPlan && (
+                <div className="rounded border border-amber-500/30 bg-amber-500/5 px-2 py-1">
+                  <span className="text-[10px] uppercase tracking-wider text-amber-400">
+                    If they deviate
+                  </span>
+                  <p className="text-xs text-foreground/90 mt-0.5">
+                    {advice.backupPlan}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Optional caution */}
+          {advice.keyNote && (
+            <div className="rounded border border-fuchsia-500/30 bg-fuchsia-500/5 px-2 py-1">
+              <span className="text-[10px] uppercase tracking-wider text-fuchsia-400">
+                Watch
+              </span>
+              <p className="text-xs text-foreground/90 mt-0.5">
+                {advice.keyNote}
+              </p>
+            </div>
+          )}
+
+          {/* Free-form commentary */}
+          {advice.commentary && (
+            <p className="text-[11px] text-muted-foreground italic">
+              {advice.commentary}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
