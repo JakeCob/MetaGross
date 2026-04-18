@@ -187,6 +187,56 @@ export const metaSpreads = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
+// meta_teams — aggregated tournament / creator / user-submitted teams.
+// Used at OTS-entry time to match "entered so far" against known rosters
+// and to autofill the remaining slots. Species are stored twice: as a
+// JSON array preserving order, and as a sorted-joined fingerprint so
+// duplicate teams dedupe no matter how they were entered.
+// ---------------------------------------------------------------------------
+export const metaTeams = sqliteTable(
+  'meta_teams',
+  {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    /** 'pikalytics' | 'limitless' | 'smogon' | 'reddit' | 'user' | 'creator' */
+    source: text('source').notNull(),
+    /** Stable per-source identifier: pikalytics player+record, reddit post id, etc. */
+    sourceRef: text('source_ref'),
+    /** URL for the user to verify/attribute (video, tournament result page, reddit thread). */
+    sourceUrl: text('source_url'),
+    /** Format id like 'champions-reg-m-a'. */
+    format: text('format').default('champions-reg-m-a'),
+    /** Player / handle / creator name. */
+    author: text('author'),
+    /** Record string like '8-1' or 'Top 16 @ Indianapolis Regional'. */
+    record: text('record'),
+    /** Archetype label when known (e.g. "Rain HO", "Trick Room Stall"). */
+    archetype: text('archetype'),
+    /** Free-form notes / strategy summary. */
+    description: text('description'),
+    /** Sorted-joined species fingerprint: "aggron|basculegion|pelipper|..." */
+    speciesFingerprint: text('species_fingerprint').notNull(),
+    /** Ordered species array as JSON: ["Pelipper","Basculegion",...]. */
+    speciesJson: text('species_json', { mode: 'json' }).notNull(),
+    /** Per-Pokemon partial sets when known: [{ species, ability, item, moves }, ...]. */
+    pokemonJson: text('pokemon_json', { mode: 'json' }).default('[]'),
+    /** Trust score 0-1 — reddit/user = 0.5, pikalytics featured = 0.9, creator = 1.0. */
+    trust: real('trust').default(0.5),
+    /** Epoch ms when the team was first seen (tournament date when available). */
+    seenAt: integer('seen_at'),
+    createdAt: integer('created_at').$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at').$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    uniqueIndex('meta_teams_fingerprint_source_idx').on(
+      table.speciesFingerprint,
+      table.source,
+    ),
+    index('meta_teams_fingerprint_idx').on(table.speciesFingerprint),
+    index('meta_teams_format_idx').on(table.format),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // analysis_cache
 // ---------------------------------------------------------------------------
 export const analysisCache = sqliteTable(
