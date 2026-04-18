@@ -123,9 +123,9 @@ export function AIAssistancePanel() {
               {result!.suggestedLeads.slice(0, 1).map((lead, i) => (
                 <div
                   key={i}
-                  className="rounded border border-primary/30 bg-primary/10 p-2"
+                  className="rounded border border-primary/30 bg-primary/10 p-2 flex flex-col gap-2"
                 >
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2">
                     {lead.pair.map((sp) => (
                       <div key={sp} className="flex items-center gap-1">
                         <PokemonSprite species={sp} size={24} />
@@ -137,10 +137,83 @@ export function AIAssistancePanel() {
                     </span>
                   </div>
                   <p className="text-[11px] text-foreground/90">{lead.gamePlan}</p>
+                  {lead.turnOneScripts && lead.turnOneScripts.length > 0 && (
+                    <ul className="flex flex-col gap-1">
+                      {lead.turnOneScripts.map((s, idx) => (
+                        <li
+                          key={idx}
+                          className="rounded border border-primary/20 bg-background/60 p-1.5 text-[11px]"
+                        >
+                          <div className="flex flex-wrap items-baseline gap-x-2">
+                            <span className="font-bold text-primary">
+                              {s.label}
+                            </span>
+                            <span className="text-muted-foreground">
+                              if they lead{" "}
+                              <span className="text-foreground">
+                                {s.opponentLeads}
+                              </span>
+                            </span>
+                          </div>
+                          <p className="text-foreground/90 mt-0.5">{s.play}</p>
+                          {s.logic && (
+                            <p className="text-muted-foreground italic mt-0.5">
+                              {s.logic}
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
             </section>
           )}
+
+          {/* Threat taxonomy — role-by-role opponent breakdown */}
+          {result &&
+            result.threatTaxonomy &&
+            result.threatTaxonomy.length > 0 && (
+              <section className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Threat breakdown
+                </span>
+                <ul className="flex flex-col gap-0.5 text-[11px]">
+                  {result.threatTaxonomy.map((t, i) => (
+                    <li
+                      key={i}
+                      className="rounded border border-border/40 bg-muted/10 px-2 py-1"
+                    >
+                      <span className="font-semibold text-foreground">
+                        {t.role}
+                      </span>
+                      <span className="text-muted-foreground ml-1">
+                        ({t.species.join(", ")})
+                      </span>
+                      <p className="text-foreground/90 mt-0.5">
+                        {t.description}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+          {/* Ability interactions — Intimidate / Competitive / Defiant etc. */}
+          {result &&
+            result.abilityInteractions &&
+            result.abilityInteractions.length > 0 && (
+              <section className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Ability interactions
+                </span>
+                <ul className="text-[11px] text-foreground/90 list-disc list-inside space-y-0.5">
+                  {result.abilityInteractions.map((a, i) => (
+                    <li key={i}>{a}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
           {/* Watch-fors — always visible once scouted */}
           {result && result.watchFor.length > 0 && (
@@ -246,6 +319,18 @@ export function AIAssistancePanel() {
                 </Button>
               </section>
             )}
+
+          {/* Late-game plan — what the win looks like after the first trade */}
+          {result && result.lateGameWinCon && (
+            <section className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Late-game plan
+              </span>
+              <p className="text-[11px] text-foreground/90 rounded border border-emerald-500/30 bg-emerald-500/5 px-2 py-1">
+                {result.lateGameWinCon}
+              </p>
+            </section>
+          )}
 
           {/* Archetype + synthesis summary */}
           {result && (result.archetype || result.synthesis) && (

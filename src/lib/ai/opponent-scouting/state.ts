@@ -12,6 +12,7 @@ import type { DamageObservation, SpeedObservation } from "@/lib/types/ev";
 import type {
   PredictedSet,
   SuggestedLead,
+  ThreatRole,
   WinCondition,
 } from "./types";
 
@@ -141,6 +142,18 @@ export const ScoutingState = Annotation.Root({
   watchFor: Annotation<string[]>({
     reducer: (_prev, next) => next,
     default: () => [],
+  }),
+  threatTaxonomy: Annotation<ThreatRole[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
+  abilityInteractions: Annotation<string[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
+  lateGameWinCon: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "",
   }),
   suggestedWinConditions: Annotation<WinCondition[]>({
     reducer: (_prev, next) => next,

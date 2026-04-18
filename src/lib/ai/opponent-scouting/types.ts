@@ -45,6 +45,22 @@ export interface PredictedSet {
 // Suggested leads
 // ---------------------------------------------------------------------------
 
+/**
+ * A branching turn-1 script: "if the opponent leads X + Y, click these moves".
+ * The coach is expected to give 2-3 of these per lead so the user can react
+ * at team preview rather than improvising on the board.
+ */
+export interface TurnOneScript {
+  /** Tag: "Plan A" / "Plan B" / "Plan C" — short label shown in UI. */
+  label: string;
+  /** Predicted opponent leads — free-form species names joined by " + ". */
+  opponentLeads: string;
+  /** The play. "Fake Out Aerodactyl with Incineroar, Icy Wind with Milotic." */
+  play: string;
+  /** Why the play works — speed math, Intimidate chain, Tailwind denial, etc. */
+  logic: string;
+}
+
 export interface SuggestedLead {
   /** Two species from MY brought-4 that should lead. */
   pair: [string, string];
@@ -53,6 +69,23 @@ export interface SuggestedLead {
   rationale: string;
   /** 1-2 sentences on how to play turn 1-2 against the predicted opponent leads. */
   gamePlan: string;
+  /** Branching Plan A / B / C keyed to likely opponent leads. Optional — older
+   *  cached results may not have them. */
+  turnOneScripts?: TurnOneScript[];
+}
+
+/**
+ * Role-labelled breakdown of the opponent team (Wolfe Glick style).
+ * "Engine / Enforcer / Pivot / Wildcard" — lets the user see WHY the team
+ * works before deciding what to lead.
+ */
+export interface ThreatRole {
+  /** E.g. "Engine", "Enforcer", "Pivot Core", "Wildcard", "Defensive Anchor". */
+  role: string;
+  /** One or more species filling this role. */
+  species: string[];
+  /** 1 sentence — what they actually do. */
+  description: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,16 +148,26 @@ export type ScoutingStatus = "idle" | "running" | "done" | "error";
 export interface ScoutingResult {
   /** One entry per known opponent Pokemon (normally 6). */
   predictedSets: PredictedSet[];
-  /** Short label describing the opponent's overall plan. */
+  /** Compound archetype label, e.g. "Hyper-Offense with Defensive Anchor".
+   *  Never a one-word label like "balance". */
   archetype: string;
   /** Named synergies the opponent team leans on (e.g., "Pelipper + Basculegion Swift Swim"). */
   teamSynergies: string[];
+  /** Role-by-role decomposition of the opponent team. Optional — older cached
+   *  results may not have it. */
+  threatTaxonomy?: ThreatRole[];
+  /** Ability-level mind-games worth flagging — Competitive vs Intimidate,
+   *  Download triggers, Defiant vs Icy Wind, etc. Optional. */
+  abilityInteractions?: string[];
   /** Up to 3 ranked lead recommendations for MY side. */
   suggestedLeads: SuggestedLead[];
   /** Specific threats / plays to watch out for. Bullet-style. */
   watchFor: string[];
   /** Agent-proposed win conditions — a copy lands in winConditions on accept. */
   suggestedWinConditions: WinCondition[];
+  /** Late-game plan: what the win looks like after trading — "Keep Sneasler
+   *  hidden until Kang is alone, then clean with Close Combat." Optional. */
+  lateGameWinCon?: string;
   /** Raw persona notes for transparency / debugging. */
   wolfeNote: string;
   cybertronNote: string;
