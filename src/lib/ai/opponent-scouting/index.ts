@@ -2,7 +2,13 @@
  * Opponent Scouting — LangGraph public API.
  *
  * Linear graph (no loops) so cost and latency stay predictable:
- *   START → analyzer → researcher → predictor → wolfe → cybertron → synthesizer → END
+ *   START → analyzer → researcher → predictor → wolfe → cybertron → facts → synthesizer → END
+ *
+ * `facts` is a pure-compute node that precomputes VGC truths (Mega
+ * ability swaps, 4× weaknesses, Fake Out immunities, weather overrides,
+ * Intimidate × Defiant/Competitive checks) and injects them into the
+ * synthesizer's prompt so the final coach reasons from facts instead
+ * of pretraining recall.
  *
  * Mirror of src/lib/ai/ev-debate/index.ts structure. The React client
  * consumes results via the SSE endpoint at /api/opponent-scouting.
@@ -15,6 +21,7 @@ import { researcherNode } from "./nodes/researcher";
 import { predictorNode } from "./nodes/predictor";
 import { wolfeReviewNode } from "./nodes/wolfe";
 import { cybertronReviewNode } from "./nodes/cybertron";
+import { factsNode } from "./nodes/facts";
 import { synthesizerNode } from "./nodes/synthesizer";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import type { DamageObservation, SpeedObservation } from "@/lib/types/ev";
@@ -38,13 +45,15 @@ function buildScoutingGraph() {
     .addNode("predictor", predictorNode)
     .addNode("wolfe", wolfeReviewNode)
     .addNode("cybertron", cybertronReviewNode)
+    .addNode("facts", factsNode)
     .addNode("synthesizer", synthesizerNode)
     .addEdge(START, "analyzer")
     .addEdge("analyzer", "researcher")
     .addEdge("researcher", "predictor")
     .addEdge("predictor", "wolfe")
     .addEdge("wolfe", "cybertron")
-    .addEdge("cybertron", "synthesizer")
+    .addEdge("cybertron", "facts")
+    .addEdge("facts", "synthesizer")
     .addEdge("synthesizer", END);
 
   return graph.compile();

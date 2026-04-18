@@ -33,6 +33,7 @@ import type {
   WinConditionKind,
 } from "../types";
 import type { TeamPokemon } from "@/lib/types/pokemon";
+import { renderFactsForPrompt } from "../mechanical-facts";
 
 function mkId(prefix: string, i: number): string {
   return `${prefix}-${Date.now().toString(36)}-${i}`;
@@ -94,14 +95,21 @@ HARD RULES — you will be graded on these:
 1. Leads MUST be two distinct species from MY team. If I have a brought-4 list, prefer those.
 2. gamePlan and turnOneScripts MUST only cite moves the species actually has in its listed moveset. If a species doesn't know Fake Out, never write Fake Out. If the pair can't do the play you're proposing, pick a different plan.
 3. Every lead MUST include at least 2 entries in turnOneScripts keyed to plausible opponent leads. A single script is not enough — the opponent has options.
-4. abilityInteractions MUST name at least one concrete ability (Intimidate, Competitive, Defiant, Levitate, Cloud Nine, Download, Rough Skin, Water Bubble, Unaware, etc.) and the play it enables or denies.
+4. abilityInteractions MUST name at least one concrete ability (Intimidate, Competitive, Defiant, Levitate, Cloud Nine, Download, Rough Skin, Water Bubble, Unaware, etc.) and the play it enables or denies. Prefer interactions listed in the MECHANICAL FACTS block below.
 5. threatTaxonomy MUST cover all 6 of the opponent's Pokemon somewhere (roles can group them).
 6. archetype MUST be a compound descriptor. One-word labels are rejected.
 7. watchFor is about the OPPONENT's threats — not advice on what I should do.
 8. Win-condition "kind" must match the target shape. move-landed needs moveName; ko/keep-alive needs species; hp-threshold needs species + hpPercent; field-state needs fieldEffect.
 9. Use the fieldEffect enum literally: "trickRoom" | "tailwindP1" | "tailwindP2" | "rain" | "sun" | "sand" | "snow" | "grassyTerrain" | "electricTerrain" | "psychicTerrain" | "mistyTerrain".
 10. lateGameWinCon is REQUIRED — do not leave it empty. The user needs to know what the win looks like after turn 2.
-11. No markdown, no code fences, no commentary outside the JSON.`;
+11. No markdown, no code fences, no commentary outside the JSON.
+
+FACT-GROUNDING RULES — the user prompt contains a MECHANICAL FACTS block (Mega ability swaps, Fake Out immunities, 4× weaknesses, weather setters, Intimidate × Defiant/Competitive audit, ability trigger order). TRUST THESE OVER YOUR OWN RECALL. In particular:
+  - If a Pokemon is listed under "FAKE OUT / FLINCH IMMUNITIES", NEVER target Fake Out at it. Route Fake Out elsewhere.
+  - If MEGA ABILITY SWAPS shows a Mega triggering a weather-setting ability, the Mega turn will overwrite any other weather in play — factor this into turn-1 scripts.
+  - If 4× WEAKNESSES shows an opponent with an exploiter on my team, prioritise that matchup in your lead or late-game plan.
+  - If INTIMIDATE × DEFIANT/COMPETITIVE/CONTRARY flags a conflict, explicitly address it (e.g., "Don't send Incineroar in on their Bisharp — Defiant will boost it.").
+  - The ABILITY TRIGGER ORDER in the facts block IS the correct Champions/VGC sequence. Use it when reasoning about Mega + weather + Intimidate interactions — switch-ins fire entry abilities in speed order, then Mega Evolution resolves BEFORE any moves and swaps in the Mega's ability.`;
 
 export async function synthesizerNode(
   state: ScoutingStateType,
@@ -190,8 +198,14 @@ function buildUserPrompt(state: ScoutingStateType): string {
   }
   lines.push("");
 
+  // --- MECHANICAL FACTS (pure compute — grounds the LLM) ---
+  if (state.mechanicalFacts) {
+    lines.push(renderFactsForPrompt(state.mechanicalFacts));
+    lines.push("");
+  }
+
   lines.push(
-    "Based ONLY on the movesets above, produce the JSON object. Remember: never cite a move that isn't on the pair's actual movesets, and every lead needs at least 2 turnOneScripts.",
+    "Based ONLY on the movesets above and the MECHANICAL FACTS block, produce the JSON object. Remember: never cite a move that isn't on the pair's actual movesets, never Fake Out a Ghost-type, and every lead needs at least 2 turnOneScripts.",
   );
   return lines.join("\n");
 }

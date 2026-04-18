@@ -9,6 +9,7 @@
 import { Annotation } from "@langchain/langgraph";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import type { DamageObservation, SpeedObservation } from "@/lib/types/ev";
+import type { MechanicalFacts } from "./mechanical-facts";
 import type {
   PredictedSet,
   SuggestedLead,
@@ -132,6 +133,12 @@ export const ScoutingState = Annotation.Root({
   cybertronNote: Annotation<string>({
     reducer: (_prev, next) => next,
     default: () => "",
+  }),
+
+  // ----- Mechanical facts (pure compute — no LLM) -----
+  mechanicalFacts: Annotation<MechanicalFacts | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
   }),
 
   // ----- Synthesizer -----
