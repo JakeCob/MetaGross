@@ -30,17 +30,17 @@ const TEAM_STARTER_SUGGESTIONS: StarterSuggestion[] = [
   {
     label: "🏆 Show me recent tournament-winning teams",
     prompt:
-      "What teams are winning Champions Reg M-A tournaments right now? Call get_tournament_teams with mode=recent and mode=standings to pull the actual top-cut rosters. List 5 teams with player, placement, and the 6-Pokemon list.",
+      "What teams are winning Champions Reg M-A tournaments right now? List 5 teams with player, placement, and the 6-Pokemon roster. Pick whichever research tools give the most grounded answer — prefer our meta-team pool for speed.",
   },
   {
     label: "⭐ What is Wolfe Glick / other top players running?",
     prompt:
-      "Research what Wolfe Glick and other top-ranked Reg M-A players are currently running. Use get_tournament_teams mode=player for Wolfe specifically, then search_web if the tool doesn't have enough detail. Summarise the core tech that makes each team work.",
+      "Research what Wolfe Glick and other top-ranked Reg M-A players are currently running. For each player, cite the team with source (tournament placement or verified team reveal) and summarise the core tech that makes it work. Pick whichever research tools give the most grounded answer.",
   },
   {
     label: "🔁 Build my own version of a tournament team",
     prompt:
-      "I want to build my own version of a winning tournament team. First find 2-3 candidate reference teams via search_meta_teams or get_tournament_teams. Identify the core lever (the tech that makes it work). Then propose a variant that keeps the core and swaps non-core slots for Pokemon I'll be comfortable with. Explicitly list what you kept vs changed.",
+      "I want to build my own version of a winning tournament team. First find 2-3 candidate reference teams from our research tools. Identify the core lever (the tech that makes it work). Then propose a variant that keeps the core and swaps non-core slots for Pokemon I'll be comfortable with. Explicitly list what you kept vs changed.",
   },
   {
     label: "📊 What's underrepresented in my current teams?",
