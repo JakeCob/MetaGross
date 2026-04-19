@@ -119,6 +119,10 @@ export const getTournamentTeamsTool = new DynamicStructuredTool({
       });
     }
     const needle = playerName.toLowerCase();
+    // Popular players don't enter every week — scan a wider window.
+    // `limit` still controls the returned row count; the scan itself
+    // is capped separately at 25 tournaments (~2 months of data).
+    const scanCap = Math.max(cap, 25);
     const tournaments = await getChampionsTournaments();
     const found: Array<{
       tournamentId: string;
@@ -135,10 +139,16 @@ export const getTournamentTeamsTool = new DynamicStructuredTool({
         : never;
     }> = [];
 
-    for (const t of tournaments.slice(0, cap)) {
+    // Also collect near-misses so we can surface "did you mean" hints
+    // — popular players use handles on Limitless, not real names.
+    const partialHandleHits = new Set<string>();
+    const needleShort = needle.replace(/\s+/g, "");
+
+    for (const t of tournaments.slice(0, scanCap)) {
       const standings = await getTournamentStandings(t.id);
       for (const s of standings) {
-        if (s.name.toLowerCase().includes(needle)) {
+        const lower = s.name.toLowerCase();
+        if (lower.includes(needle)) {
           found.push({
             tournamentId: t.id,
             tournamentName: t.name,
@@ -147,15 +157,26 @@ export const getTournamentTeamsTool = new DynamicStructuredTool({
             country: s.country,
             team: s.team,
           });
+        } else if (
+          needleShort.length >= 4 &&
+          lower.replace(/\s+/g, "").includes(needleShort)
+        ) {
+          partialHandleHits.add(s.name);
         }
       }
     }
 
     if (found.length === 0) {
+      const hints = [...partialHandleHits].slice(0, 5);
       return JSON.stringify({
         player: playerName,
         matches: [],
-        note: `No tournament teams found for player matching "${playerName}" in the last ${cap} tournaments. Try search_web or a wider tournament window.`,
+        scannedTournaments: Math.min(scanCap, tournaments.length),
+        handleHints: hints,
+        note:
+          hints.length > 0
+            ? `No exact match for "${playerName}" in the last ${Math.min(scanCap, tournaments.length)} tournaments. Possible handles to retry: ${hints.join(", ")}.`
+            : `No match for "${playerName}" in the last ${Math.min(scanCap, tournaments.length)} tournaments. Next step: search_web for the player's handle (popular players use aliases on Limitless — "Wolfe Glick" is usually "WolfeyVGC" or "WolfeyGG"), then re-call with the handle. As a fallback, fetch_url their YouTube channel / Twitter for recent team reveals.`,
       });
     }
     return JSON.stringify({
