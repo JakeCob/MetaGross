@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PokemonSprite } from "@/components/pokemon-sprite";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useSetValidation } from "@/hooks/use-set-validation";
 
 export interface PokemonBlock {
   name: string;
@@ -199,6 +200,26 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
     .replace(/Mega\s+/, "")
     .trim();
 
+  // Validate the agent's claim — catches hallucinations like
+  // "Mega Scovillain with Rough Skin + Dragon Claw" (Garchomp build
+  // misfiled under the Scovillain header).
+  const cleanAbilityName = (data.ability || "").split(/[—–\-(:]/)[0].trim();
+  const moveList = useMemo(
+    () =>
+      data.moves
+        ? data.moves
+            .split(/\s*\/\s*/)
+            .map((m) => m.split(/[—–\-]/)[0].trim())
+            .filter(Boolean)
+        : [],
+    [data.moves],
+  );
+  const validation = useSetValidation(
+    data.name,
+    cleanAbilityName || undefined,
+    moveList,
+  );
+
   const handleCopy = () => {
     const paste = formatPokepaste(data);
     navigator.clipboard.writeText(paste);
@@ -317,6 +338,24 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
           )}
         </div>
       </div>
+
+      {/* Validation warnings — fires when the agent hallucinates an
+          ability the species doesn't have, a made-up move, or a
+          wrong species. Visible in red so the user sees it before
+          adding to team. */}
+      {validation && validation.warnings.length > 0 && (
+        <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1.5 flex flex-col gap-0.5">
+          {validation.warnings.map((w, i) => (
+            <div
+              key={i}
+              className="text-[11px] text-destructive-foreground/90 leading-snug"
+            >
+              <span className="font-semibold text-destructive">⚠ </span>
+              {w.message}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Action buttons — visible on hover or always on mobile */}
       {actions && (showActions || true) && (
