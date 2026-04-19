@@ -148,13 +148,20 @@ async function fetchYouTube(url: URL): Promise<FetchedUrl> {
     // fall through to scrape
   }
 
-  // Scrape the watch page for the meta description (usually
-  // og:description or description).
+  // Scrape the watch page. The 140-char og:description is useless
+  // for team content — the FULL description (where Pokepaste links +
+  // team lists live) is hidden in an embedded JSON blob called
+  // ytInitialPlayerResponse. Pull it out first; fall back to
+  // og:description only when extraction fails.
   let description = "";
+  let fullDescription = "";
   try {
     const res = await timedFetch(url.toString());
     if (res.ok) {
       const html = await res.text();
+
+      fullDescription = extractYouTubeFullDescription(html) ?? "";
+
       const ogDesc =
         html.match(
           /<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i,
@@ -171,20 +178,67 @@ async function fetchYouTube(url: URL): Promise<FetchedUrl> {
     // ignore — we still have the oembed data
   }
 
+  // Prefer the full description when we have it; fall back to og.
+  const bodyDesc = fullDescription || description;
+
   return {
     url: url.toString(),
     domain: url.hostname.replace(/^www\./, ""),
     kind: "youtube",
     title: title || "(YouTube — title unavailable)",
-    description,
+    description: description || fullDescription.slice(0, 200),
     excerpt: truncate(
-      [author && `Channel: ${author}`, description].filter(Boolean).join("\n\n"),
+      [author && `Channel: ${author}`, bodyDesc].filter(Boolean).join("\n\n"),
     ),
     note:
-      description.length === 0
-        ? "YouTube hides the full video description from anonymous HTML; only the short meta description is available. Pin team details via other sources."
-        : undefined,
+      bodyDesc.length === 0
+        ? "Could not extract the full description. The og:description snippet is usually a 140-char SEO blurb; pin team details via another source."
+        : fullDescription
+          ? undefined
+          : "Only the short og:description was retrieved — the full description extraction failed.",
   };
+}
+
+/**
+ * Pull the full video description out of YouTube's embedded
+ * ytInitialPlayerResponse JSON. Resilient to the varying syntax
+ * patterns YouTube emits (`ytInitialPlayerResponse = {…};`,
+ * `var ytInitialPlayerResponse = …`, etc.).
+ */
+function extractYouTubeFullDescription(html: string): string | null {
+  const patterns = [
+    /ytInitialPlayerResponse\s*=\s*(\{[\s\S]+?\})\s*;\s*(?:var\s+meta|ytInitialData|<\/script>|window\[)/,
+    /ytInitialPlayerResponse"\s*:\s*(\{[\s\S]+?\})\s*,\s*"ytcfg/,
+    /"videoDetails"\s*:\s*(\{[\s\S]+?"shortDescription"\s*:\s*"[\s\S]*?"[\s\S]*?\})/,
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (!m) continue;
+    try {
+      const obj = JSON.parse(m[1]) as {
+        videoDetails?: { shortDescription?: string };
+        shortDescription?: string;
+      };
+      const desc =
+        obj.videoDetails?.shortDescription ?? obj.shortDescription ?? null;
+      if (desc && desc.length > 0) return desc;
+    } catch {
+      // try next pattern
+    }
+  }
+  // Last-resort regex: just match the shortDescription JSON field
+  // directly. YouTube JSON-encodes newlines as \n and quotes as \",
+  // so we decode those back out.
+  const direct = html.match(/"shortDescription":"((?:\\.|[^"\\])*)"/);
+  if (direct) {
+    try {
+      // Re-wrap as a JSON string to get decoding for free.
+      return JSON.parse(`"${direct[1]}"`);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
