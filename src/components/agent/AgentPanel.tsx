@@ -55,6 +55,12 @@ export function AgentPanel({
   const sendMessage = useCallback(
     async (content: string) => {
       setError(null);
+      // Unique per-turn id. The previous design used
+      // `assistant-${threadId}` which collided across turns in the same
+      // thread — streaming updates would overwrite the PREVIOUS
+      // assistant message instead of creating a new one, making the
+      // new response appear before the user's latest message.
+      const assistantId = `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const userMessage: AgentChatMessage = {
         id: `user-${Date.now()}`,
         role: "user",
@@ -139,9 +145,7 @@ export function AgentPanel({
                 assistantContent += event.content ?? "";
                 // Update the assistant message in real-time
                 setMessages((prev) => {
-                  const existing = prev.find(
-                    (m) => m.id === `assistant-${newThreadId ?? "pending"}`
-                  );
+                  const existing = prev.find((m) => m.id === assistantId);
                   if (existing) {
                     return prev.map((m) =>
                       m.id === existing.id
@@ -152,7 +156,7 @@ export function AgentPanel({
                   return [
                     ...prev,
                     {
-                      id: `assistant-${newThreadId ?? "pending"}`,
+                      id: assistantId,
                       role: "assistant" as const,
                       content: assistantContent,
                       toolCalls: toolCallsRef.current,
@@ -190,7 +194,7 @@ export function AgentPanel({
                 // Update the assistant message tool calls
                 setMessages((prev) =>
                   prev.map((m) =>
-                    m.id === `assistant-${newThreadId ?? "pending"}`
+                    m.id === assistantId
                       ? { ...m, toolCalls: [...toolCallsRef.current] }
                       : m
                   )
@@ -206,7 +210,7 @@ export function AgentPanel({
                     setPendingApproval(proposal as WriteActionProposal);
                     setMessages((prev) =>
                       prev.map((m) =>
-                        m.id === `assistant-${newThreadId ?? "pending"}`
+                        m.id === assistantId
                           ? { ...m, pendingApproval: proposal as WriteActionProposal }
                           : m
                       )
@@ -229,13 +233,6 @@ export function AgentPanel({
                 if (event.threadId) {
                   newThreadId = event.threadId;
                   setThreadId(event.threadId);
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === "assistant-pending"
-                        ? { ...m, id: `assistant-${event.threadId}-${Date.now()}` }
-                        : m
-                    )
-                  );
                 }
                 break;
 
@@ -247,10 +244,11 @@ export function AgentPanel({
           }
         }
 
-        // Finalize the assistant message
+        // Finalize the assistant message — target the same id used
+        // throughout streaming so we don't duplicate or clobber earlier
+        // turns.
         if (assistantContent || toolCallsRef.current.length > 0) {
           setMessages((prev) => {
-            const assistantId = `assistant-${newThreadId ?? "pending"}`;
             const exists = prev.some((m) => m.id === assistantId);
             if (exists) {
               return prev.map((m) =>
@@ -266,7 +264,7 @@ export function AgentPanel({
             return [
               ...prev,
               {
-                id: `assistant-${Date.now()}`,
+                id: assistantId,
                 role: "assistant" as const,
                 content: assistantContent,
                 toolCalls: [...toolCallsRef.current],
