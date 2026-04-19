@@ -23,6 +23,16 @@ export const AgentState = Annotation.Root({
     default: () => [],
   }),
   pendingAction: Annotation<WriteActionProposal | null>(),
+  /**
+   * Counter for the response-verifier → agent correction loop.
+   * Capped at 1 retry — if the agent still hallucinates after one
+   * correction, we let the response through with the render-time
+   * warnings so the user isn't blocked.
+   */
+  verificationRetries: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 0,
+  }),
 });
 
 export type AgentStateType = typeof AgentState.State;

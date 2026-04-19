@@ -31,6 +31,7 @@ function createMockState(overrides?: Partial<AgentStateType>): AgentStateType {
     loadedContext: null,
     memoryHits: [],
     pendingAction: null,
+    verificationRetries: 0,
     ...overrides,
   };
 }
@@ -216,7 +217,7 @@ describe("checkForWrite", () => {
     expect(checkForWrite(state)).toBe("tool_executor");
   });
 
-  it("routes to validate when AI message has no tool calls", async () => {
+  it("routes to verify_response when AI message has no tool calls", async () => {
     const { checkForWrite } = await import("../graph/nodes/check-for-write");
 
     const aiMsg = new AIMessage("Here is my analysis of your match...");
@@ -225,16 +226,18 @@ describe("checkForWrite", () => {
       messages: [new HumanMessage("analyze my match"), aiMsg],
     });
 
-    expect(checkForWrite(state)).toBe("validate");
+    // Non-tool-call AI responses now flow through the hallucination
+    // verifier before validation.
+    expect(checkForWrite(state)).toBe("verify_response");
   });
 
-  it("routes to validate when last message is human (edge case)", async () => {
+  it("routes to verify_response when last message is human (edge case)", async () => {
     const { checkForWrite } = await import("../graph/nodes/check-for-write");
 
     const state = createMockState({
       messages: [new HumanMessage("hello")],
     });
 
-    expect(checkForWrite(state)).toBe("validate");
+    expect(checkForWrite(state)).toBe("verify_response");
   });
 });

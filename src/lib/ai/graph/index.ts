@@ -5,8 +5,9 @@ import { loadContextNode } from "./nodes/load-context";
 import { retrieveMemoryNode } from "./nodes/retrieve-memory";
 import { agentNode } from "./nodes/agent";
 import { toolExecutorNode } from "./nodes/tool-executor";
-import { checkForWrite } from "./nodes/check-for-write";
+import { checkForWrite, checkAfterVerify } from "./nodes/check-for-write";
 import { reviewWriteNode } from "./nodes/review-write";
+import { verifyResponseNode } from "./nodes/verify-response";
 import { validateResponseNode } from "./nodes/validate-response";
 import { HumanMessage } from "@langchain/core/messages";
 import type { WriteActionProposal } from "@/lib/types/agent";
@@ -17,9 +18,11 @@ import type { Command } from "@langchain/langgraph";
  *
  * Graph flow:
  *   START -> load_context -> retrieve_memory -> agent -> (conditional)
- *     - if tool_calls -> tool_executor -> agent (loop)
- *     - if pendingAction -> review_write -> agent (loop)
- *     - else -> validate -> END
+ *     - if tool_calls      -> tool_executor -> agent (loop)
+ *     - if pendingAction   -> review_write -> agent (loop)
+ *     - else (final answer) -> verify_response -> (conditional)
+ *        - if violations     -> agent (one retry)
+ *        - else              -> validate -> END
  */
 function buildGraph() {
   const checkpointer = createCheckpointSaver();
@@ -30,6 +33,7 @@ function buildGraph() {
     .addNode("agent", agentNode)
     .addNode("tool_executor", toolExecutorNode)
     .addNode("review_write", reviewWriteNode)
+    .addNode("verify_response", verifyResponseNode)
     .addNode("validate", validateResponseNode)
     // Edges: START -> load_context -> retrieve_memory -> agent
     .addEdge(START, "load_context")
@@ -39,12 +43,17 @@ function buildGraph() {
     .addConditionalEdges("agent", checkForWrite, [
       "tool_executor",
       "review_write",
-      "validate", // was END — now goes through validation first
+      "verify_response",
     ])
     // After tool execution: ALWAYS go back to agent
     .addEdge("tool_executor", "agent")
     // After write review: go back to agent
     .addEdge("review_write", "agent")
+    // After response verification: retry agent on violations, else validate
+    .addConditionalEdges("verify_response", checkAfterVerify, [
+      "agent",
+      "validate",
+    ])
     // After validation: END
     .addEdge("validate", END);
 

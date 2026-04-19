@@ -179,8 +179,12 @@ export function validateSet(input: ValidateSetInput): ValidateSetResult {
   if (isChampionsFormat) {
     const baseSpecies = (resolvedName ?? input.species)
       .replace(/-Mega(-[XY])?$/i, "")
-      .replace(/-(Hisui|Alola|Galar|Paldea|Eternal)$/i, (_m, g: string) =>
-        g.toLowerCase() === "eternal" ? "-Eternal" : "",
+      // Strip regional / form suffixes so e.g. "Landorus-Therian" folds
+      // down to "Landorus" (which is in NOT_IN_CHAMPIONS). Keep
+      // "-Eternal" because Floette-Eternal is a first-class roster entry.
+      .replace(
+        /-(Hisui|Alola|Galar|Paldea|Eternal|Therian|Incarnate|Origin|Altered|Zen|Rainy|Snowy|Sunny|Attack|Defense|Speed)$/i,
+        (_m, g: string) => (g.toLowerCase() === "eternal" ? "-Eternal" : ""),
       )
       .trim();
     // Treat Floette-Eternal specially: it IS on the roster as
