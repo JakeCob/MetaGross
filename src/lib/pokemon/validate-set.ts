@@ -10,20 +10,27 @@
  */
 import { getSpecies } from "./species";
 import { getMove } from "./moves";
+import {
+  isChampionsPokemon,
+  isConfirmedNotInChampions,
+} from "@/lib/data/champions";
 
 export interface ValidateSetInput {
   species: string;
   ability?: string;
   moves?: string[];
+  /** When set to a Champions format, also flag species not on the roster. */
+  format?: string;
 }
 
 export interface SetWarning {
-  /** One of: "species-missing", "ability-invalid", "move-invalid", "mega-name-ambiguous". */
+  /** One of: "species-missing", "ability-invalid", "move-invalid", "mega-name-ambiguous", "not-in-format". */
   kind:
     | "species-missing"
     | "ability-invalid"
     | "move-invalid"
-    | "mega-name-ambiguous";
+    | "mega-name-ambiguous"
+    | "not-in-format";
   message: string;
   /** For ability/move warnings: what the dex says is valid. */
   expected?: string[];
@@ -162,6 +169,40 @@ export function validateSet(input: ValidateSetInput): ValidateSetResult {
         },
       ],
     };
+  }
+
+  // Format-roster check — applies when the caller declares a
+  // Champions format. Strips "-Mega" / "-Hisui" etc. to check against
+  // the base-species roster the Champions list is keyed by.
+  const isChampionsFormat =
+    !input.format || input.format.toLowerCase().includes("champions");
+  if (isChampionsFormat) {
+    const baseSpecies = (resolvedName ?? input.species)
+      .replace(/-Mega(-[XY])?$/i, "")
+      .replace(/-(Hisui|Alola|Galar|Paldea|Eternal)$/i, (_m, g: string) =>
+        g.toLowerCase() === "eternal" ? "-Eternal" : "",
+      )
+      .trim();
+    // Treat Floette-Eternal specially: it IS on the roster as
+    // "Floette-Eternal" but the stripped-form heuristic above drops
+    // suffixes — keep it explicit.
+    const candidate =
+      /Floette-Eternal/i.test(resolvedName ?? "") ||
+      /Floette.*Eternal/i.test(input.species)
+        ? "Floette-Eternal"
+        : baseSpecies;
+
+    if (isConfirmedNotInChampions(candidate)) {
+      warnings.push({
+        kind: "not-in-format",
+        message: `${candidate} is CONFIRMED not in Pokemon Champions. Do not use this Pokemon for Champions Reg M-A.`,
+      });
+    } else if (!isChampionsPokemon(candidate)) {
+      warnings.push({
+        kind: "not-in-format",
+        message: `${candidate} is not on our confirmed Champions roster. Verify via Bulbapedia's Champions page before building with it.`,
+      });
+    }
   }
 
   const dexAbilities = resolved.abilities ?? [];

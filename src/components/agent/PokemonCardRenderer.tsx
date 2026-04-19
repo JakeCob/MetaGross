@@ -218,6 +218,7 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
     data.name,
     cleanAbilityName || undefined,
     moveList,
+    "champions-reg-m-a",
   );
 
   const handleCopy = () => {

@@ -7,7 +7,8 @@ export interface SetValidationWarning {
     | "species-missing"
     | "ability-invalid"
     | "move-invalid"
-    | "mega-name-ambiguous";
+    | "mega-name-ambiguous"
+    | "not-in-format";
   message: string;
   expected?: string[];
 }
@@ -21,12 +22,18 @@ export interface SetValidationResult {
 const validationCache = new Map<string, SetValidationResult>();
 const inflight = new Map<string, Promise<SetValidationResult | null>>();
 
-function cacheKey(species: string, ability?: string, moves?: string[]): string {
+function cacheKey(
+  species: string,
+  ability?: string,
+  moves?: string[],
+  format?: string,
+): string {
   const moveKey = moves?.filter(Boolean).map((m) => m.toLowerCase()).sort().join(",") ?? "";
   return [
     species.trim().toLowerCase(),
     (ability ?? "").trim().toLowerCase(),
     moveKey,
+    (format ?? "").trim().toLowerCase(),
   ].join("|");
 }
 
@@ -34,11 +41,15 @@ function cacheKey(species: string, ability?: string, moves?: string[]): string {
  * Lazy-fetch validation for a Pokemon build. Shared cache so 6 cards
  * in a single team render don't fire 6 duplicate requests. Returns
  * null until the first response lands.
+ *
+ * Pass `format` to enable roster-level validation (Champions Reg M-A
+ * by default via the caller).
  */
 export function useSetValidation(
   species: string,
   ability?: string,
   moves?: string[],
+  format?: string,
 ): SetValidationResult | null {
   const [result, setResult] = useState<SetValidationResult | null>(null);
   const mountedRef = useRef(true);
@@ -56,7 +67,7 @@ export function useSetValidation(
       return;
     }
 
-    const key = cacheKey(species, ability, moves);
+    const key = cacheKey(species, ability, moves, format);
     const cached = validationCache.get(key);
     if (cached) {
       setResult(cached);
@@ -72,6 +83,7 @@ export function useSetValidation(
           species,
           ability: ability || undefined,
           moves: moves && moves.length > 0 ? moves : undefined,
+          format: format || undefined,
         }),
       })
         .then(async (res) => {
@@ -91,7 +103,7 @@ export function useSetValidation(
       if (!mountedRef.current) return;
       setResult(data);
     });
-  }, [species, ability, moves]);
+  }, [species, ability, moves, format]);
 
   return result;
 }

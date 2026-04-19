@@ -7,6 +7,7 @@ const BodySchema = z.object({
   species: z.string().min(1),
   ability: z.string().optional(),
   moves: z.array(z.string()).max(8).optional(),
+  format: z.string().optional(),
 });
 
 /**
