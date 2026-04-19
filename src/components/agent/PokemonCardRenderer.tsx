@@ -413,28 +413,31 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
 /**
  * Shared prose styling for agent responses.
  *
- * Spacing intentionally generous (my-2 on paragraphs/lists, my-1 on
- * list items, leading-relaxed on paragraphs) so dense team reports
- * read like prose instead of a wall of text. Tables + task lists come
- * from remarkGfm which is wired on every ReactMarkdown instance below.
+ * Scaled vertical rhythm so research roundups with multiple H3-
+ * delimited sections read as distinct blocks rather than a dense
+ * paragraph-blob. The key knobs: prose-h3:mt-6 (big gap before each
+ * new section), prose-p:my-2.5, prose-li:my-1.5 (room to breathe on
+ * structured lists), and a left-rule feel on H3 via border-l to
+ * visually break research sections apart.
  */
 const proseClasses =
   "prose prose-sm prose-invert max-w-none " +
-  "prose-p:my-2 prose-p:leading-relaxed " +
-  "prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-li:leading-relaxed " +
-  "prose-headings:mt-4 prose-headings:mb-2 " +
-  "prose-h1:text-lg prose-h1:font-bold " +
-  "prose-h2:text-base prose-h2:font-bold prose-h2:text-primary " +
-  "prose-h3:text-sm prose-h3:font-bold prose-h3:text-primary " +
-  "prose-h4:text-sm prose-h4:font-semibold " +
+  "prose-p:my-2.5 prose-p:leading-relaxed " +
+  "prose-ul:my-2.5 prose-ol:my-2.5 prose-li:my-1.5 prose-li:leading-relaxed " +
+  "prose-li:marker:text-primary/70 " +
+  "prose-headings:font-bold " +
+  "prose-h1:text-lg prose-h1:mt-5 prose-h1:mb-3 " +
+  "prose-h2:text-base prose-h2:text-primary prose-h2:mt-5 prose-h2:mb-2 prose-h2:pb-1 prose-h2:border-b prose-h2:border-border/60 " +
+  "prose-h3:text-sm prose-h3:text-primary prose-h3:mt-5 prose-h3:mb-2 prose-h3:pl-2 prose-h3:border-l-2 prose-h3:border-primary/50 " +
+  "prose-h4:text-sm prose-h4:font-semibold prose-h4:mt-3 prose-h4:mb-1 " +
   "prose-strong:text-foreground prose-strong:font-semibold " +
   "prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded " +
-  "prose-blockquote:border-primary/40 prose-blockquote:text-muted-foreground prose-blockquote:italic " +
-  "prose-hr:my-4 prose-hr:border-border " +
+  "prose-blockquote:border-primary/40 prose-blockquote:text-muted-foreground prose-blockquote:italic prose-blockquote:my-3 " +
+  "prose-hr:my-5 prose-hr:border-border " +
   "prose-table:my-3 prose-table:text-xs prose-table:border-collapse " +
   "prose-th:border prose-th:border-border prose-th:bg-muted/40 prose-th:px-2 prose-th:py-1 " +
   "prose-td:border prose-td:border-border prose-td:px-2 prose-td:py-1 " +
-  "prose-a:text-primary prose-a:underline prose-a:underline-offset-2";
+  "prose-a:text-primary prose-a:underline prose-a:underline-offset-2 prose-a:break-all";
 
 const GFM_PLUGINS = [remarkGfm];
 
