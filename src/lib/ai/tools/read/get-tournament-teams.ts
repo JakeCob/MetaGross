@@ -173,10 +173,10 @@ export const getTournamentTeamsTool = new DynamicStructuredTool({
         matches: [],
         scannedTournaments: Math.min(scanCap, tournaments.length),
         handleHints: hints,
-        note:
+        nextStep:
           hints.length > 0
-            ? `No exact match for "${playerName}" in the last ${Math.min(scanCap, tournaments.length)} tournaments. Possible handles to retry: ${hints.join(", ")}.`
-            : `No match for "${playerName}" in the last ${Math.min(scanCap, tournaments.length)} tournaments. Next step: search_web for the player's handle (popular players use aliases on Limitless — "Wolfe Glick" is usually "WolfeyVGC" or "WolfeyGG"), then re-call with the handle. As a fallback, fetch_url their YouTube channel / Twitter for recent team reveals.`,
+            ? `NO exact match for "${playerName}" in the last ${Math.min(scanCap, tournaments.length)} tournaments. REQUIRED NEXT STEPS: (1) retry this tool with playerName="${hints[0]}" — popular players use handles on Limitless, not real names. (2) If still empty, call search_web for "${playerName} Champions team" and fetch_url the top results.`
+            : `NO match for "${playerName}" in the last ${Math.min(scanCap, tournaments.length)} tournaments. REQUIRED NEXT STEPS: (1) Call search_web for "${playerName} Champions team latest" — popular players post team reveals on YouTube/Twitter/Reddit. (2) fetch_url the top 2-3 search results to read the actual content. Do NOT answer "I couldn't find it" until you've executed both steps.`,
       });
     }
     return JSON.stringify({
