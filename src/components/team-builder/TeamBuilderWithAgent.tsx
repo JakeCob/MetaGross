@@ -4,9 +4,50 @@ import { useState, useCallback, useRef } from "react";
 import { TeamBuilder } from "./TeamBuilder";
 import { AgentPanel } from "@/components/agent";
 import type { PokemonBlock } from "@/components/agent/PokemonCardRenderer";
+import type { StarterSuggestion } from "@/components/agent/AgentMessageList";
 import { Button } from "@/components/ui/button";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
+
+/**
+ * Discovery chips for the team-builder agent empty state.
+ * Mirrors the opening questions Claude asked Jacob during his
+ * teambuilding session: goal → playstyle → underrepresented gap →
+ * research anchor. Tapping a chip sends the prompt verbatim so the
+ * agent can kick off the discovery workflow.
+ */
+const TEAM_STARTER_SUGGESTIONS: StarterSuggestion[] = [
+  {
+    label: "🎯 Build me a meta-counter team",
+    prompt:
+      "I want a team specifically built to counter the current Champions Reg M-A meta. Pull the latest Pikalytics + Limitless usage, show me the top 5 threats, then propose 2-3 distinct counter archetypes I can pick from.",
+  },
+  {
+    label: "🧪 Propose 3 archetypes for my playstyle",
+    prompt:
+      "Before you suggest a team, ask me about my playstyle (offensive / balance / stall / disruption), my goal (meta counter / improve existing / new build), and what's underrepresented in my current teams. Then propose 3 distinct archetypes with a one-line rationale each.",
+  },
+  {
+    label: "🏆 Show me recent tournament-winning teams",
+    prompt:
+      "What teams are winning Champions Reg M-A tournaments right now? Call get_tournament_teams with mode=recent and mode=standings to pull the actual top-cut rosters. List 5 teams with player, placement, and the 6-Pokemon list.",
+  },
+  {
+    label: "⭐ What is Wolfe Glick / other top players running?",
+    prompt:
+      "Research what Wolfe Glick and other top-ranked Reg M-A players are currently running. Use get_tournament_teams mode=player for Wolfe specifically, then search_web if the tool doesn't have enough detail. Summarise the core tech that makes each team work.",
+  },
+  {
+    label: "🔁 Build my own version of a tournament team",
+    prompt:
+      "I want to build my own version of a winning tournament team. First find 2-3 candidate reference teams via search_meta_teams or get_tournament_teams. Identify the core lever (the tech that makes it work). Then propose a variant that keeps the core and swaps non-core slots for Pokemon I'll be comfortable with. Explicitly list what you kept vs changed.",
+  },
+  {
+    label: "📊 What's underrepresented in my current teams?",
+    prompt:
+      "Look at my saved teams (via get_team or list my existing ones) and tell me what archetype or playstyle is underrepresented. Then suggest a new team that fills the gap without overlapping my existing rotation.",
+  },
+];
 
 interface TeamBuilderWithAgentProps {
   teamId?: string;
@@ -88,6 +129,7 @@ export function TeamBuilderWithAgent({
           <AgentPanel
             contextType="team"
             contextId={teamId}
+            starterSuggestions={TEAM_STARTER_SUGGESTIONS}
             cardActions={{
               onAddToTeam: handleAddToTeam,
               onAddAllToTeam: handleAddAllToTeam,
@@ -117,6 +159,7 @@ export function TeamBuilderWithAgent({
               <AgentPanel
                 contextType="team"
                 contextId={teamId}
+                starterSuggestions={TEAM_STARTER_SUGGESTIONS}
                 cardActions={{
                   onAddToTeam: handleAddToTeam,
                   onAddAllToTeam: handleAddAllToTeam,

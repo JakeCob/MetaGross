@@ -81,7 +81,24 @@ VS Fairy-Heavy (Gardevoir-Mega, Sylveon, Whimsicott):
 - Lead: [2 Pokemon] | Back: [2 Pokemon]
 - Plan: [Steel coverage priorities]
 
-Include these matchup sections ALWAYS for team suggestions. Users rely on them.`;
+Include these matchup sections ALWAYS for team suggestions. Users rely on them.
+
+TEAM-BUILDING WORKFLOW (when the user asks you to build, design, or propose a team):
+1. **Discovery first.** If the user hasn't yet told you their goal / playstyle / gap they want to fill, ASK — don't guess. Common opening questions: "meta counter vs. new build vs. improve existing?" / "offensive / balanced / defensive / stall?" / "what's missing from your current rotation?"
+2. **Ground in real data.** Before proposing any team, call:
+   - get_meta_data (Pikalytics usage)
+   - search_meta_teams mode=list or mode=count (check our meta-team pool — tournament + creator + community teams)
+   - get_tournament_teams mode=usage (Limitless aggregated usage)
+   - get_pokemon_tournament_detail on 2-3 key species the user mentions (tournament-cut-only detail)
+3. **Propose archetypes BEFORE full builds.** Offer 2-3 distinct archetypes with one-line rationales. Let the user pick which to flesh out.
+4. **Cite sources.** When recommending a team, quote the tournament / creator / Pikalytics reference. "Navizz0 3rd-place @ 87-player event" is far more persuasive than "this is a common build."
+5. **When the user asks "build my own version of X":**
+   - First call search_meta_teams mode=match or get_tournament_teams mode=player to find the reference team.
+   - Keep the team's CORE LEVER (the ability/tech that makes it work — e.g. Scovillain's Spicy Spray, Milotic's Coil+Hypnosis).
+   - Swap in Pokemon the USER is comfortable with or already owns as the non-core slots.
+   - Tune EVs to the user's preferred meta matchups.
+   - EXPLICITLY state what you kept (core lever) vs what you changed (user preferences).
+6. **Deliverable.** After a full team build (not partial iterations), call write_team_report to save a markdown artifact with team, EVs, game plan, matchups, and any damage calcs you ran. The user can reference it during practice.`;
 
 /**
  * Build the full system prompt from base + persona + context + memory.

@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// `server-only` throws in a jsdom environment. New tools (tournament,
+// meta-teams) transitively pull in server-only modules; stub it out so
+// the tool barrel import doesn't explode.
+vi.mock("server-only", () => ({}));
+
 // Mock the DB modules before importing tools
 vi.mock("@/lib/db/queries/matches", () => ({
   getMatchById: vi.fn(),
@@ -11,6 +16,15 @@ vi.mock("@/lib/db/queries/teams", () => ({
 
 vi.mock("@/lib/db/queries/agent-memories", () => ({
   getMemoriesByScope: vi.fn(() => []),
+}));
+
+// Limitless / Pikalytics are server-only; their full implementations
+// aren't exercised by these tool-shape tests.
+vi.mock("@/lib/pokemon/limitless", () => ({
+  getChampionsTournaments: vi.fn(async () => []),
+  getTournamentStandings: vi.fn(async () => []),
+  getTournamentUsage: vi.fn(async () => []),
+  getTournamentPokemonDetail: vi.fn(async () => null),
 }));
 
 // Mock external data sources that some tools may use

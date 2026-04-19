@@ -8,6 +8,13 @@ import { AgentToolTrace } from "./AgentToolTrace";
 import { BotIcon, UserIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export interface StarterSuggestion {
+  /** Short chip label shown to the user. */
+  label: string;
+  /** The full prompt sent to the agent when the chip is tapped. */
+  prompt: string;
+}
+
 interface AgentMessageListProps {
   messages: AgentChatMessage[];
   isStreaming: boolean;
@@ -17,6 +24,11 @@ interface AgentMessageListProps {
   onEdit: (editedPayload: unknown) => void;
   pendingApproval: WriteActionProposal | null;
   cardActions?: CardActions;
+  /** Tappable chips shown in the empty state. Parent chooses the copy. */
+  starterSuggestions?: StarterSuggestion[];
+  /** Called when the user taps a starter chip — the parent forwards
+   *  the prompt to the composer / agent. */
+  onPickStarter?: (prompt: string) => void;
 }
 
 function formatTime(timestamp: number): string {
@@ -35,6 +47,8 @@ export function AgentMessageList({
   pendingApproval,
   cardActions,
   statusLog = [],
+  starterSuggestions,
+  onPickStarter,
 }: AgentMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -43,8 +57,9 @@ export function AgentMessageList({
   }, [messages, isStreaming]);
 
   if (messages.length === 0 && !isStreaming) {
+    const chips = starterSuggestions ?? [];
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-10 text-center">
         <BotIcon className="size-10 text-muted-foreground/50" />
         <div>
           <p className="text-sm font-medium text-foreground">Ask MetaGross</p>
@@ -52,6 +67,23 @@ export function AgentMessageList({
             Get AI-powered analysis, team advice, and match insights.
           </p>
         </div>
+        {chips.length > 0 && (
+          <div className="flex max-w-sm flex-col gap-1.5 w-full">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Try asking
+            </span>
+            {chips.map((chip, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => onPickStarter?.(chip.prompt)}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-left text-xs text-foreground hover:border-primary/60 hover:bg-primary/10 cursor-pointer"
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }

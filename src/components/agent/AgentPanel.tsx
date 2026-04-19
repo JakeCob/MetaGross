@@ -8,7 +8,7 @@ import type {
 } from "@/lib/types/agent";
 import type { CardActions } from "./PokemonCardRenderer";
 import { PersonaSelector } from "./PersonaSelector";
-import { AgentMessageList } from "./AgentMessageList";
+import { AgentMessageList, type StarterSuggestion } from "./AgentMessageList";
 import { AgentComposer } from "./AgentComposer";
 import { Separator } from "@/components/ui/separator";
 
@@ -17,6 +17,10 @@ interface AgentPanelProps {
   contextId?: string;
   cardActions?: CardActions;
   onSendMessage?: (message: string) => void;
+  /** Starter chips shown in the empty state. Parent controls copy
+   *  so each surface (team builder vs match analysis) can have its
+   *  own nudges. */
+  starterSuggestions?: StarterSuggestion[];
 }
 
 interface StreamEvent {
@@ -31,7 +35,12 @@ interface StreamEvent {
   message?: string;
 }
 
-export function AgentPanel({ contextType, contextId, cardActions }: AgentPanelProps) {
+export function AgentPanel({
+  contextType,
+  contextId,
+  cardActions,
+  starterSuggestions,
+}: AgentPanelProps) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -353,6 +362,8 @@ export function AgentPanel({ contextType, contextId, cardActions }: AgentPanelPr
         onApprove={handleApprove}
         onReject={handleReject}
         onEdit={handleEdit}
+        starterSuggestions={starterSuggestions}
+        onPickStarter={(prompt) => sendMessage(prompt)}
         cardActions={{
           ...cardActions,
           onResuggest: cardActions?.onResuggest ?? ((species: string) => {
