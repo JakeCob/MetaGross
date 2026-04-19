@@ -406,6 +406,71 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
       "Tyranitar sets sand on entry, Excadrill's Sand Rush doubles its speed (base 88 → 176 → 352 with Jolly). Sand's 1.5x SpD boost makes Tyranitar very bulky.",
     tags: ["sand", "offense"],
   },
+
+  // --- POKEMON CHAMPIONS REG M-A — CURRENT META ---
+
+  {
+    id: "wolfe-champions-scovillain-2026",
+    creator: "Wolfe Glick",
+    creatorHandle: "@WolfeyGlick",
+    creatorUrl: "https://www.youtube.com/@WolfeyVGC",
+    title: "Mega Scovillain Ladder Team — #1 Ranked Champions",
+    archetype: "Spicy Spray Burn Wall",
+    format: "champions-reg-m-a",
+    date: "2026-04-15",
+    videoUrl: "https://www.youtube.com/watch?v=nADGfhosH70",
+    description:
+      "Wolfe's #1-ranked Champions ladder team during the Reg M-A early meta. Mega Scovillain's Spicy Spray burns any Pokemon that makes contact — a structural counter to the physical meta (Sneasler Close Combat, Kingambit Sucker Punch, Incineroar Fake Out, Basculegion Wave Crash all self-burn). Liquid Voice Primarina turns Hyper Voice into a non-contact Water STAB spread that bypasses Scovillain's own Rage Powder.",
+    pokemon: [
+      {
+        // Use base-species name + Mega Stone so the fingerprint matches
+        // Limitless convention (Mega is implied by the item).
+        species: "Scovillain",
+        ability: "Spicy Spray",
+        item: "Scovillainite",
+        moves: ["Flamethrower", "Leech Seed", "Rage Powder", "Protect"],
+        nature: "Calm",
+      },
+      {
+        species: "Primarina",
+        ability: "Liquid Voice",
+        item: "Leftovers",
+        moves: ["Hyper Voice", "Moonblast", "Calm Mind", "Protect"],
+        nature: "Modest",
+      },
+      {
+        species: "Sneasler",
+        ability: "Unburden",
+        item: "Focus Sash",
+        moves: ["Close Combat", "Dire Claw", "Fake Out", "Coaching"],
+        nature: "Adamant",
+      },
+      {
+        species: "Kingambit",
+        ability: "Defiant",
+        item: "Black Glasses",
+        moves: ["Kowtow Cleave", "Sucker Punch", "Swords Dance", "Protect"],
+        nature: "Adamant",
+      },
+      {
+        species: "Aerodactyl",
+        ability: "Unnerve",
+        item: "Focus Sash",
+        moves: ["Tailwind", "Rock Slide", "Wide Guard", "Protect"],
+        nature: "Jolly",
+      },
+      {
+        species: "Garchomp",
+        ability: "Rough Skin",
+        item: "Haban Berry",
+        moves: ["Dragon Claw", "Earthquake", "Stomping Tantrum", "Protect"],
+        nature: "Jolly",
+      },
+    ],
+    strategy:
+      "Lead Scovillain + Primarina. Turn 1: Scovillain Rage Powder, Primarina Calm Mind. Opponent contacts Scovillain → burned → -50% Atk permanent. Turn 2: Leech Seed + Hyper Voice behind redirection. Win condition: +2 Primarina OR +3 SD + Coaching Kingambit. Save Sneasler's one Fake Out (post-nerf) for a game-deciding turn.",
+    tags: ["champions", "meta-counter", "burn-wall", "scovillain"],
+  },
 ];
 
 // Group creators for display

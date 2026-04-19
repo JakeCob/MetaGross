@@ -98,6 +98,8 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
           score: Math.round(m.score * 100) / 100,
           pokemon: m.team.pokemon,
         })),
+        nextStep:
+          "When you cite any of these teams to the user, COPY the pokemon[] field VERBATIM — ability, item, moves, nature, teraType. Do NOT substitute your own training-data defaults (e.g. don't write 'Chlorophyll' when the source team has 'Spicy Spray'). If a field is missing in pokemon[], omit it rather than guessing. Attribute using the author + record fields (e.g. 'Wolfe Glick — Mega Scovillain Ladder Team').",
       });
     }
 
@@ -123,6 +125,8 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
         pokemon: row.pokemon,
       })),
       totalAfterFilter: filtered.length,
+      nextStep:
+        "When you cite a team, COPY the pokemon[] field VERBATIM — ability, item, moves, nature, teraType. Do NOT substitute training-data defaults. Attribute using author + record.",
     });
   },
 });

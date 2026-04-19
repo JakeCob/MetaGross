@@ -1,27 +1,32 @@
 import { aggregateFromPikalytics } from "@/lib/meta-teams/aggregator-pikalytics";
 import { aggregateFromLimitless } from "@/lib/meta-teams/aggregator-limitless";
+import { aggregateFromCreators } from "@/lib/meta-teams/aggregator-creators";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
+
+type Source = "all" | "limitless" | "pikalytics" | "creators";
 
 /**
  * POST /api/meta-teams/aggregate
  *
  * Body (optional):
- *   { source?: "all" | "limitless" | "pikalytics",
+ *   { source?: "all" | "limitless" | "pikalytics" | "creators",
  *     format?, internalFormat?,
  *     topN?,                 // Pikalytics: top-N most-used species to walk
  *     topTournaments?, topCut?, minPlayers?  // Limitless tuning
  *   }
  *
- * Default source: "all" — runs both aggregators. Safe to call
+ * Default source: "all" — runs every aggregator. Safe to call
  * repeatedly; meta_teams dedupes on (fingerprint, source).
  */
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const source: "all" | "limitless" | "pikalytics" =
-      body?.source === "limitless" || body?.source === "pikalytics"
+    const source: Source =
+      body?.source === "limitless" ||
+      body?.source === "pikalytics" ||
+      body?.source === "creators"
         ? body.source
         : "all";
     const format: string | undefined = body?.format;
@@ -36,6 +41,12 @@ export async function POST(request: Request) {
       typeof body?.minPlayers === "number" ? body.minPlayers : undefined;
 
     const output: Record<string, unknown> = {};
+
+    if (source === "creators" || source === "all") {
+      output.creators = aggregateFromCreators({
+        format: internalFormat,
+      });
+    }
 
     if (source === "limitless" || source === "all") {
       output.limitless = await aggregateFromLimitless({
