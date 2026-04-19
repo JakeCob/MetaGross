@@ -17,7 +17,7 @@ import {
 export const searchMetaTeamsTool = new DynamicStructuredTool({
   name: "search_meta_teams",
   description:
-    "Search the meta-team pool (tournament teams from Pikalytics/Limitless, Reddit posts, creator teams, user submissions). Use this before proposing a team so you can cite real tournament rosters. Supports three modes: 'match' (find teams containing a given species list), 'list' (browse recent teams, optionally filtered by source/archetype), 'count' (how many teams are in the pool).",
+    "PRIMARY research tool for 'what is player X running' or 'who's running archetype Y' questions — check this FIRST, before get_tournament_teams or search_web. Queries our local pool of tournament-verified decklists (Limitless top cuts + Pikalytics featured + Reddit + user submissions). Fastest + most reliable source. Modes: 'match' (find teams containing a species list — e.g. species=['Scovillain'] returns every tournament team with Scovillain), 'list' (browse recent teams, filter by source/archetype), 'count' (pool stats). Returns real player names, tournament placements, and full 6-mon decklists — cite those directly instead of fetching YouTube.",
   schema: z.object({
     mode: z
       .enum(["match", "list", "count"])
