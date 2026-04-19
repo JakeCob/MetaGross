@@ -9,8 +9,8 @@ export type AgentProvider = "openai" | "openrouter" | "anthropic";
  * selection is stored.
  */
 const PROVIDER_DEFAULT_MODEL: Record<AgentProvider, string> = {
-  openai: "gpt-5",
-  openrouter: "openai/gpt-5",
+  openai: "gpt-5.4",
+  openrouter: "openai/gpt-5.4",
   anthropic: "claude-sonnet-4-6",
 };
 
