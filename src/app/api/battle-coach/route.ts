@@ -39,7 +39,12 @@ export async function POST(request: Request) {
 
         try {
           send("start", { turn: body.turnNumber });
-          const advice = await getTurnAdvice(body);
+          const advice = await getTurnAdvice({
+            ...body,
+            provider: typeof body.provider === "string" ? body.provider : null,
+            modelName:
+              typeof body.modelName === "string" ? body.modelName : null,
+          });
           send("advice", advice);
           send("done", { turn: body.turnNumber });
         } catch (err: unknown) {

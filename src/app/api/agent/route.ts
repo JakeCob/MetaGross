@@ -106,6 +106,8 @@ export async function POST(request: Request) {
             contextType,
             contextId,
             persona,
+            provider: typeof body.provider === "string" ? body.provider : null,
+            modelName: typeof body.modelName === "string" ? body.modelName : null,
           });
 
           // Buffer the final text — only send the LAST AI text message

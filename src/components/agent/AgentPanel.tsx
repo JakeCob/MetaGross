@@ -8,9 +8,11 @@ import type {
 } from "@/lib/types/agent";
 import type { CardActions } from "./PokemonCardRenderer";
 import { PersonaSelector } from "./PersonaSelector";
+import { ModelSelector } from "./ModelSelector";
 import { AgentMessageList, type StarterSuggestion } from "./AgentMessageList";
 import { AgentComposer } from "./AgentComposer";
 import { Separator } from "@/components/ui/separator";
+import { useModelPreference } from "@/stores/use-model-preference";
 
 interface AgentPanelProps {
   contextType: "match" | "team" | "general";
@@ -49,6 +51,10 @@ export function AgentPanel({
   const [selectedPersona, setSelectedPersona] = useState<AgentPersona>("default");
   const [error, setError] = useState<string | null>(null);
 
+  // User's LLM choice — forwarded with every /api/agent POST.
+  const provider = useModelPreference((s) => s.provider);
+  const modelId = useModelPreference((s) => s.modelId);
+
   // Track tool calls during streaming
   const toolCallsRef = useRef<{ name: string; args: unknown; result?: unknown }[]>([]);
 
@@ -77,8 +83,15 @@ export function AgentPanel({
 
       try {
         const body = threadId
-          ? { message: content, threadId }
-          : { message: content, contextType, contextId, persona: selectedPersona };
+          ? { message: content, threadId, provider, modelName: modelId }
+          : {
+              message: content,
+              contextType,
+              contextId,
+              persona: selectedPersona,
+              provider,
+              modelName: modelId,
+            };
 
         const response = await fetch("/api/agent", {
           method: "POST",
@@ -279,7 +292,7 @@ export function AgentPanel({
         setIsStreaming(false);
       }
     },
-    [threadId, contextType, contextId, selectedPersona]
+    [threadId, contextType, contextId, selectedPersona, provider, modelId]
   );
 
   const handleApprove = useCallback(async () => {
@@ -341,12 +354,16 @@ export function AgentPanel({
 
   return (
     <div className="flex h-full flex-col rounded-xl bg-card ring-1 ring-foreground/10 overflow-hidden">
-      {/* Header with persona selector */}
-      <div className="flex items-center gap-3 px-3 py-2 border-b border-border">
+      {/* Header — persona + model selectors */}
+      <div className="flex items-center gap-3 px-3 py-2 border-b border-border flex-wrap">
         <span className="text-xs font-medium text-muted-foreground shrink-0">
           Persona:
         </span>
         <PersonaSelector value={selectedPersona} onChange={setSelectedPersona} />
+        <span className="text-xs font-medium text-muted-foreground shrink-0 ml-auto">
+          Model:
+        </span>
+        <ModelSelector />
       </div>
 
       <Separator />

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useBattleLogger } from "@/stores/use-battle-logger";
 import { consumeSSEStream } from "@/lib/sse-client";
 import { collectObservations } from "@/lib/ev/collect-observations";
+import { useModelPreference } from "@/stores/use-model-preference";
 import type { ScoutingResult } from "@/lib/ai/opponent-scouting/types";
 
 /**
@@ -25,6 +26,10 @@ export function useScoutingRunner() {
   // without resubscribing every render.
   const storeRef = useRef(store);
   storeRef.current = store;
+  const provider = useModelPreference((s) => s.provider);
+  const modelId = useModelPreference((s) => s.modelId);
+  const modelPrefRef = useRef({ provider, modelId });
+  modelPrefRef.current = { provider, modelId };
 
   // Abort any in-flight request when the consumer unmounts.
   useEffect(() => {
@@ -61,6 +66,8 @@ export function useScoutingRunner() {
             speedObservations: obs.speed,
             damageObservations: obs.damage,
             forceRefresh: Boolean(opts.forceRefresh),
+            provider: modelPrefRef.current.provider,
+            modelName: modelPrefRef.current.modelId,
           }),
           signal: controller.signal,
         });

@@ -32,6 +32,8 @@ function createMockState(overrides?: Partial<AgentStateType>): AgentStateType {
     memoryHits: [],
     pendingAction: null,
     verificationRetries: 0,
+    providerOverride: null,
+    modelOverride: null,
     ...overrides,
   };
 }

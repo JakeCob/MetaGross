@@ -82,6 +82,10 @@ export interface ScoutingInput {
   damageObservations?: DamageObservation[];
   /** When true, skip the positive cache and force a fresh run. */
   forceRefresh?: boolean;
+  /** Optional user-selected LLM provider override. */
+  provider?: string | null;
+  /** Optional model name override for the selected provider. */
+  modelName?: string | null;
 }
 
 /**
@@ -115,6 +119,8 @@ export async function scoutOpponent(
     scoutingHash: hash,
     speedObservations: input.speedObservations ?? [],
     damageObservations: input.damageObservations ?? [],
+    providerOverride: input.provider ?? null,
+    modelOverride: input.modelName ?? null,
   });
   const durationMs = Date.now() - startTime;
 
@@ -151,6 +157,8 @@ export async function* streamScouting(
       scoutingHash: hash,
       speedObservations: input.speedObservations ?? [],
       damageObservations: input.damageObservations ?? [],
+      providerOverride: input.provider ?? null,
+      modelOverride: input.modelName ?? null,
     },
     { streamMode: "updates" },
   );

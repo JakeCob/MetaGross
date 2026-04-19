@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useModelPreference } from "@/stores/use-model-preference";
 import type { PostMatchInput } from "@/lib/ai/battle-coach/post-match";
 
 export interface PostMatchAnalysisCardProps {
@@ -36,6 +37,8 @@ export function PostMatchAnalysisCard({
   );
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("battle");
+  const provider = useModelPreference((s) => s.provider);
+  const modelId = useModelPreference((s) => s.modelId);
 
   const generate = useCallback(async () => {
     setStatus("running");
@@ -44,7 +47,10 @@ export function PostMatchAnalysisCard({
       const res = await fetch("/api/battle-coach/post-match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId, input }),
+        body: JSON.stringify({
+          matchId,
+          input: { ...input, provider, modelName: modelId },
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));

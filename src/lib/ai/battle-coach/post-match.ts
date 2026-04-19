@@ -47,6 +47,10 @@ export interface PostMatchInput {
   scouting: ScoutingResult | null;
   /** Optional team description/notes the user wrote in the team builder. */
   myTeamDescription?: string;
+  /** Optional user-selected LLM provider override. */
+  provider?: string | null;
+  /** Optional model name override for the selected provider. */
+  modelName?: string | null;
 }
 
 export interface PostMatchOutput {
@@ -62,8 +66,10 @@ export interface PostMatchOutput {
 export async function generatePostMatchAnalysis(
   input: PostMatchInput,
 ): Promise<PostMatchOutput> {
-  const provider = detectProvider();
-  const model = createModel(provider);
+  const provider =
+    (input.provider as "openai" | "openrouter" | "anthropic" | null) ||
+    detectProvider();
+  const model = createModel(provider, input.modelName ?? undefined);
 
   const [opponentTeamMd, battleLogMd] = await Promise.all([
     runOpponentTeamAnalysis(model, input),

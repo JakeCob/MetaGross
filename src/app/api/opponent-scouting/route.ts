@@ -31,6 +31,9 @@ export async function POST(request: Request) {
     const speedObservations = body.speedObservations ?? [];
     const damageObservations = body.damageObservations ?? [];
     const forceRefresh: boolean = Boolean(body.forceRefresh);
+    const provider = typeof body.provider === "string" ? body.provider : null;
+    const modelName =
+      typeof body.modelName === "string" ? body.modelName : null;
 
     if (!Array.isArray(opponentTeam) || opponentTeam.length === 0) {
       return NextResponse.json(
@@ -82,6 +85,8 @@ export async function POST(request: Request) {
             speedObservations,
             damageObservations,
             forceRefresh,
+            provider,
+            modelName,
           })) {
             const s = state as Record<string, unknown>;
             lastState = { ...lastState, ...s };

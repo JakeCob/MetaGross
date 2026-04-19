@@ -115,8 +115,10 @@ export async function synthesizerNode(
   state: ScoutingStateType,
 ): Promise<Partial<ScoutingStateUpdate>> {
   const userPrompt = buildUserPrompt(state);
-  const provider = detectProvider();
-  const model = createModel(provider);
+  const provider =
+    (state.providerOverride as "openai" | "openrouter" | "anthropic" | null) ||
+    detectProvider();
+  const model = createModel(provider, state.modelOverride ?? undefined);
 
   const response = await model.invoke([
     new SystemMessage(SYSTEM_PROMPT),

@@ -24,6 +24,10 @@ export interface CoachInput {
   faintedP2: string[];
   recentTurns: Turn[];
   scouting: ScoutingResult | null;
+  /** Optional user-selected LLM provider override. */
+  provider?: string | null;
+  /** Optional model name override for the selected provider. */
+  modelName?: string | null;
 }
 
 const SYSTEM_PROMPT = `You are a high-level Pokemon VGC doubles coach (think Wolfe Glick / Cybertron level). You're advising the user IN-BATTLE, one turn at a time.
@@ -56,8 +60,8 @@ Rules:
 - Keep recommendations concrete: "Click Snarl" not "use a Dark move". Cite the target when single-target.`;
 
 export async function getTurnAdvice(input: CoachInput): Promise<TurnAdvice> {
-  const provider = detectProvider();
-  const model = createModel(provider);
+  const provider = (input.provider as "openai" | "openrouter" | "anthropic" | null) || detectProvider();
+  const model = createModel(provider, input.modelName ?? undefined);
 
   const userPrompt = buildUserPrompt(input);
   const response = await model.invoke([

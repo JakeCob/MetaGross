@@ -79,6 +79,15 @@ export const ScoutingState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => "",
   }),
+  /** User-selected LLM override (applies to every LLM node in the scouting graph). */
+  providerOverride: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+  modelOverride: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
   format: Annotation<string>({
     reducer: (_prev, next) => next,
     default: () => "champions-reg-m-a",

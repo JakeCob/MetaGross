@@ -75,6 +75,10 @@ export interface InvokeAgentOptions {
   contextType: string;
   contextId: string | null;
   persona: string;
+  /** Optional user-selected provider override. */
+  provider?: string | null;
+  /** Optional user-selected model override (e.g. "gpt-4o", "claude-opus-4-7"). */
+  modelName?: string | null;
 }
 
 /**
@@ -93,6 +97,8 @@ export async function invokeAgent(message: string, options: InvokeAgentOptions) 
     loadedContext: null,
     memoryHits: [],
     pendingAction: null,
+    providerOverride: options.provider ?? null,
+    modelOverride: options.modelName ?? null,
   };
 
   const config = {

@@ -278,8 +278,12 @@ function buildSystemPrompt(state: AgentStateType): string {
 export async function agentNode(
   state: AgentStateType,
 ): Promise<Partial<AgentStateUpdate>> {
-  const provider = detectProvider();
-  const model = createModel(provider);
+  // Honour user-selected provider/model when present; fall back to
+  // env-based auto-detection otherwise.
+  const provider =
+    (state.providerOverride as "openai" | "openrouter" | "anthropic" | null) ||
+    detectProvider();
+  const model = createModel(provider, state.modelOverride ?? undefined);
 
   const systemPrompt = buildSystemPrompt(state);
 

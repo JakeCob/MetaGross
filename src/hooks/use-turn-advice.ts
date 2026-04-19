@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBattleLogger } from "@/stores/use-battle-logger";
 import { consumeSSEStream } from "@/lib/sse-client";
+import { useModelPreference } from "@/stores/use-model-preference";
 import type { TurnAdvice } from "@/lib/ai/battle-coach/types";
 
 /**
@@ -16,6 +17,8 @@ import type { TurnAdvice } from "@/lib/ai/battle-coach/types";
  */
 export function useTurnAdvice() {
   const store = useBattleLogger();
+  const provider = useModelPreference((s) => s.provider);
+  const modelId = useModelPreference((s) => s.modelId);
   const [advice, setAdvice] = useState<TurnAdvice | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">(
     "idle",
@@ -69,6 +72,8 @@ export function useTurnAdvice() {
           // Only send the last 5 turns — otherwise we balloon the prompt.
           recentTurns: s.turns.slice(-5),
           scouting: s.scoutingAnalysis,
+          provider,
+          modelName: modelId,
         }),
         signal: controller.signal,
       });

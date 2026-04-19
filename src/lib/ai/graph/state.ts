@@ -33,6 +33,20 @@ export const AgentState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => 0,
   }),
+
+  /**
+   * User-selected provider + model. When unset, the agent node falls
+   * back to detectProvider() + its default model. Lets each chat
+   * thread override the default via the UI ModelSelector.
+   */
+  providerOverride: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+  modelOverride: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
 });
 
 export type AgentStateType = typeof AgentState.State;
