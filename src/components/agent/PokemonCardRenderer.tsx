@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { PokemonSprite } from "@/components/pokemon-sprite";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,19 +18,88 @@ export interface PokemonBlock {
   spreadReasoning?: string;
 }
 
+/**
+ * Structured multi-choice question the agent emits inline via a
+ * `<user-question>{JSON}</user-question>` tag. The renderer pulls them
+ * out and shows tappable option chips — clicking one sends the
+ * option's `value` as the next user message so the conversation
+ * continues without manual typing.
+ */
+export interface UserQuestionBlock {
+  question: string;
+  options: Array<{ label: string; value: string }>;
+}
+
 export interface CardActions {
   onAddToTeam?: (data: PokemonBlock) => void;
   onAddAllToTeam?: (data: PokemonBlock[]) => void;
   onCopy?: (data: PokemonBlock) => void;
   onResuggest?: (species: string) => void;
   onChangeField?: (species: string, field: string, prompt: string) => void;
+  /** Fired when the user taps one of the ask-user-question chips. */
+  onAnswerQuestion?: (value: string) => void;
+}
+
+type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "pokemon"; data: PokemonBlock };
+
+/**
+ * Pull out every <user-question>{JSON}</user-question> block from the
+ * stream, returning the content with those tags stripped plus the
+ * parsed questions in order. Tolerant of incomplete/malformed JSON —
+ * a bad block just becomes plain text so we don't swallow the agent's
+ * reply silently.
+ */
+function extractUserQuestions(
+  content: string,
+): { stripped: string; questions: UserQuestionBlock[] } {
+  const questions: UserQuestionBlock[] = [];
+  const stripped = content.replace(
+    /<user-question>\s*([\s\S]*?)\s*<\/user-question>/gi,
+    (_, inner: string) => {
+      try {
+        const parsed = JSON.parse(inner) as unknown;
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          "question" in parsed &&
+          "options" in parsed &&
+          Array.isArray((parsed as { options: unknown }).options)
+        ) {
+          const q = (parsed as { question: unknown }).question;
+          const optsRaw = (parsed as { options: unknown[] }).options;
+          const options: UserQuestionBlock["options"] = [];
+          for (const opt of optsRaw) {
+            if (!opt || typeof opt !== "object") continue;
+            const o = opt as Record<string, unknown>;
+            const label = typeof o.label === "string" ? o.label : typeof o.value === "string" ? o.value : null;
+            const value = typeof o.value === "string" ? o.value : label;
+            if (!label || !value) continue;
+            options.push({ label, value });
+          }
+          if (typeof q === "string" && q.trim() && options.length > 0) {
+            questions.push({ question: q.trim(), options });
+            // Leave a placeholder token where the question was so we can
+            // interleave it back into the block order.
+            return `\n\n<<__USER_QUESTION_${questions.length - 1}__>>\n\n`;
+          }
+        }
+      } catch {
+        // fall through — leave the raw tag in place so the user sees
+        // what the model tried to do instead of silently hiding it.
+      }
+      return `<user-question>${inner}</user-question>`;
+    },
+  );
+  return { stripped, questions };
 }
 
 /**
  * Parse agent markdown into Pokemon card blocks + regular text blocks.
  */
-function parseContent(content: string): Array<{ type: "text"; text: string } | { type: "pokemon"; data: PokemonBlock }> {
-  const blocks: Array<{ type: "text"; text: string } | { type: "pokemon"; data: PokemonBlock }> = [];
+function parseContent(content: string): ContentBlock[] {
+  const blocks: ContentBlock[] = [];
 
   // Split on ### headers OR **Bold Name** followed by field lines
   const parts = content.split(/(?=^### )|(?=^\*\*[A-Z][a-z]+(?:[- ][A-Za-z]+)*(?:\s*\(Mega\))?\*\*\s*$)/m);
@@ -300,8 +370,90 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
   );
 }
 
+/**
+ * Shared prose styling for agent responses.
+ *
+ * Spacing intentionally generous (my-2 on paragraphs/lists, my-1 on
+ * list items, leading-relaxed on paragraphs) so dense team reports
+ * read like prose instead of a wall of text. Tables + task lists come
+ * from remarkGfm which is wired on every ReactMarkdown instance below.
+ */
 const proseClasses =
-  "prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1 prose-h3:text-sm prose-h3:font-bold prose-h3:text-primary prose-h4:text-sm prose-h4:font-semibold prose-strong:text-foreground prose-strong:font-semibold prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded";
+  "prose prose-sm prose-invert max-w-none " +
+  "prose-p:my-2 prose-p:leading-relaxed " +
+  "prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-li:leading-relaxed " +
+  "prose-headings:mt-4 prose-headings:mb-2 " +
+  "prose-h1:text-lg prose-h1:font-bold " +
+  "prose-h2:text-base prose-h2:font-bold prose-h2:text-primary " +
+  "prose-h3:text-sm prose-h3:font-bold prose-h3:text-primary " +
+  "prose-h4:text-sm prose-h4:font-semibold " +
+  "prose-strong:text-foreground prose-strong:font-semibold " +
+  "prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded " +
+  "prose-blockquote:border-primary/40 prose-blockquote:text-muted-foreground prose-blockquote:italic " +
+  "prose-hr:my-4 prose-hr:border-border " +
+  "prose-table:my-3 prose-table:text-xs prose-table:border-collapse " +
+  "prose-th:border prose-th:border-border prose-th:bg-muted/40 prose-th:px-2 prose-th:py-1 " +
+  "prose-td:border prose-td:border-border prose-td:px-2 prose-td:py-1 " +
+  "prose-a:text-primary prose-a:underline prose-a:underline-offset-2";
+
+const GFM_PLUGINS = [remarkGfm];
+
+function QuestionCard({
+  question,
+  onAnswer,
+}: {
+  question: UserQuestionBlock;
+  onAnswer?: (value: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-primary/40 bg-primary/5 p-3 flex flex-col gap-2">
+      <div className="text-xs font-semibold text-primary uppercase tracking-wider">
+        Question
+      </div>
+      <p className="text-sm text-foreground">{question.question}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {question.options.map((opt, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onAnswer?.(opt.value)}
+            disabled={!onAnswer}
+            className="rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground hover:border-primary/60 hover:bg-primary/10 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Split a text block on `<<__USER_QUESTION_n__>>` placeholders so the
+ * renderer can interleave QuestionCard components exactly where the
+ * agent emitted them.
+ */
+function splitOnQuestionPlaceholders(
+  text: string,
+): Array<{ type: "text"; text: string } | { type: "question"; index: number }> {
+  const out: Array<{ type: "text"; text: string } | { type: "question"; index: number }> = [];
+  const regex = /<<__USER_QUESTION_(\d+)__>>/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const chunk = text.slice(lastIndex, match.index).trim();
+      if (chunk) out.push({ type: "text", text: chunk });
+    }
+    out.push({ type: "question", index: parseInt(match[1], 10) });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    const chunk = text.slice(lastIndex).trim();
+    if (chunk) out.push({ type: "text", text: chunk });
+  }
+  return out;
+}
 
 export function PokemonCardRenderer({
   content,
@@ -312,16 +464,51 @@ export function PokemonCardRenderer({
 }) {
   if (!content) return null;
 
-  const blocks = parseContent(content);
-  const pokemonBlocks = blocks.filter((b): b is { type: "pokemon"; data: PokemonBlock } => b.type === "pokemon");
+  // Pull out any ask-user-question blocks first so they interleave with
+  // Pokemon cards in the right spot.
+  const { stripped, questions } = extractUserQuestions(content);
 
-  // If no Pokemon blocks detected, render as plain markdown
-  if (pokemonBlocks.length === 0) {
+  const blocks = parseContent(stripped);
+  const pokemonBlocks = blocks.filter(
+    (b): b is { type: "pokemon"; data: PokemonBlock } => b.type === "pokemon",
+  );
+
+  const renderTextWithQuestions = (text: string, keyPrefix: string) => {
+    if (questions.length === 0 || !text.includes("<<__USER_QUESTION_")) {
+      return (
+        <div key={keyPrefix} className={proseClasses}>
+          <ReactMarkdown remarkPlugins={GFM_PLUGINS}>{text}</ReactMarkdown>
+        </div>
+      );
+    }
+    const pieces = splitOnQuestionPlaceholders(text);
     return (
-      <div className={proseClasses}>
-        <ReactMarkdown>{content}</ReactMarkdown>
+      <div key={keyPrefix} className="flex flex-col gap-2">
+        {pieces.map((piece, i) => {
+          if (piece.type === "question") {
+            const q = questions[piece.index];
+            if (!q) return null;
+            return (
+              <QuestionCard
+                key={`${keyPrefix}-q-${i}`}
+                question={q}
+                onAnswer={actions?.onAnswerQuestion}
+              />
+            );
+          }
+          return (
+            <div key={`${keyPrefix}-t-${i}`} className={proseClasses}>
+              <ReactMarkdown remarkPlugins={GFM_PLUGINS}>{piece.text}</ReactMarkdown>
+            </div>
+          );
+        })}
       </div>
     );
+  };
+
+  // If no Pokemon blocks detected, render whole thing as markdown (+ any questions)
+  if (pokemonBlocks.length === 0) {
+    return renderTextWithQuestions(stripped, "root");
   }
 
   return (
@@ -342,11 +529,7 @@ export function PokemonCardRenderer({
         if (block.type === "pokemon") {
           return <PokemonCard key={i} data={block.data} actions={actions} />;
         }
-        return (
-          <div key={i} className={proseClasses}>
-            <ReactMarkdown>{block.text}</ReactMarkdown>
-          </div>
-        );
+        return renderTextWithQuestions(block.text, `block-${i}`);
       })}
     </div>
   );

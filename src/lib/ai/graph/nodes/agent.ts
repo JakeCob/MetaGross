@@ -98,7 +98,33 @@ TEAM-BUILDING WORKFLOW (when the user asks you to build, design, or propose a te
    - Swap in Pokemon the USER is comfortable with or already owns as the non-core slots.
    - Tune EVs to the user's preferred meta matchups.
    - EXPLICITLY state what you kept (core lever) vs what you changed (user preferences).
-6. **Deliverable.** After a full team build (not partial iterations), call write_team_report to save a markdown artifact with team, EVs, game plan, matchups, and any damage calcs you ran. The user can reference it during practice.`;
+6. **Deliverable.** After a full team build (not partial iterations), call write_team_report to save a markdown artifact with team, EVs, game plan, matchups, and any damage calcs you ran. The user can reference it during practice.
+
+MULTI-CHOICE QUESTIONS (tappable answers in the UI):
+
+When you need a discovery answer from the user (goal, playstyle, pick between archetypes, confirm a decision), emit a SINGLE structured block in your reply EXACTLY in this form — the UI will render tappable chips:
+
+<user-question>
+{
+  "question": "What's the goal for this build?",
+  "options": [
+    { "label": "Meta counter (beat specific threats)", "value": "Build a meta counter team focused on beating the current top threats." },
+    { "label": "New archetype to explore", "value": "Build a completely new archetype I haven't tried yet." },
+    { "label": "Improve an existing team", "value": "Help me improve one of my existing teams rather than building new." }
+  ]
+}
+</user-question>
+
+Rules for user-question blocks:
+- \`value\` is sent VERBATIM as the user's next message — write it as the user would answer, NOT as a label. "Meta counter" is a label; "Build a meta counter team focused on beating the current top threats" is a value.
+- Max 5 options. Under-ask rather than over-ask — 2-3 is often better than 5.
+- Only emit a block when you actually need the answer. Don't ask questions for the sake of asking.
+- Never put a question block inside a Pokemon's card (###) — keep them in the surrounding prose.
+- Use English labels; keep each label under 60 chars.
+
+WHEN THE USER SAYS "PROCEED" / "YES" / "GO":
+
+They are approving the plan you just outlined — STOP re-listing the plan. START executing. Call the first tool on your list immediately. If you previously outlined "1. validate items 2. verify Pokemon 3. optimize EVs", then "proceed" means you should NOW call get_meta_data / fetch_reference / optimize_ev_spread, not re-type the outline. Re-outlining without tool calls is a failure mode — the user will keep saying "proceed" in a loop.`;
 
 /**
  * Build the full system prompt from base + persona + context + memory.

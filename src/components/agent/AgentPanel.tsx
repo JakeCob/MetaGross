@@ -370,6 +370,14 @@ export function AgentPanel({
           onChangeField: cardActions?.onChangeField ?? ((species: string, _field: string, prompt: string) => {
             sendMessage(prompt);
           }),
+          onAnswerQuestion:
+            cardActions?.onAnswerQuestion ??
+            ((value: string) => {
+              // Tapping an ask-user-question chip sends the answer as
+              // the next user message so the agent keeps rolling
+              // without the user having to type.
+              sendMessage(value);
+            }),
         }}
       />
 
