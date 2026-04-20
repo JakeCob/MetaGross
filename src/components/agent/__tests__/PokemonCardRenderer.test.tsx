@@ -387,4 +387,42 @@ describe("PokemonCardRenderer — research cards", () => {
     const sprites = screen.getAllByTestId("sprite");
     expect(sprites.length).toBeGreaterThanOrEqual(6);
   });
+
+  it("renders cards for Pokepaste-style build with intro + 'Team:' prose line (screenshot 060702)", () => {
+    const content = `Here's a solid 6-Pokémon direction built around your idea:
+
+Team: Trick Room balance
+Cooklediaw @ Leftovers
+Ability: Guts
+Moves: Drain Punch / Mach Punch / Protect / Ice Punch
+Role: A slow physical attacker. Minksyaw can burn it to activate Guts.
+
+Minskyaw @ Mental Herb
+Ability: Disguise
+Moves: Trick Room / Will-O-Wisp / Play Rough / Protect
+Role: Trick Room setter and self-burn support for Cooklediaw
+
+Scovillain-Mega @ Scovillainite
+Ability: Spicy Spray
+Moves: Rage Powder / Leech Seed / Flamethrower / Protect
+Role: redirection support so Minksyaw can try Trick Room
+
+Primarina @ Leftovers
+Ability: Liquid Voice
+Moves: Hyper Voice / Moonblast / Calm Mind / Protect`;
+
+    render(<PokemonCardRenderer content={content} />);
+    // 4 species, 4 cards, 4 sprites.
+    const sprites = screen.getAllByTestId("sprite");
+    expect(sprites.length).toBe(4);
+    const seen = sprites.map((s) => s.getAttribute("data-species"));
+    expect(seen).toEqual(
+      expect.arrayContaining([
+        "Cooklediaw",
+        "Minskyaw",
+        expect.stringMatching(/Scovillain/),
+        "Primarina",
+      ]),
+    );
+  });
 });
