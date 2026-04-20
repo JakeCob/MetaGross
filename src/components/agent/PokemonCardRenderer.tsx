@@ -127,16 +127,29 @@ function extractUserQuestions(
 
 /**
  * Parse agent markdown into Pokemon card blocks + regular text blocks.
+ *
+ * Heading patterns accepted (agents drift between these):
+ *   ### Wolfe Glick — archetype           (canonical)
+ *   ## Wolfe Glick — archetype            (h2 fallback)
+ *   **Wolfe Glick — archetype**           (bold fallback)
+ *   1) Wolfe Glick — archetype            (numbered list)
+ *   1. Wolfe Glick — archetype            (numbered list dot)
  */
 function parseContent(content: string): ContentBlock[] {
   const blocks: ContentBlock[] = [];
 
-  // Split on ### headers OR **Bold Name** followed by field lines
-  const parts = content.split(/(?=^### )|(?=^\*\*[A-Z][a-z]+(?:[- ][A-Za-z]+)*(?:\s*\(Mega\))?\*\*\s*$)/m);
+  // Split on any supported heading pattern.
+  const parts = content.split(
+    /(?=^### )|(?=^## )|(?=^\*\*[A-Z][A-Za-z0-9-' ]*(?:\s*\(Mega\))?\*\*\s*$)|(?=^\d+[).]\s+[A-Z])/m,
+  );
 
   for (const part of parts) {
-    // Try ### header first, then **Bold Name**
-    const headerMatch = part.match(/^### (.+)/) || part.match(/^\*\*([A-Z][a-z]+(?:[- ][A-Za-z]+)*(?:\s*\(Mega\))?)\*\*/);
+    // Try ### / ## / **Name** / 1) Name / 1. Name
+    const headerMatch =
+      part.match(/^### (.+?)\s*$/m) ||
+      part.match(/^## (.+?)\s*$/m) ||
+      part.match(/^\*\*([A-Z][A-Za-z0-9-' ]*(?:\s*\(Mega\))?)\*\*\s*$/m) ||
+      part.match(/^\d+[).]\s+(.+?)\s*$/m);
     if (!headerMatch) {
       if (part.trim()) {
         blocks.push({ type: "text", text: part.trim() });
@@ -171,11 +184,44 @@ function parseContent(content: string): ContentBlock[] {
       research.subtitle = nameMatch[2].trim();
     }
 
+    // Field-line patterns (lenient — agents emit all three):
+    //   - **Source**: val    (canonical bullet)
+    //   - Source: val        (bullet without bold)
+    //   **Source**: val      (bold without bullet)
+    //   Source: val          (plain label)
+    function matchField(line: string): { key: string; val: string } | null {
+      // Try with non-empty value first (covers almost every bullet).
+      const bullet = line.match(/^\s*[-*]\s*\*\*(.+?)\*\*:\s*(.+)/);
+      if (bullet) return { key: bullet[1].toLowerCase(), val: bullet[2].trim() };
+      const bulletPlain = line.match(/^\s*[-*]\s*([A-Z][A-Za-z ]{1,30}):\s*(.+)/);
+      if (bulletPlain) return { key: bulletPlain[1].toLowerCase(), val: bulletPlain[2].trim() };
+      const boldPlain = line.match(/^\*\*(.+?)\*\*:\s*(.+)/);
+      if (boldPlain) return { key: boldPlain[1].toLowerCase(), val: boldPlain[2].trim() };
+      // Fall through to empty-value patterns — "Team:" / "Roster:"
+      // with the list on the following lines. Use .* so we accept
+      // empty values AND trailing whitespace.
+      const plain = line.match(/^([A-Z][A-Za-z ]{1,30}):\s*(.*)$/);
+      if (plain) return { key: plain[1].toLowerCase(), val: plain[2].trim() };
+      return null;
+    }
+
+    // Research-field keys we recognise as the start of a field block.
+    // When the value is empty (e.g. "Team:" followed by species on
+    // subsequent lines), switch into "collect continuation lines"
+    // mode — used specifically for team rosters.
+    const RESEARCH_FIELD_KEYS = new Set([
+      "source", "url", "source url", "team", "roster", "pokemon",
+      "core tech", "core", "tech", "record", "placement",
+    ]);
+
+    let collectingTeam = false;
+    const teamLines: string[] = [];
+
     for (const line of lines) {
-      const fieldMatch = line.match(/^\s*-\s*\*\*(.+?)\*\*:\s*(.+)/);
-      if (fieldMatch) {
-        const key = fieldMatch[1].toLowerCase();
-        const val = fieldMatch[2].trim();
+      const field = matchField(line);
+      if (field) {
+        const { key, val } = field;
+
         // Pokemon build fields (### Pokemon-name template)
         if (key === "role") data.role = val;
         else if (key === "ability") data.ability = val;
@@ -185,14 +231,52 @@ function parseContent(content: string): ContentBlock[] {
         else if (key === "points" || key === "evs") data.points = val;
         else if (key === "spread reasoning" || key === "reasoning" || key === "ev reasoning") data.spreadReasoning = val;
         // Research-report fields (### Player — Archetype template)
-        else if (key === "source") research.source = val;
-        else if (key === "url" || key === "source url") research.url = val;
-        else if (key === "team") research.team = val.split(/\s*\/\s*/).map((s) => s.trim()).filter(Boolean);
-        else if (key === "core tech" || key === "core" || key === "tech") research.coreTech = val;
-        else extraLines.push(line);
+        else if (key === "source") { research.source = val; collectingTeam = false; }
+        else if (key === "url" || key === "source url") { research.url = val; collectingTeam = false; }
+        else if (key === "record" || key === "placement") {
+          // Fold "Record: X" into the subtitle if we haven't got one.
+          if (!research.subtitle) research.subtitle = val;
+          collectingTeam = false;
+        }
+        else if (key === "team" || key === "roster" || key === "pokemon") {
+          const split = val.split(/\s*\/\s*|\s*,\s*/).map((s) => s.trim()).filter(Boolean);
+          if (split.length > 0) {
+            research.team = split;
+            collectingTeam = false;
+          } else {
+            // "Team:" with empty value — collect subsequent lines.
+            collectingTeam = true;
+          }
+        }
+        else if (key === "core tech" || key === "core" || key === "tech") {
+          research.coreTech = val;
+          collectingTeam = false;
+        }
+        else {
+          if (collectingTeam) teamLines.push(line.trim());
+          else extraLines.push(line);
+        }
       } else if (line.trim()) {
-        extraLines.push(line);
+        if (collectingTeam) {
+          // Each continuation line is a species (possibly with a
+          // bullet prefix or leading digit).
+          const sp = line
+            .trim()
+            .replace(/^[-*\d.)]+\s*/, "")
+            .trim();
+          if (sp) teamLines.push(sp);
+        } else {
+          extraLines.push(line);
+        }
+      } else {
+        // blank line — if we were collecting team, stop.
+        collectingTeam = false;
       }
+    }
+
+    // If we collected team lines inline, commit them.
+    if (teamLines.length > 0 && !research.team) {
+      research.team = teamLines.filter(Boolean);
     }
 
     const extra = extraLines.join("\n").trim();
@@ -203,8 +287,14 @@ function parseContent(content: string): ContentBlock[] {
       if (extra) {
         blocks.push({ type: "text", text: extra });
       }
-    } else if (research.source || research.team || research.url || research.coreTech) {
-      // Research-report card.
+    } else if (
+      // Research-report card — require at least ONE strong signal so
+      // we don't accidentally turn a regular numbered list into a card.
+      (research.team && research.team.length >= 3) ||
+      (research.source && research.url) ||
+      (research.url && research.coreTech) ||
+      (research.subtitle && (research.source || research.team))
+    ) {
       research.extra = extra || undefined;
       blocks.push({ type: "research", data: research });
     } else {
