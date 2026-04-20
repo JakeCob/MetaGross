@@ -57,6 +57,16 @@ export interface CardActions {
   onChangeField?: (species: string, field: string, prompt: string) => void;
   /** Fired when the user taps one of the ask-user-question chips. */
   onAnswerQuestion?: (value: string) => void;
+  /** Fired from a ResearchTeamCard "+ Use this team" button — the
+   *  parent fetches the full decklist (abilities/items/moves) by the
+   *  species list and loads it into the current TeamBuilder. */
+  onUseResearchTeam?: (data: ResearchTeamBlock) => void;
+  /** Fired from a ResearchTeamCard "Make my version" button — parent
+   *  typically sends a follow-up prompt to the agent asking for a
+   *  personalised variant. */
+  onMakeVariant?: (data: ResearchTeamBlock) => void;
+  /** Fired from the "Use first, save rest as drafts" bulk action. */
+  onUseAllResearchTeams?: (teams: ResearchTeamBlock[]) => void;
 }
 
 type ContentBlock =
@@ -501,11 +511,19 @@ const SOURCE_BADGE_VARIANT: Record<
   user: "secondary",
 };
 
-function ResearchTeamCard({ data }: { data: ResearchTeamBlock }) {
+function ResearchTeamCard({
+  data,
+  actions,
+}: {
+  data: ResearchTeamBlock;
+  actions?: CardActions;
+}) {
   const sourceKey = (data.source ?? "")
     .toLowerCase()
     .match(/\b(creator|limitless|pikalytics|smogon|reddit|user)\b/)?.[1];
   const sourceVariant = sourceKey ? SOURCE_BADGE_VARIANT[sourceKey] : "secondary";
+  const canUse = Boolean(actions?.onUseResearchTeam && data.team && data.team.length > 0);
+  const canVariant = Boolean(actions?.onMakeVariant && data.team && data.team.length > 0);
 
   return (
     <div className="rounded-xl border border-primary/30 bg-card/80 backdrop-blur-sm p-3 flex flex-col gap-2">
@@ -587,6 +605,30 @@ function ResearchTeamCard({ data }: { data: ResearchTeamBlock }) {
       {data.extra && (
         <div className="text-xs text-muted-foreground">
           <ReactMarkdown remarkPlugins={GFM_PLUGINS}>{data.extra}</ReactMarkdown>
+        </div>
+      )}
+
+      {/* Action buttons — let the user act on this team right from the card. */}
+      {(canUse || canVariant) && (
+        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
+          {canUse && (
+            <Button
+              size="xs"
+              variant="default"
+              onClick={() => actions!.onUseResearchTeam!(data)}
+            >
+              + Use this team
+            </Button>
+          )}
+          {canVariant && (
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => actions!.onMakeVariant!(data)}
+            >
+              Make my version
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -724,12 +766,33 @@ export function PokemonCardRenderer({
         </div>
       )}
 
+      {/* Bulk "Use all" action when multiple research cards — first
+          team goes to the current builder, the rest save as drafts. */}
+      {actions?.onUseAllResearchTeams && researchBlocks.length > 1 && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={() =>
+              actions.onUseAllResearchTeams!(researchBlocks.map((b) => b.data))
+            }
+          >
+            + Use first, save {researchBlocks.length - 1} as drafts
+          </Button>
+        </div>
+      )}
+
       {blocks.map((block, i) => {
         if (block.type === "pokemon") {
           return <PokemonCard key={i} data={block.data} actions={actions} />;
         }
         if (block.type === "research") {
-          return <ResearchTeamCard key={`research-${i}`} data={block.data} />;
+          return (
+            <ResearchTeamCard
+              key={`research-${i}`}
+              data={block.data}
+              actions={actions}
+            />
+          );
         }
         return renderTextWithQuestions(block.text, `block-${i}`);
       })}

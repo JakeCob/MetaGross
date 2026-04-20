@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type {
   AgentChatMessage,
   AgentPersona,
@@ -23,6 +23,11 @@ interface AgentPanelProps {
    *  so each surface (team builder vs match analysis) can have its
    *  own nudges. */
   starterSuggestions?: StarterSuggestion[];
+  /** Called once with the panel's internal sendMessage function so
+   *  the parent can trigger follow-up prompts (e.g. "Make my version"
+   *  from a ResearchTeamCard button) without mounting its own
+   *  composer. */
+  onSendMessageRef?: (fn: (message: string) => void) => void;
 }
 
 interface StreamEvent {
@@ -42,6 +47,7 @@ export function AgentPanel({
   contextId,
   cardActions,
   starterSuggestions,
+  onSendMessageRef,
 }: AgentPanelProps) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
@@ -294,6 +300,13 @@ export function AgentPanel({
     },
     [threadId, contextType, contextId, selectedPersona, provider, modelId]
   );
+
+  // Expose sendMessage to the parent (if it passed onSendMessageRef) so
+  // it can trigger follow-up prompts from UI actions like ResearchTeamCard
+  // "Make my version".
+  useEffect(() => {
+    if (onSendMessageRef) onSendMessageRef(sendMessage);
+  }, [onSendMessageRef, sendMessage]);
 
   const handleApprove = useCallback(async () => {
     if (!threadId) return;

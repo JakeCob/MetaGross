@@ -24,11 +24,19 @@ export const teams = sqliteTable(
     name: text('name').notNull(),
     format: text('format').default('champions-reg-m-a'),
     isActive: integer('is_active').default(0),
+    /** Marks teams queued for later review (e.g. bulk-saved from an
+     *  agent research response). Draft teams are hidden from the
+     *  main teams list by default. */
+    isDraft: integer('is_draft').default(0),
     pokepaste: text('pokepaste'),
     /** Short strategy summary — why this team was built, win condition, core gameplan. */
     description: text('description'),
     /** Free-form notes — results, matchup thoughts, etc. */
     notes: text('notes'),
+    /** Attribution URL when imported from elsewhere (Limitless tournament,
+     *  YouTube team reveal, etc.). */
+    sourceUrl: text('source_url'),
+    archetype: text('archetype'),
     createdAt: integer('created_at').$defaultFn(() => Date.now()),
     updatedAt: integer('updated_at').$defaultFn(() => Date.now()),
   },
