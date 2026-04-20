@@ -81,6 +81,35 @@ Garchomp
 Core tech
 The centerpiece is Scovillain + Primarina.`;
 
+// Pokepaste-style build output — "Species @ Item" on one line,
+// then Ability / Moves fields under it, no ### headers. Captured
+// from a live GPT-5.4 team-build response.
+const pokepasteStyleBuild = `Here's a solid 6-Pokémon starting team.
+
+Cooklediaw @ Leftovers
+Ability: Guts
+Moves: Drain Punch / Mach Punch / Knock Off / Protect
+
+Minskyaw @ Mental Herb
+Ability: Disguise
+Moves: Trick Room / Will-O-Wisp / Play Rough / Protect
+
+Scovillain-Mega @ Scovillainite
+Ability: Spicy Spray
+Moves: Rage Powder / Leech Seed / Flamethrower / Protect
+
+Primarina @ Leftovers
+Ability: Liquid Voice
+Moves: Hyper Voice / Moonblast / Calm Mind / Protect
+
+Kingambit @ Black Glasses
+Ability: Defiant
+Moves: Kowtow Cleave / Sucker Punch / Swords Dance / Protect
+
+Furigiraf @ Safety Goggles
+Ability: Armor Tail
+Moves: Trick Room / Foul Play / Helping Hand / Protect`;
+
 // Exact drift pattern captured from GPT-5.4 live output:
 // **Label:** (colon INSIDE the asterisks), "Link" instead of "URL",
 // accented "Pokémon" as the team header, bullet list underneath.
@@ -100,6 +129,146 @@ const gpt54Drift = `## Wolfe Glick
 
 **Core tech:**
 The centerpiece is Scovillain + Primarina. Wolfe's line is Rage Powder + burn.`;
+
+const liveScreenshotDrift = `## Overview
+
+I pulled the most grounded sources available: a verified creator team reveal for Wolfe Glick, plus recent high-placing Reg M-A tournament teams from Limitless.
+
+---
+
+## Wolfe Glick
+**Source:** Verified team reveal  
+**Record:** “Mega Scovillain Ladder Team — #1 Ranked Champions”  
+**URL:** https://www.youtube.com/watch?v=nADGfhosH70
+
+**Team**
+- Scovillain
+- Primarina
+- Sneasler
+- Kingambit
+- Aerodactyl
+- Garchomp
+
+**Imported set list from source**
+- **Scovillain** @ Scovillainite  
+  Ability: Spicy Spray  
+  Nature: Calm  
+  Moves: Flamethrower / Leech Seed / Rage Powder / Protect
+- **Primarina** @ Leftovers  
+  Ability: Liquid Voice  
+  Nature: Modest  
+  Moves: Hyper Voice / Moonblast / Calm Mind / Protect
+
+**Core tech**
+- The team is built around **Scovillain + Primarina**.
+- Aerodactyl gives the team Tailwind and Wide Guard support.`;
+
+const looseBulletSummary = `What top Reg M-A players are converging on
+Recent top-cut usage data supports these teams as representative of the current high-level metagame:
+
+Sneasler — 53.64%
+Incineroar — 45.76%
+Garchomp — 43.03%
+Basculegion — 30.3%
+Kingambit — 28.79%
+Sinistcha — 28.48%
+Aerodactyl — 18.48%
+Charizard / weather shells / Trick Room cores all remain relevant
+
+Metagame takeaway
+The strongest current trends among top Reg M-A players are:
+
+Sneasler as the premier tempo attacker
+Incineroar as universal glue
+Garchomp as a default Ground-type pressure piece
+Flexible weather rather than fully linear weather spam
+Redundant speed control, especially Tailwind or double Trick Room structures
+Mixed offense that prevents opponents from walling one damage axis`;
+
+const megaStoneVariantDrift = `## Teams
+
+### Showcase Player — Mega variants
+- **Source**: search_meta_teams (creator entry)
+- **URL**: https://example.com/team
+- **Team**: Charizard / Scovillain / Kingambit
+
+**Imported set list from source**
+- **Charizard** @ Charizardite Y  
+  Ability: Solar Power  
+  Moves: Heat Wave / Protect / Weather Ball / Solar Beam
+- **Scovillain** @ Scovillainite  
+  Ability: Spicy Spray  
+  Moves: Flamethrower / Rage Powder / Leech Seed / Protect
+- **Kingambit** @ Black Glasses  
+  Ability: Defiant  
+  Moves: Kowtow Cleave / Sucker Punch / Protect / Iron Head
+
+- **Core tech**: Mega forms should render in the team row.`;
+
+const numberedResearchDrift = `## Overview
+
+I pulled from the most grounded sources available:
+- **Verified creator reveal** for Wolfe Glick
+- **Recent Limitless tournament placements** for other top-performing Reg M-A players
+
+Below are current teams that are either directly revealed by the player or attached to a recent high finish, plus the core tech that makes each team work.
+
+---
+
+## 1) Wolfe Glick — “Mega Scovillain Ladder Team — #1 Ranked Champions”
+- **Source type**: Verified creator reveal
+- **Source**: Wolfe Glick, *Mega Scovillain Ladder Team — #1 Ranked Champions*  
+  https://www.youtube.com/watch?v=nADGfhosH70
+- **Team**:
+  - Scovillain
+  - Primarina
+  - Sneasler
+  - Kingambit
+  - Aerodactyl
+  - Garchomp
+
+**Core tech**
+- The centerpiece is **Scovillain + Primarina**.
+- Wolfe’s revealed gameplan is:
+  - **Turn 1**: Scovillain uses **Rage Powder**, Primarina uses **Calm Mind**
+  - Contact into Scovillain gets punished by its custom mechanic
+- The backup mode is **Sneasler + Kingambit**.`;
+
+const screenshot233439Drift = `## Current Reg M-A teams from Wolfe Glick and other top players
+
+I used the most grounded sources available here:
+- **Verified creator reveal** for Wolfe Glick
+- **Recent Limitless tournament placements** for other top-performing Reg M-A players
+
+For each player, I list the **full 6-Pokémon team**, the **source**, and the **core tech** that makes the team work.
+
+---
+
+### 1) Wolfe Glick
+**Source:** Verified creator team reveal — “Mega Scovillain Ladder Team — #1 Ranked Champions”  
+**Link:** https://www.youtube.com/watch?v=nADGfhosH70
+
+**Team (6):**
+- Scovillain
+- Primarina
+- Sneasler
+- Kingambit
+- Aerodactyl
+- Garchomp
+
+**Core tech:**
+This is a ladder-optimized balance/offense team built around **Scovillain + Primarina**. The key line is:
+- **Turn 1:** Scovillain uses **Rage Powder**
+- Primarina uses **Calm Mind**
+- If the opponent makes contact into Scovillain, they get punished by the team’s burn/Attack-control interaction
+
+From there, the team snowballs through:
+- **Boosted Primarina** as a bulky special wincon
+- **Sneasler + Coaching** to enable **Kingambit**
+- **Aerodactyl Tailwind** for speed control
+- **Garchomp** as a fast, consistent physical cleaner
+
+What makes it work is that it has **multiple win paths**: setup Primarina, boosted Kingambit, or standard Tailwind offense.`;
 
 describe("PokemonCardRenderer — research cards", () => {
   it("renders two ResearchTeamCards for canonical format", () => {
@@ -143,6 +312,53 @@ describe("PokemonCardRenderer — research cards", () => {
     expect(screen.getByText(/youtube\.com/)).toBeInTheDocument();
   });
 
+  it("keeps live research cards intact when bold field labels are standalone lines", () => {
+    render(<PokemonCardRenderer content={liveScreenshotDrift} />);
+    expect(screen.getAllByText("Wolfe Glick").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Mega Scovillain Ladder Team/)).toBeInTheDocument();
+    expect(screen.getAllByTestId("sprite")).toHaveLength(6);
+    expect(screen.getByText("Mega Scovillain")).toBeInTheDocument();
+    expect(screen.getAllByText(/^creator$/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Imported set list from source/i)).not.toBeInTheDocument();
+  });
+
+  it("normalizes loose summary lines into real markdown bullets", () => {
+    render(<PokemonCardRenderer content={looseBulletSummary} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(14);
+    expect(screen.getByText(/Sneasler — 53\.64%/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Mixed offense that prevents opponents from walling one damage axis/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows Mega forms in research team rows when imported sets reveal Mega Stones", () => {
+    render(<PokemonCardRenderer content={megaStoneVariantDrift} />);
+    expect(screen.getByText("Mega Charizard Y")).toBeInTheDocument();
+    expect(screen.getByText("Mega Scovillain")).toBeInTheDocument();
+    expect(screen.getAllByText(/^Kingambit$/).length).toBeGreaterThan(0);
+  });
+
+  it("parses numbered research sections with '- **Team**:' into visible team rows and lists", () => {
+    render(<PokemonCardRenderer content={numberedResearchDrift} />);
+    expect(screen.getByText("Wolfe Glick")).toBeInTheDocument();
+    expect(screen.queryByText(/^1\) Wolfe Glick$/)).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("sprite")).toHaveLength(6);
+    expect(screen.getByText(/youtube\.com/)).toBeInTheDocument();
+    expect(screen.getByText(/Turn 1/)).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem").length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("parses the current screenshot drift with '**Team (6):**' and visible bullet lists", () => {
+    render(<PokemonCardRenderer content={screenshot233439Drift} />);
+    expect(screen.getByText("Wolfe Glick")).toBeInTheDocument();
+    expect(screen.getAllByTestId("sprite")).toHaveLength(6);
+    expect(screen.getByText("Mega Scovillain")).toBeInTheDocument();
+    expect(screen.getByText(/youtube\.com/)).toBeInTheDocument();
+    expect(screen.getByText(/Turn 1:/)).toBeInTheDocument();
+    expect(screen.getByText(/Boosted Primarina/)).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem").length).toBeGreaterThanOrEqual(9);
+  });
+
   it("extracts source badges from mixed source strings", () => {
     render(<PokemonCardRenderer content={canonical} />);
     // Both teams should have badges derived from source strings.
@@ -151,5 +367,24 @@ describe("PokemonCardRenderer — research cards", () => {
     // and in the raw source text.
     expect(screen.getAllByText(/creator/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/limitless/i).length).toBeGreaterThan(0);
+  });
+
+  it("renders Pokemon cards for Pokepaste-style 'Species @ Item' build output", () => {
+    render(<PokemonCardRenderer content={pokepasteStyleBuild} />);
+    // All 6 species should have rendered a card header — scan for
+    // the species names (they appear as headings inside the cards).
+    for (const name of [
+      "Cooklediaw",
+      "Minskyaw",
+      "Scovillain-Mega",
+      "Primarina",
+      "Kingambit",
+      "Furigiraf",
+    ]) {
+      expect(screen.getAllByText(new RegExp(name, "i")).length).toBeGreaterThan(0);
+    }
+    // Each card surfaces a sprite — 6 cards = 6 sprites.
+    const sprites = screen.getAllByTestId("sprite");
+    expect(sprites.length).toBeGreaterThanOrEqual(6);
   });
 });

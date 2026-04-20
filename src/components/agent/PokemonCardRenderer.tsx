@@ -30,8 +30,10 @@ export interface ResearchTeamBlock {
   name: string;
   subtitle?: string;
   source?: string;
+  sourceType?: string;
   url?: string;
   team?: string[];
+  setItems?: Record<string, string>;
   coreTech?: string;
   /** Anything else the model wrote in the section, rendered below as markdown. */
   extra?: string;
@@ -125,6 +127,330 @@ function extractUserQuestions(
   return { stripped, questions };
 }
 
+const RESERVED_BOLD_FIELD_LABELS = new Set([
+  "source",
+  "url",
+  "source url",
+  "link",
+  "record",
+  "placement",
+  "team",
+  "roster",
+  "pokemon",
+  "pokémon",
+  "lineup",
+  "core tech",
+  "core",
+  "tech",
+  "strategy",
+  "why it works",
+  "imported set list",
+  "imported set list from source",
+  "notes",
+]);
+
+function normalizeLabelText(value: string): string {
+  return value.replace(/^[-–—"“”']+|[-–—"“”']+$/g, "").trim();
+}
+
+function normalizeFieldKey(value: string): string {
+  return normalizeLabelText(value)
+    .replace(/:+$/, "")
+    .replace(/\s*\([^)]*\)\s*$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function isStandaloneBoldHeading(line: string): boolean {
+  const match = line.match(/^\*\*(.+?)\*\*\s*$/);
+  if (!match) return false;
+
+  const inner = match[1].trim();
+  if (!/^[A-Z]/.test(inner)) return false;
+
+  const normalized = normalizeFieldKey(inner);
+  return !RESERVED_BOLD_FIELD_LABELS.has(normalized);
+}
+
+/**
+ * Recognises a bare "Species @ Item" line as a Pokemon section
+ * header (Pokepaste-style). Matches:
+ *   Cooklediaw @ Leftovers
+ *   Scovillain-Mega @ Scovillainite
+ *   **Mega Scovillain** @ Scovillainite
+ *
+ * Does NOT match lines with a leading bullet — those are nested
+ * "Imported set list" items inside a research card, not standalone
+ * Pokemon headers. Requires no colon so labels like "Item: X @ Y"
+ * don't fire.
+ */
+function isSpeciesAtItemHeader(line: string): boolean {
+  if (/^\s*[-*+]\s/.test(line)) return false;
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (trimmed.includes(":")) return false;
+  if (!/@/.test(trimmed)) return false;
+  return /^\*{0,2}[A-Z][A-Za-z0-9'’. -]{1,40}\*{0,2}\s*@\s+.+$/.test(trimmed);
+}
+
+function splitContentSections(content: string): string[] {
+  const parts: string[] = [];
+  const lines = content.split("\n");
+  let current: string[] = [];
+
+  const pushCurrent = () => {
+    const part = current.join("\n").trim();
+    if (part) parts.push(part);
+  };
+
+  for (const line of lines) {
+    const startsSection =
+      /^###\s+/.test(line) ||
+      /^##\s+/.test(line) ||
+      /^\d+[).]\s+[A-Z]/.test(line) ||
+      isStandaloneBoldHeading(line) ||
+      isSpeciesAtItemHeader(line);
+
+    if (startsSection && current.some((currentLine) => currentLine.trim())) {
+      pushCurrent();
+      current = [line];
+      continue;
+    }
+
+    if (startsSection) {
+      current = [line];
+      continue;
+    }
+
+    current.push(line);
+  }
+
+  pushCurrent();
+  return parts;
+}
+
+function stripMarkdownDecorations(value: string): string {
+  return value
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .trim();
+}
+
+function getSpeciesLookupKey(species: string): string {
+  const clean = stripMarkdownDecorations(species).replace(/\s+/g, " ").trim();
+  const explicitMega =
+    /^Mega\s+/i.test(clean) ||
+    /\(Mega(?:\s+[XY])?\)/i.test(clean) ||
+    /-Mega(?:-[XY])?$/i.test(clean) ||
+    /-Mega[XY]$/i.test(clean);
+
+  let base = clean
+    .replace(/^Mega\s+/i, "")
+    .replace(/\s*\(Mega(?:\s+[XY])?\)\s*/i, "")
+    .replace(/-Mega(?:-[XY])?$/i, "")
+    .replace(/-Mega[XY]$/i, "")
+    .trim();
+
+  if (explicitMega) {
+    base = base.replace(/(?:\s+|-)(X|Y)$/i, "").trim();
+  }
+
+  return base.toLowerCase();
+}
+
+function extractImportedSetItems(content: string): Record<string, string> {
+  const items: Record<string, string> = {};
+  const regex = /^\s*[-*]\s*\*{0,2}([^*\n@]+?)\*{0,2}\s*@\s*([^\n]+?)\s*$/gm;
+
+  for (const match of content.matchAll(regex)) {
+    const species = stripMarkdownDecorations(match[1] ?? "").trim();
+    const item = stripMarkdownDecorations(match[2] ?? "")
+      .split(/[—–]/)[0]
+      .trim();
+    if (!species || !item) continue;
+    items[getSpeciesLookupKey(species)] = item;
+  }
+
+  return items;
+}
+
+function isMegaStoneItem(item?: string): boolean {
+  if (!item) return false;
+  const clean = stripMarkdownDecorations(item)
+    .split(/[—–\-(:]/)[0]
+    .trim();
+  return /(?:ite(?:\s+[XY])?|mega stone)$/i.test(clean) || /^dragoninite$/i.test(clean);
+}
+
+type MegaVariant = "X" | "Y" | null;
+
+function extractMegaVariant(value?: string): MegaVariant {
+  if (!value) return null;
+  const clean = stripMarkdownDecorations(value).trim();
+  const match = clean.match(/(?:-Mega(?:-|\s*)?|Mega\s+.+\s+|ite\s+)(X|Y)$/i);
+  return match ? (match[1].toUpperCase() as MegaVariant) : null;
+}
+
+function resolveRenderedPokemon(species: string, item?: string): {
+  displayName: string;
+  spriteSpecies: string;
+  isMega: boolean;
+} {
+  const cleanSpecies = stripMarkdownDecorations(species).replace(/\s+/g, " ").trim();
+  const explicitMega =
+    /^Mega\s+/i.test(cleanSpecies) ||
+    /\(Mega(?:\s+[XY])?\)/i.test(cleanSpecies) ||
+    /-Mega(?:-[XY])?$/i.test(cleanSpecies) ||
+    /-Mega[XY]$/i.test(cleanSpecies);
+  const variant = extractMegaVariant(cleanSpecies) ?? extractMegaVariant(item);
+  const isMega = explicitMega || isMegaStoneItem(item);
+
+  let baseSpecies = cleanSpecies
+    .replace(/^Mega\s+/i, "")
+    .replace(/\s*\(Mega(?:\s+[XY])?\)\s*/i, "")
+    .replace(/-Mega(?:-[XY])?$/i, "")
+    .replace(/-Mega[XY]$/i, "")
+    .trim();
+
+  if (explicitMega) {
+    baseSpecies = baseSpecies.replace(/(?:\s+|-)(X|Y)$/i, "").trim();
+  }
+
+  const spriteSpecies = isMega
+    ? `${baseSpecies}-Mega${variant ? `-${variant}` : ""}`
+    : baseSpecies;
+
+  return {
+    displayName: isMega
+      ? `Mega ${baseSpecies}${variant ? ` ${variant}` : ""}`
+      : cleanSpecies,
+    spriteSpecies,
+    isMega,
+  };
+}
+
+function isExistingMarkdownLine(line: string): boolean {
+  return /^\s*(?:[-*+]\s+|\d+[).]\s+|#{1,6}\s+|>\s+|```|\|)/.test(line);
+}
+
+function isLikelyLooseBulletLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (isExistingMarkdownLine(trimmed)) return false;
+  if (/^https?:\/\//i.test(trimmed)) return false;
+  if (trimmed.endsWith(":")) return false;
+  if (trimmed.length > 120) return false;
+  return true;
+}
+
+function isMarkdownListLine(line: string): boolean {
+  return /^\s*(?:[-*+]\s+|\d+[).]\s+)/.test(line);
+}
+
+function normalizeExplicitMarkdownLists(text: string): string {
+  const lines = text.split("\n");
+  const out: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    const prevOut = out.length > 0 ? out[out.length - 1] : null;
+    const prevNonEmpty = [...out].reverse().find((entry) => entry.trim() !== "") ?? null;
+
+    if (
+      isMarkdownListLine(line) &&
+      prevNonEmpty &&
+      !isMarkdownListLine(prevNonEmpty) &&
+      !/^#{1,6}\s+/.test(prevNonEmpty) &&
+      prevOut?.trim() !== ""
+    ) {
+      out.push("");
+    }
+
+    out.push(line);
+
+    if (!trimmed || !isMarkdownListLine(line)) {
+      continue;
+    }
+
+    const next = lines[i + 1];
+    if (!next) continue;
+    const nextTrimmed = next.trim();
+    if (!nextTrimmed) continue;
+
+    if (
+      !isMarkdownListLine(next) &&
+      !/^\s+/.test(next) &&
+      !/^#{1,6}\s+/.test(next)
+    ) {
+      out.push("");
+    }
+  }
+
+  return out.join("\n");
+}
+
+function normalizeLooseBulletLists(text: string): string {
+  const lines = text.split("\n");
+  const out: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim().endsWith(":")) {
+      out.push(line);
+      continue;
+    }
+
+    let cursor = i + 1;
+    const spacerLines: string[] = [];
+    while (cursor < lines.length && lines[cursor].trim() === "" && spacerLines.length < 1) {
+      spacerLines.push(lines[cursor]);
+      cursor += 1;
+    }
+
+    const candidates: string[] = [];
+    while (cursor < lines.length && lines[cursor].trim() !== "") {
+      if (!isLikelyLooseBulletLine(lines[cursor])) break;
+      candidates.push(lines[cursor].trim());
+      cursor += 1;
+    }
+
+    if (candidates.length >= 2) {
+      out.push(line);
+      out.push(...spacerLines);
+      out.push(...candidates.map((candidate) => `- ${candidate}`));
+      i = cursor - 1;
+      continue;
+    }
+
+    out.push(line);
+  }
+
+  return out.join("\n");
+}
+
+function normalizeDisplayMarkdown(text: string): string {
+  return normalizeExplicitMarkdownLists(normalizeLooseBulletLists(text));
+}
+
+function normalizeSectionTitle(value: string): string {
+  return normalizeLabelText(value.replace(/^\d+[).]\s+/, "").trim());
+}
+
+function inferResearchMegaSpecies(data: ResearchTeamBlock): string | null {
+  const haystacks = [data.subtitle, data.source, data.name];
+  for (const haystack of haystacks) {
+    if (!haystack) continue;
+    const match = haystack.match(/\bMega\s+([A-Z][A-Za-z0-9' .-]*?)(?=\s+(?:Ladder\s+Team|Team)\b|\s+[—–-]|$|["”])/i);
+    if (!match) continue;
+    const species = match[1].trim().replace(/\s+/g, " ");
+    if (species) return species;
+  }
+  return null;
+}
+
 /**
  * Parse agent markdown into Pokemon card blocks + regular text blocks.
  *
@@ -138,18 +464,36 @@ function extractUserQuestions(
 function parseContent(content: string): ContentBlock[] {
   const blocks: ContentBlock[] = [];
 
-  // Split on any supported heading pattern.
-  const parts = content.split(
-    /(?=^### )|(?=^## )|(?=^\*\*[A-Z][A-Za-z0-9-' ]*(?:\s*\(Mega\))?\*\*\s*$)|(?=^\d+[).]\s+[A-Z])/m,
-  );
+  const parts = splitContentSections(content);
 
   for (const part of parts) {
-    // Try ### / ## / **Name** / 1) Name / 1. Name
-    const headerMatch =
-      part.match(/^### (.+?)\s*$/m) ||
-      part.match(/^## (.+?)\s*$/m) ||
-      part.match(/^\*\*([A-Z][A-Za-z0-9-' ]*(?:\s*\(Mega\))?)\*\*\s*$/m) ||
-      part.match(/^\d+[).]\s+(.+?)\s*$/m);
+    const partLines = part.split("\n");
+    const firstLine = partLines[0] ?? "";
+
+    // Try ### / ## / **Name** / 1) Name / 1. Name / Species @ Item
+    let headerMatch: RegExpMatchArray | null =
+      firstLine.match(/^###\s+(.+?)\s*$/) ||
+      firstLine.match(/^##\s+(.+?)\s*$/) ||
+      (isStandaloneBoldHeading(firstLine)
+        ? firstLine.match(/^\*\*(.+?)\*\*\s*$/)
+        : null) ||
+      firstLine.match(/^\d+[).]\s+(.+?)\s*$/);
+
+    // Pokepaste-style "Species @ Item" — synthesise a header match
+    // that captures the species + stashes the item so the field
+    // collector below picks it up without a second pass.
+    let pokepasteItem: string | null = null;
+    if (!headerMatch && isSpeciesAtItemHeader(firstLine)) {
+      const atMatch = firstLine
+        .trim()
+        .replace(/^[-*+]\s+/, "")
+        .match(/^\*{0,2}(.+?)\*{0,2}\s*@\s+(.+?)\s*$/);
+      if (atMatch) {
+        headerMatch = [firstLine, atMatch[1].trim()] as unknown as RegExpMatchArray;
+        pokepasteItem = atMatch[2].trim();
+      }
+    }
+
     if (!headerMatch) {
       if (part.trim()) {
         blocks.push({ type: "text", text: part.trim() });
@@ -157,7 +501,7 @@ function parseContent(content: string): ContentBlock[] {
       continue;
     }
 
-    const name = headerMatch[1].trim();
+    const name = normalizeSectionTitle(headerMatch[1].trim());
 
     // Skip section headings that aren't Pokemon names
     const nonPokemonHeadings = [
@@ -170,18 +514,47 @@ function parseContent(content: string): ContentBlock[] {
       continue;
     }
 
-    const lines = part.split("\n").slice(1);
+    const exactNonCardHeadings = new Set([
+      "source",
+      "url",
+      "record",
+      "team",
+      "roster",
+      "pokemon",
+      "pokémon",
+      "lineup",
+      "core tech",
+      "core",
+      "tech",
+      "strategy",
+      "why it works",
+      "imported set list",
+      "imported set list from source",
+    ]);
+    if (exactNonCardHeadings.has(normalizeFieldKey(name))) {
+      blocks.push({ type: "text", text: part.trim() });
+      continue;
+    }
+
+    const lines = partLines.slice(1);
 
     const data: PokemonBlock = { name };
+    if (pokepasteItem) {
+      data.item = pokepasteItem;
+    }
     const research: ResearchTeamBlock = { name };
     const extraLines: string[] = [];
+    const importedSetItems = extractImportedSetItems(part);
+    if (Object.keys(importedSetItems).length > 0) {
+      research.setItems = importedSetItems;
+    }
 
     // "Player — Archetype" / "Player – Archetype" / "Player - Archetype" heading.
     // Split off the subtitle for the research card header.
     const nameMatch = name.match(/^(.+?)\s+[—–-]\s+(.+)$/);
     if (nameMatch) {
-      research.name = nameMatch[1].trim();
-      research.subtitle = nameMatch[2].trim();
+      research.name = normalizeSectionTitle(nameMatch[1]);
+      research.subtitle = normalizeLabelText(nameMatch[2]);
     }
 
     // Field-line patterns (lenient — agents emit all three):
@@ -199,32 +572,35 @@ function parseContent(content: string): ContentBlock[] {
     //   **Team**:       — bold with colon AFTER
     //   **Pokémon:**    — accented, colon inside (also GPT-5.4)
     const BARE_TEAM_KEYWORDS =
-      /^\s*\*{0,2}\s*(Team|Roster|Pok[ée]mon|Lineup)\s*:?\s*\*{0,2}\s*:?\s*$/i;
+      /^\s*(?:[-*]\s*)?\*{0,2}\s*(Team|Roster|Pok[ée]mon|Lineup)(?:\s*\([^)]*\))?\s*:?\s*\*{0,2}\s*:?\s*$/i;
     const BARE_TECH_KEYWORDS =
-      /^\s*\*{0,2}\s*(Core\s*tech|Core|Tech|Strategy|Why\s*it\s*works)\s*:?\s*\*{0,2}\s*:?\s*$/i;
+      /^\s*(?:[-*]\s*)?\*{0,2}\s*(Core\s*tech|Core|Tech|Strategy|Why\s*it\s*works)(?:\s*\([^)]*\))?\s*:?\s*\*{0,2}\s*:?\s*$/i;
+    const BARE_IMPORTED_SET_LIST_KEYWORDS =
+      /^\s*(?:[-*]\s*)?\*{0,2}\s*Imported\s+set\s+list(?:\s+from\s+source)?\s*:?\s*\*{0,2}\s*:?\s*$/i;
 
     function matchField(line: string): { key: string; val: string } | null {
       // Try with non-empty value first (covers almost every bullet).
       const bullet = line.match(/^\s*[-*]\s*\*\*(.+?)\*\*:\s*(.+)/);
-      if (bullet) return { key: bullet[1].toLowerCase(), val: bullet[2].trim() };
+      if (bullet) return { key: normalizeFieldKey(bullet[1]), val: bullet[2].trim() };
       const bulletPlain = line.match(/^\s*[-*]\s*([A-Z][A-Za-z ]{1,30}):\s*(.+)/);
-      if (bulletPlain) return { key: bulletPlain[1].toLowerCase(), val: bulletPlain[2].trim() };
+      if (bulletPlain) return { key: normalizeFieldKey(bulletPlain[1]), val: bulletPlain[2].trim() };
       // Two bold patterns — colon AFTER (**X**: val) or colon INSIDE
       // the asterisks (**X:** val). GPT-5.4 uses the inside form a lot.
       const boldColonAfter = line.match(/^\*\*(.+?)\*\*:\s*(.+)/);
-      if (boldColonAfter) return { key: boldColonAfter[1].toLowerCase(), val: boldColonAfter[2].trim() };
+      if (boldColonAfter) return { key: normalizeFieldKey(boldColonAfter[1]), val: boldColonAfter[2].trim() };
       const boldColonInside = line.match(/^\*\*(.+?):\s*\*\*\s*(.+)/);
-      if (boldColonInside) return { key: boldColonInside[1].toLowerCase(), val: boldColonInside[2].trim() };
+      if (boldColonInside) return { key: normalizeFieldKey(boldColonInside[1]), val: boldColonInside[2].trim() };
       // Fall through to empty-value patterns — "Team:" / "Roster:"
       // with the list on the following lines. Use .* so we accept
       // empty values AND trailing whitespace.
       const plain = line.match(/^([A-Z][A-Za-z ]{1,30}):\s*(.*)$/);
-      if (plain) return { key: plain[1].toLowerCase(), val: plain[2].trim() };
+      if (plain) return { key: normalizeFieldKey(plain[1]), val: plain[2].trim() };
       // Bare section markers (no colon, no value on the line). These
       // fire AFTER the colon-bearing patterns above so we don't
       // accidentally eat a "**Team:** val" line.
       if (BARE_TEAM_KEYWORDS.test(line)) return { key: "team", val: "" };
       if (BARE_TECH_KEYWORDS.test(line)) return { key: "core tech", val: "" };
+      if (BARE_IMPORTED_SET_LIST_KEYWORDS.test(line)) return { key: "imported set list", val: "" };
       return null;
     }
 
@@ -237,13 +613,24 @@ function parseContent(content: string): ContentBlock[] {
       "core tech", "core", "tech", "record", "placement",
     ]);
 
-    type Mode = "none" | "team" | "coreTech";
+    type Mode = "none" | "team" | "coreTech" | "skipImportedSetList";
     let mode: Mode = "none";
     const teamLines: string[] = [];
     const coreTechLines: string[] = [];
 
     for (const line of lines) {
       const field = matchField(line);
+
+      if (mode === "skipImportedSetList") {
+        if (!line.trim()) {
+          continue;
+        }
+        if (!field || field.key === "imported set list") {
+          continue;
+        }
+        mode = "none";
+      }
+
       if (field) {
         const { key, val } = field;
 
@@ -257,11 +644,12 @@ function parseContent(content: string): ContentBlock[] {
         else if (key === "spread reasoning" || key === "reasoning" || key === "ev reasoning") { data.spreadReasoning = val; mode = "none"; }
         // Research-report fields (### Player — Archetype template)
         else if (key === "source") { research.source = val; mode = "none"; }
+        else if (key === "source type") { research.sourceType = val; mode = "none"; }
         else if (key === "url" || key === "source url" || key === "link") {
           research.url = val; mode = "none";
         }
         else if (key === "record" || key === "placement") {
-          if (!research.subtitle) research.subtitle = val;
+          if (!research.subtitle) research.subtitle = normalizeLabelText(val);
           mode = "none";
         }
         else if (
@@ -287,13 +675,18 @@ function parseContent(content: string): ContentBlock[] {
             mode = "coreTech";
           }
         }
+        else if (key === "imported set list") {
+          mode = "skipImportedSetList";
+        }
         else {
           if (mode === "team") teamLines.push(line.trim());
           else if (mode === "coreTech") coreTechLines.push(line);
           else extraLines.push(line);
         }
       } else if (line.trim()) {
-        if (mode === "team") {
+        if (!research.url && /^https?:\/\//i.test(line.trim())) {
+          research.url = line.trim();
+        } else if (mode === "team") {
           // Each continuation line is a species (possibly with a
           // bullet prefix or leading digit).
           const sp = line
@@ -302,7 +695,7 @@ function parseContent(content: string): ContentBlock[] {
             .trim();
           if (sp) teamLines.push(sp);
         } else if (mode === "coreTech") {
-          coreTechLines.push(line.trim());
+          coreTechLines.push(line);
         } else {
           extraLines.push(line);
         }
@@ -316,7 +709,7 @@ function parseContent(content: string): ContentBlock[] {
       research.team = teamLines.filter(Boolean);
     }
     if (coreTechLines.length > 0 && !research.coreTech) {
-      research.coreTech = coreTechLines.join(" ").trim();
+      research.coreTech = coreTechLines.join("\n").trim();
     }
 
     const extra = extraLines.join("\n").trim();
@@ -363,22 +756,7 @@ function formatPokepaste(data: PokemonBlock): string {
 function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActions }) {
   const [showActions, setShowActions] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  // Check if the item is a Mega Stone — look at the CLEAN item value (before any explanation)
-  const cleanItemName = (data.item || "").split(/[—–\-(:]/)[0].trim().toLowerCase();
-  const isMegaStone =
-    cleanItemName.endsWith("ite") ||
-    cleanItemName === "dragoninite" ||
-    cleanItemName.includes("charizardite") ||
-    cleanItemName.includes("mega stone");
-  const isMega =
-    data.name.toLowerCase().includes("mega") ||
-    data.name.includes("(Mega)") ||
-    isMegaStone;
-  const spriteSpecies = data.name
-    .replace(/\s*\(Mega\)/, "")
-    .replace(/Mega\s+/, "")
-    .trim();
+  const renderedPokemon = resolveRenderedPokemon(data.name, data.item);
 
   // Validate the agent's claim — catches hallucinations like
   // "Mega Scovillain with Rough Skin + Dragon Claw" (Garchomp build
@@ -395,7 +773,7 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
     [data.moves],
   );
   const validation = useSetValidation(
-    data.name,
+    renderedPokemon.spriteSpecies,
     cleanAbilityName || undefined,
     moveList,
     "champions-reg-m-a",
@@ -426,15 +804,15 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
 
   return (
     <div
-      className={`w-full max-w-full overflow-hidden rounded-xl border bg-card/80 backdrop-blur-sm p-3 ${isMega ? "border-purple-500/30" : "border-border"} hover:border-primary/30 transition-colors`}
+      className={`w-full max-w-full overflow-hidden rounded-xl border bg-card/80 backdrop-blur-sm p-3 ${renderedPokemon.isMega ? "border-purple-500/30" : "border-border"} hover:border-primary/30 transition-colors`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
       <div className="flex gap-3 items-start min-w-0">
         {/* Sprite */}
         <div className="shrink-0 flex flex-col items-center gap-1">
-          <PokemonSprite species={spriteSpecies} mega={isMega} size={56} />
-          {isMega && (
+          <PokemonSprite species={renderedPokemon.spriteSpecies} size={56} />
+          {renderedPokemon.isMega && (
             <Badge variant="info" className="text-[9px] px-1 py-0">
               MEGA
             </Badge>
@@ -445,7 +823,9 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
         <div className="min-w-0 flex-1 space-y-1.5 overflow-hidden">
           {/* Name + Role */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-sm text-foreground break-words">{data.name}</span>
+            <span className="font-bold text-sm text-foreground break-words">
+              {renderedPokemon.displayName}
+            </span>
             {data.role && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
                 {data.role.split(/[—–\-]/)[0].trim()}
@@ -603,7 +983,7 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
 const proseClasses =
   "prose prose-sm prose-invert max-w-none " +
   "prose-p:my-2.5 prose-p:leading-relaxed " +
-  "prose-ul:my-2.5 prose-ol:my-2.5 prose-li:my-1.5 prose-li:leading-relaxed " +
+  "prose-ul:my-2.5 prose-ol:my-2.5 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-5 prose-ol:pl-5 prose-li:my-1.5 prose-li:leading-relaxed " +
   "prose-li:marker:text-primary/70 " +
   "prose-headings:font-bold " +
   "prose-h1:text-lg prose-h1:mt-5 prose-h1:mb-3 " +
@@ -617,6 +997,14 @@ const proseClasses =
   "prose-table:my-3 prose-table:text-xs prose-table:border-collapse " +
   "prose-th:border prose-th:border-border prose-th:bg-muted/40 prose-th:px-2 prose-th:py-1 " +
   "prose-td:border prose-td:border-border prose-td:px-2 prose-td:py-1 " +
+  "prose-a:text-primary prose-a:underline prose-a:underline-offset-2 prose-a:break-all";
+
+const compactProseClasses =
+  "prose prose-sm prose-invert max-w-none " +
+  "prose-p:my-1.5 prose-p:leading-relaxed prose-headings:my-1.5 " +
+  "prose-ul:my-1.5 prose-ol:my-1.5 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-4 prose-ol:pl-4 " +
+  "prose-li:my-0.5 prose-li:leading-relaxed prose-li:marker:text-primary/70 " +
+  "prose-strong:text-foreground prose-strong:font-semibold " +
   "prose-a:text-primary prose-a:underline prose-a:underline-offset-2 prose-a:break-all";
 
 const GFM_PLUGINS = [remarkGfm];
@@ -641,6 +1029,26 @@ const SOURCE_BADGE_VARIANT: Record<
   user: "secondary",
 };
 
+function getResearchSourceKey(data: ResearchTeamBlock): string | null {
+  const source = `${data.sourceType ?? ""} ${data.source ?? ""}`.toLowerCase();
+  const url = (data.url ?? "").toLowerCase();
+
+  if (
+    /\bcreator\b/.test(source) ||
+    /\bverified\s+team\s+reveal\b/.test(source) ||
+    /\bcreator\s+reveal\b/.test(source) ||
+    (/youtube\.com|youtu\.be/.test(url) && /\breveal\b|\bverified\b/.test(source))
+  ) {
+    return "creator";
+  }
+  if (/\blimitless\b/.test(source) || /limitlesstcg\.com/.test(url)) return "limitless";
+  if (/\bpikalytics\b/.test(source) || /pikalytics\.com/.test(url)) return "pikalytics";
+  if (/\bsmogon\b/.test(source) || /smogon\.com/.test(url)) return "smogon";
+  if (/\breddit\b/.test(source) || /reddit\.com/.test(url)) return "reddit";
+  if (/\buser\b/.test(source)) return "user";
+  return null;
+}
+
 function ResearchTeamCard({
   data,
   actions,
@@ -648,9 +1056,7 @@ function ResearchTeamCard({
   data: ResearchTeamBlock;
   actions?: CardActions;
 }) {
-  const sourceKey = (data.source ?? "")
-    .toLowerCase()
-    .match(/\b(creator|limitless|pikalytics|smogon|reddit|user)\b/)?.[1];
+  const sourceKey = getResearchSourceKey(data);
   const sourceVariant = sourceKey ? SOURCE_BADGE_VARIANT[sourceKey] : "secondary";
   const canUse = Boolean(actions?.onUseResearchTeam && data.team && data.team.length > 0);
   const canVariant = Boolean(actions?.onMakeVariant && data.team && data.team.length > 0);
@@ -700,22 +1106,33 @@ function ResearchTeamCard({
       {/* Team — species as sprite row */}
       {data.team && data.team.length > 0 && (
         <div className="flex flex-wrap gap-1 pt-1 border-t border-border/40">
-          {data.team.map((sp, i) => {
-            // Strip trailing "(Mega)" / "-Mega" etc. for sprite lookup.
-            const cleaned = sp.replace(/\s*\(Mega\)/, "").replace(/\s+/g, " ").trim();
-            return (
-              <div
-                key={`${sp}-${i}`}
-                className="flex items-center gap-1 rounded bg-muted/30 px-1.5 py-0.5"
-              >
-                <PokemonSprite
-                  species={cleaned.replace(/^Mega\s+/, "").replace(/-Mega.*$/, "")}
-                  size={20}
-                />
-                <span className="text-[11px] text-foreground">{sp}</span>
-              </div>
-            );
-          })}
+          {(() => {
+            const inferredMegaSpecies = inferResearchMegaSpecies(data);
+            const inferredMegaKey = inferredMegaSpecies
+              ? getSpeciesLookupKey(inferredMegaSpecies)
+              : null;
+
+            return data.team.map((sp, i) => {
+              const lookupKey = getSpeciesLookupKey(sp);
+              const inferredMegaItem =
+                inferredMegaKey && lookupKey === inferredMegaKey ? `${inferredMegaSpecies}ite` : undefined;
+              const renderedPokemon = resolveRenderedPokemon(
+                sp,
+                data.setItems?.[lookupKey] ?? inferredMegaItem,
+              );
+              return (
+                <div
+                  key={`${sp}-${i}`}
+                  className="flex items-center gap-1 rounded bg-muted/30 px-1.5 py-0.5"
+                >
+                  <PokemonSprite species={renderedPokemon.spriteSpecies} size={20} />
+                  <span className="text-[11px] text-foreground">
+                    {renderedPokemon.displayName}
+                  </span>
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
 
@@ -725,16 +1142,20 @@ function ResearchTeamCard({
           <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">
             Core tech
           </span>
-          <p className="mt-0.5 text-xs text-foreground/90 leading-relaxed">
-            {data.coreTech}
-          </p>
+          <div className={`mt-0.5 text-xs text-foreground/90 ${compactProseClasses}`}>
+            <ReactMarkdown remarkPlugins={GFM_PLUGINS}>
+              {normalizeDisplayMarkdown(data.coreTech)}
+            </ReactMarkdown>
+          </div>
         </div>
       )}
 
       {/* Any extra markdown below the structured fields */}
       {data.extra && (
         <div className="text-xs text-muted-foreground">
-          <ReactMarkdown remarkPlugins={GFM_PLUGINS}>{data.extra}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={GFM_PLUGINS}>
+            {normalizeDisplayMarkdown(data.extra)}
+          </ReactMarkdown>
         </div>
       )}
 
@@ -844,14 +1265,15 @@ export function PokemonCardRenderer({
   );
 
   const renderTextWithQuestions = (text: string, keyPrefix: string) => {
+    const normalizedText = normalizeDisplayMarkdown(text);
     if (questions.length === 0 || !text.includes("<<__USER_QUESTION_")) {
       return (
         <div key={keyPrefix} className={proseClasses}>
-          <ReactMarkdown remarkPlugins={GFM_PLUGINS}>{text}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={GFM_PLUGINS}>{normalizedText}</ReactMarkdown>
         </div>
       );
     }
-    const pieces = splitOnQuestionPlaceholders(text);
+    const pieces = splitOnQuestionPlaceholders(normalizedText);
     return (
       <div key={keyPrefix} className="flex flex-col gap-2">
         {pieces.map((piece, i) => {
