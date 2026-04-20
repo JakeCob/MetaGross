@@ -20,6 +20,24 @@ export interface PokemonBlock {
 }
 
 /**
+ * A research-report team block — emitted when the agent structures a
+ * player/team summary with "### Player — Archetype" + Source/URL/
+ * Team/Core tech bullets (RESEARCH RESPONSE FORMAT in the system
+ * prompt). Rendered as a visual card with species sprites, not as
+ * plain markdown — much easier to scan in a narrow chat pane.
+ */
+export interface ResearchTeamBlock {
+  name: string;
+  subtitle?: string;
+  source?: string;
+  url?: string;
+  team?: string[];
+  coreTech?: string;
+  /** Anything else the model wrote in the section, rendered below as markdown. */
+  extra?: string;
+}
+
+/**
  * Structured multi-choice question the agent emits inline via a
  * `<user-question>{JSON}</user-question>` tag. The renderer pulls them
  * out and shows tappable option chips — clicking one sends the
@@ -43,7 +61,8 @@ export interface CardActions {
 
 type ContentBlock =
   | { type: "text"; text: string }
-  | { type: "pokemon"; data: PokemonBlock };
+  | { type: "pokemon"; data: PokemonBlock }
+  | { type: "research"; data: ResearchTeamBlock };
 
 /**
  * Pull out every <user-question>{JSON}</user-question> block from the
@@ -131,13 +150,23 @@ function parseContent(content: string): ContentBlock[] {
     const lines = part.split("\n").slice(1);
 
     const data: PokemonBlock = { name };
+    const research: ResearchTeamBlock = { name };
     const extraLines: string[] = [];
+
+    // "Player — Archetype" / "Player – Archetype" / "Player - Archetype" heading.
+    // Split off the subtitle for the research card header.
+    const nameMatch = name.match(/^(.+?)\s+[—–-]\s+(.+)$/);
+    if (nameMatch) {
+      research.name = nameMatch[1].trim();
+      research.subtitle = nameMatch[2].trim();
+    }
 
     for (const line of lines) {
       const fieldMatch = line.match(/^\s*-\s*\*\*(.+?)\*\*:\s*(.+)/);
       if (fieldMatch) {
         const key = fieldMatch[1].toLowerCase();
         const val = fieldMatch[2].trim();
+        // Pokemon build fields (### Pokemon-name template)
         if (key === "role") data.role = val;
         else if (key === "ability") data.ability = val;
         else if (key === "item") data.item = val;
@@ -145,18 +174,29 @@ function parseContent(content: string): ContentBlock[] {
         else if (key === "nature") data.nature = val;
         else if (key === "points" || key === "evs") data.points = val;
         else if (key === "spread reasoning" || key === "reasoning" || key === "ev reasoning") data.spreadReasoning = val;
+        // Research-report fields (### Player — Archetype template)
+        else if (key === "source") research.source = val;
+        else if (key === "url" || key === "source url") research.url = val;
+        else if (key === "team") research.team = val.split(/\s*\/\s*/).map((s) => s.trim()).filter(Boolean);
+        else if (key === "core tech" || key === "core" || key === "tech") research.coreTech = val;
         else extraLines.push(line);
       } else if (line.trim()) {
         extraLines.push(line);
       }
     }
 
+    const extra = extraLines.join("\n").trim();
+
     if (data.ability || data.moves) {
+      // Pokemon-build card.
       blocks.push({ type: "pokemon", data });
-      const extra = extraLines.join("\n").trim();
       if (extra) {
         blocks.push({ type: "text", text: extra });
       }
+    } else if (research.source || research.team || research.url || research.coreTech) {
+      // Research-report card.
+      research.extra = extra || undefined;
+      blocks.push({ type: "research", data: research });
     } else {
       blocks.push({ type: "text", text: part.trim() });
     }
@@ -441,6 +481,118 @@ const proseClasses =
 
 const GFM_PLUGINS = [remarkGfm];
 
+/**
+ * Visual card for a research-report team section. Replaces the
+ * paragraph-blob the markdown renderer used to produce for a
+ * "### Player — Archetype" block with Source/URL/Team/Core tech
+ * bullets. Narrow-chat-friendly: species sprites in a row instead
+ * of a comma-joined string, source + URL as chips, coreTech in an
+ * accent-bordered callout.
+ */
+const SOURCE_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "info" | "success" | "warning"
+> = {
+  creator: "success",
+  limitless: "info",
+  pikalytics: "info",
+  smogon: "secondary",
+  reddit: "warning",
+  user: "secondary",
+};
+
+function ResearchTeamCard({ data }: { data: ResearchTeamBlock }) {
+  const sourceKey = (data.source ?? "")
+    .toLowerCase()
+    .match(/\b(creator|limitless|pikalytics|smogon|reddit|user)\b/)?.[1];
+  const sourceVariant = sourceKey ? SOURCE_BADGE_VARIANT[sourceKey] : "secondary";
+
+  return (
+    <div className="rounded-xl border border-primary/30 bg-card/80 backdrop-blur-sm p-3 flex flex-col gap-2">
+      {/* Header */}
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="text-sm font-bold text-foreground">{data.name}</span>
+        {data.subtitle && (
+          <span className="text-xs text-muted-foreground">
+            — {data.subtitle}
+          </span>
+        )}
+        {sourceKey && (
+          <Badge
+            variant={sourceVariant}
+            className="ml-auto text-[9px] uppercase tracking-wider"
+          >
+            {sourceKey}
+          </Badge>
+        )}
+      </div>
+
+      {/* Source details */}
+      {(data.source || data.url) && (
+        <div className="flex flex-col gap-0.5 text-[11px]">
+          {data.source && !sourceKey && (
+            <div>
+              <span className="text-muted-foreground">Source: </span>
+              <span className="text-foreground">{data.source}</span>
+            </div>
+          )}
+          {data.url && (
+            <a
+              href={data.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline break-all"
+            >
+              {data.url.replace(/^https?:\/\/(www\.)?/, "")}
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Team — species as sprite row */}
+      {data.team && data.team.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-1 border-t border-border/40">
+          {data.team.map((sp, i) => {
+            // Strip trailing "(Mega)" / "-Mega" etc. for sprite lookup.
+            const cleaned = sp.replace(/\s*\(Mega\)/, "").replace(/\s+/g, " ").trim();
+            return (
+              <div
+                key={`${sp}-${i}`}
+                className="flex items-center gap-1 rounded bg-muted/30 px-1.5 py-0.5"
+              >
+                <PokemonSprite
+                  species={cleaned.replace(/^Mega\s+/, "").replace(/-Mega.*$/, "")}
+                  size={20}
+                />
+                <span className="text-[11px] text-foreground">{sp}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Core tech — accent callout */}
+      {data.coreTech && (
+        <div className="rounded-md border-l-2 border-primary/50 bg-primary/5 px-2 py-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">
+            Core tech
+          </span>
+          <p className="mt-0.5 text-xs text-foreground/90 leading-relaxed">
+            {data.coreTech}
+          </p>
+        </div>
+      )}
+
+      {/* Any extra markdown below the structured fields */}
+      {data.extra && (
+        <div className="text-xs text-muted-foreground">
+          <ReactMarkdown remarkPlugins={GFM_PLUGINS}>{data.extra}</ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function QuestionCard({
   question,
   onAnswer,
@@ -515,6 +667,9 @@ export function PokemonCardRenderer({
   const pokemonBlocks = blocks.filter(
     (b): b is { type: "pokemon"; data: PokemonBlock } => b.type === "pokemon",
   );
+  const researchBlocks = blocks.filter(
+    (b): b is { type: "research"; data: ResearchTeamBlock } => b.type === "research",
+  );
 
   const renderTextWithQuestions = (text: string, keyPrefix: string) => {
     if (questions.length === 0 || !text.includes("<<__USER_QUESTION_")) {
@@ -549,13 +704,14 @@ export function PokemonCardRenderer({
     );
   };
 
-  // If no Pokemon blocks detected, render whole thing as markdown (+ any questions)
-  if (pokemonBlocks.length === 0) {
+  // If there are no Pokemon AND no research cards, render the whole
+  // thing as plain markdown (+ any user-question blocks).
+  if (pokemonBlocks.length === 0 && researchBlocks.length === 0) {
     return renderTextWithQuestions(stripped, "root");
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {/* Add All button if multiple Pokemon */}
       {actions?.onAddAllToTeam && pokemonBlocks.length > 1 && (
         <div className="flex justify-end">
@@ -571,6 +727,9 @@ export function PokemonCardRenderer({
       {blocks.map((block, i) => {
         if (block.type === "pokemon") {
           return <PokemonCard key={i} data={block.data} actions={actions} />;
+        }
+        if (block.type === "research") {
+          return <ResearchTeamCard key={`research-${i}`} data={block.data} />;
         }
         return renderTextWithQuestions(block.text, `block-${i}`);
       })}

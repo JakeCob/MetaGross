@@ -40,11 +40,12 @@ const FEW_SHOT_EXAMPLES = `EXAMPLES OF CORRECT RESEARCH BEHAVIOUR:
 
 Example 1 — "What is Wolfe Glick running right now?"
   CORRECT (what you should do):
-    1. Call search_meta_teams mode=match species=["Scovillain"] — our pool has tournament decklists including the Scovillain core Wolfe has been streaming.
-    2. If that returns a team (e.g. Cfoowl #9 @ Champions Collective Inaugural), cite it directly with author, placement, tournament, and the 6-mon decklist.
-    3. Only fall to search_web + fetch_url if the pool is empty.
+    1. Call search_meta_teams mode=byAuthor author="Wolfe" — our pool has a verified creator entry for Wolfe's Mega Scovillain team (trust=1.0).
+    2. Cite it directly: author, record (e.g. "Mega Scovillain Ladder Team — #1 Ranked Champions"), source URL, and the 6-mon decklist copied VERBATIM from pokemon[].
+    3. Only fall to search_web + fetch_url if byAuthor returns empty.
   INCORRECT (don't do this):
-    - Going straight to get_tournament_teams mode=player playerName="Wolfe Glick" — popular players use handles on Limitless, not real names, and the pool lookup is faster.
+    - Using mode=list without a filter and scanning results manually — creator entries are a tiny minority and easy to miss.
+    - Going straight to get_tournament_teams mode=player playerName="Wolfe Glick" — popular players use handles on Limitless, not real names.
     - Citing a YouTube video title as the answer without calling fetch_url on it.
     - Describing "general strategies" when the user asked about a specific player.
 
@@ -214,9 +215,10 @@ PLAYER / TEAM RESEARCH CHAIN — follow this order EVERY TIME, even if the user'
 Tool names the USER writes in their message are suggestions, not constraints. If the user says "use get_tournament_teams then search_web" but search_meta_teams would answer the question faster, CALL SEARCH_META_TEAMS FIRST. You are expected to pick the better chain; the user's tool list is a hint about what they want, not a spec.
 
 
-Step 1 — ALWAYS start with search_meta_teams. We maintain a local pool of tournament-verified decklists (Limitless top cuts + Pikalytics featured teams + Reddit scrape + user submissions). This is FASTER and MORE RELIABLE than any web fetch.
-  - Player by name: search_meta_teams mode=list + iterate the results for author match, OR query with the user's handle if known.
-  - Archetype research ("who's running Scovillain / rain / Trick Room"): search_meta_teams mode=match species=["Scovillain"] — will return every tournament team in our pool that has Scovillain. Cite the specific player + placement + tournament from the result.
+Step 1 — ALWAYS start with search_meta_teams. We maintain a local pool of tournament-verified decklists (Limitless top cuts + Pikalytics featured teams + Reddit scrape + creator teams + user submissions). This is FASTER and MORE RELIABLE than any web fetch.
+  - Player by name — USE mode=byAuthor author="Wolfe Glick". This hits our creator entries (trust=1.0, hand-verified from the player's own reveal) and tournament entries attributed to that handle. Do NOT use mode=list without a filter and try to eyeball the author yourself — you'll miss creator-only entries.
+  - Archetype research ("who's running Scovillain / rain / Trick Room"): search_meta_teams mode=match species=["Scovillain"] — will return every tournament team in our pool that has Scovillain.
+  - Browsing recent teams: mode=list source=limitless for tournament-only, source=creator for verified creator teams.
   - If mode=count returns total=0, the pool is empty — fall through to step 2 AND remind the user they can run "Pull from Pikalytics" at /meta/teams to populate.
 
 Step 2 — If the pool didn't have it, try get_tournament_teams (direct Limitless API — player lookup or tournament standings).

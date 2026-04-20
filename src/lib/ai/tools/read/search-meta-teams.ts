@@ -5,6 +5,7 @@ import {
   matchMetaTeams,
   countMetaTeams,
 } from "@/lib/meta-teams/queries";
+import type { MetaTeam } from "@/lib/meta-teams/types";
 
 /**
  * search_meta_teams
@@ -17,11 +18,19 @@ import {
 export const searchMetaTeamsTool = new DynamicStructuredTool({
   name: "search_meta_teams",
   description:
-    "PRIMARY research tool for 'what is player X running' or 'who's running archetype Y' questions — check this FIRST, before get_tournament_teams or search_web. Queries our local pool of tournament-verified decklists (Limitless top cuts + Pikalytics featured + Reddit + user submissions). Fastest + most reliable source. Modes: 'match' (find teams containing a species list — e.g. species=['Scovillain'] returns every tournament team with Scovillain), 'list' (browse recent teams, filter by source/archetype), 'count' (pool stats). Returns real player names, tournament placements, and full 6-mon decklists — cite those directly instead of fetching YouTube.",
+    "PRIMARY research tool for 'what is player X running' or 'who's running archetype Y' questions — check this FIRST, before get_tournament_teams or search_web. Queries our local pool of tournament-verified decklists (Limitless top cuts + Pikalytics featured + Reddit + user submissions + creator teams). Modes: 'byAuthor' (find teams by a player/creator name — USE THIS when the user names a player like 'Wolfe Glick'), 'match' (find teams containing a species list), 'list' (browse recent teams, filter by source/archetype), 'count' (pool stats). Returns real player names, tournament placements, and full 6-mon decklists — cite those directly.",
   schema: z.object({
     mode: z
-      .enum(["match", "list", "count"])
-      .describe("match = find teams containing these species; list = recent teams; count = pool stats"),
+      .enum(["byAuthor", "match", "list", "count"])
+      .describe(
+        "byAuthor = find teams by a player/creator name substring; match = find teams containing these species; list = recent teams; count = pool stats",
+      ),
+    author: z
+      .string()
+      .optional()
+      .describe(
+        "Required for mode=byAuthor. Case-insensitive substring match against author/creator name (e.g. 'Wolfe' matches 'Wolfe Glick').",
+      ),
     species: z
       .array(z.string())
       .optional()
@@ -48,9 +57,51 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
       .default(8)
       .describe("Max rows to return."),
   }),
-  func: async ({ mode, species, source, archetype, format, limit }) => {
+  func: async ({ mode, author, species, source, archetype, format, limit }) => {
     const fmt = format ?? "champions-reg-m-a";
     const cap = limit ?? 8;
+
+    if (mode === "byAuthor") {
+      const needle = (author ?? "").trim().toLowerCase();
+      if (!needle) {
+        return JSON.stringify({
+          error: "mode=byAuthor requires an `author` substring",
+        });
+      }
+      // Over-fetch without filters, then do an in-memory substring
+      // match on author. Our pool is small (<1k rows) so this is cheap.
+      const rows = listMetaTeams(fmt, 200);
+      const hits = rows.filter((row: MetaTeam) =>
+        (row.author ?? "").toLowerCase().includes(needle),
+      );
+      if (hits.length === 0) {
+        return JSON.stringify({
+          matches: [],
+          nextStep: `No teams found in our pool by author matching "${author}". Fall through to get_tournament_teams mode=player, then search_web + fetch_url. Popular handles: Wolfe Glick is usually "WolfeyVGC" on Limitless.`,
+        });
+      }
+      // Sort by trust desc, then seenAt desc — creator > limitless > pikalytics.
+      hits.sort((a, b) => {
+        if (b.trust !== a.trust) return b.trust - a.trust;
+        return (b.seenAt ?? 0) - (a.seenAt ?? 0);
+      });
+      return JSON.stringify({
+        matches: hits.slice(0, cap).map((row) => ({
+          source: row.source,
+          author: row.author,
+          record: row.record,
+          archetype: row.archetype,
+          description: row.description,
+          sourceUrl: row.sourceUrl,
+          species: row.species,
+          pokemon: row.pokemon,
+          trust: row.trust,
+          seenAt: row.seenAt,
+        })),
+        nextStep:
+          "Cite these teams directly. COPY the pokemon[] field VERBATIM — ability, item, moves, nature, teraType. Do NOT substitute training-data defaults. The highest-trust entry (source=creator, trust=1.0) is hand-verified from the player's own team reveal and is the best source when it exists.",
+      });
+    }
 
     if (mode === "count") {
       const stats = countMetaTeams(fmt);
