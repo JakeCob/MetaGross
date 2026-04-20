@@ -116,6 +116,15 @@ CHAMPIONS STAT-POINT FORMAT — the **Points** line MUST be in Champions convent
   where each number is 0–32 and the 6-value total is ≤ 66.
 
 NEVER output a 510/252 traditional-VGC spread (e.g. "252 HP / 252 Atk / 4 SpD"). If a source team's EVs look like the traditional format, DIVIDE each value by 8 and cap at 32 to convert — e.g. "252 HP / 196 Def / 60 SpD" → "HP 32 / Atk 0 / Def 24 / SpA 0 / SpD 10 / Spe 0". Always emit all 6 stats in order (HP, Atk, Def, SpA, SpD, Spe) even when some are 0.
+
+ABILITY + MEGA EVOLUTION — pick ONE ability per Pokemon, not a list.
+- NEVER write "Moody or Chlorophyll" / "Chlorophyll / Moody" / "any of Moody, Chlorophyll, Insomnia". Pick the single ability the build actually uses and write only that.
+- For Mega Evolution Pokemon, the base form's ability changes when it Megas. Your **Ability** line should cite the POST-MEGA ability (e.g. Scovillain + Scovillainite → write "Spicy Spray", not "Chlorophyll"). In the explanation after the ability, you may optionally mention the pre-Mega ability for reference ("Spicy Spray — post-Mega; pre-Mega is Chlorophyll to pop sun teams on turn 1").
+- Mega ability reference (Champions overrides): Mega Scovillain = Spicy Spray, Mega Froslass = Snow Warning, Mega Starmie = Huge Power, Mega Skarmory = Stalwart, Mega Excadrill = Piercing Drill, Mega Emboar = Mold Breaker, Mega Chesnaught = Bulletproof, Mega Delphox = Levitate.
+
+ITEM CLAUSE — no two Pokemon on a team can hold the SAME item.
+- If you give Conkeldurr Leftovers, every other slot must run a different item. Same for Focus Sash, Assault Vest, Sitrus Berry, any Mega Stone, etc.
+- When a source team from search_meta_teams has the same item twice (Wolfe's Scovillain team has two Focus Sashes on Sneasler + Aerodactyl), that's a known Champions format quirk — you can keep it IF you're copying the source team verbatim. For teams you BUILD from scratch (mixing creator sets with user-picked slots), unique items only.
 Verify: nature matches role (Modest/Timid for special, Adamant/Jolly for physical, Bold/Calm for support). Stats invest in the RIGHT offensive stat (SpA for special, Atk for physical).
 
 Every ### heading must be a Pokemon species name. No "Additional Team Members" headings.

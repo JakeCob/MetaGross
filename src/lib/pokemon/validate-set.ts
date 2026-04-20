@@ -214,13 +214,21 @@ export function validateSet(input: ValidateSetInput): ValidateSetResult {
     (resolvedName && CHAMPIONS_MEGA_ABILITY_OVERRIDES[resolvedName]) ?? [];
   const allValidAbilities = [...dexAbilities, ...championsOverrides];
 
-  // Ability check — case-insensitive.
+  // Ability check — case-insensitive. Accepts "X or Y" / "X / Y" /
+  // "X, Y" strings (the agent sometimes lists alternatives). Passes
+  // if ANY alternative matches the species' ability pool.
   if (input.ability && allValidAbilities.length > 0) {
-    const abilityLower = input.ability.trim().toLowerCase();
-    const match = allValidAbilities.find(
-      (a) => a.toLowerCase() === abilityLower,
+    const alternatives = input.ability
+      .split(/\s+or\s+|\s*\/\s*|\s*,\s*/i)
+      .map((a) => a.trim())
+      .filter(Boolean);
+    const validLower = new Set(
+      allValidAbilities.map((a) => a.toLowerCase()),
     );
-    if (!match) {
+    const anyMatch = alternatives.some((alt) =>
+      validLower.has(alt.toLowerCase()),
+    );
+    if (!anyMatch) {
       warnings.push({
         kind: "ability-invalid",
         message: `"${input.ability}" is not an ability of ${resolvedName}. Valid: ${allValidAbilities.join(", ")}.`,
