@@ -21,6 +21,75 @@ import type { AgentStateType, AgentStateUpdate } from "../state";
 
 const MAX_RETRIES = 1;
 
+/** 510/252 EV → Champions stat-point (÷8, capped 32). */
+function evToChampionsPoints(raw: number): number {
+  return Math.min(32, Math.round(raw / 8));
+}
+
+/**
+ * Deterministic rewriter — scans the agent's response for 510/252-
+ * style EV strings and converts them to Champions 66/32 format in
+ * place. Runs even when the rest of the response validates cleanly,
+ * because we've seen the agent emit correct abilities + wrong EV
+ * format in the same response.
+ *
+ * Looks for common spread shapes:
+ *   - "EVs: 252 HP / 252 Atk / 4 SpD"
+ *   - "EVs: 244 HP / 4 Def / 252 SpA / 4 SpD / 4 Spe"
+ *   - "**Points**: 252 HP / ..."
+ *   - "- **Points**: 252 HP / ..."
+ *
+ * Leaves already-Champions-format lines alone (detected by: total
+ * ≤66 AND no individual stat >32).
+ */
+function rewriteEvsToChampionsFormat(content: string): string {
+  const STAT_NAMES = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"] as const;
+  type Stat = (typeof STAT_NAMES)[number];
+
+  // Match EV-ish lines: a label (EVs / Points / Spread) then numbers
+  // with stat names. Both "252 HP" and "HP 252" accepted.
+  const labelRegex =
+    /^(\s*[-*]?\s*\*{0,2}\s*(?:EVs?|Points?|Spread)\s*\*{0,2}\s*:\s*)(.+)$/gim;
+
+  return content.replace(labelRegex, (full, prefix: string, body: string) => {
+    // Parse all "num STAT" / "STAT num" pairs.
+    const pairs: Array<{ stat: Stat; value: number }> = [];
+    const statPattern =
+      /(\d{1,3})\s*(HP|Atk|Def|SpA|SpD|Spe)|(HP|Atk|Def|SpA|SpD|Spe)\s*(\d{1,3})/gi;
+    let match: RegExpExecArray | null;
+    while ((match = statPattern.exec(body)) !== null) {
+      const value = Number(match[1] ?? match[4]);
+      const statRaw = (match[2] ?? match[3]) as string;
+      // Normalise case to the canonical set name.
+      const stat = STAT_NAMES.find(
+        (s) => s.toLowerCase() === statRaw.toLowerCase(),
+      );
+      if (!stat || Number.isNaN(value)) continue;
+      pairs.push({ stat, value });
+    }
+
+    if (pairs.length === 0) return full;
+
+    // Already Champions-format? Total ≤66 and every value ≤32 → leave it.
+    const total = pairs.reduce((a, b) => a + b.value, 0);
+    const anyOver32 = pairs.some((p) => p.value > 32);
+    if (total <= 66 && !anyOver32) return full;
+
+    // Convert. Always emit all 6 stats in canonical order, zero-filled.
+    const byStat: Record<Stat, number> = {
+      HP: 0, Atk: 0, Def: 0, SpA: 0, SpD: 0, Spe: 0,
+    };
+    for (const p of pairs) {
+      byStat[p.stat] = evToChampionsPoints(p.value);
+    }
+
+    const rendered = STAT_NAMES.map((s) => `${s} ${byStat[s]}`).join(" / ");
+    // Keep the same prefix (label + separator) so we don't change the
+    // line shape — just swap the body.
+    return `${prefix}${rendered}`;
+  });
+}
+
 interface ExtractedMon {
   species: string;
   ability?: string;
@@ -102,8 +171,27 @@ export async function verifyResponseNode(
       : "";
   if (!content.trim()) return {};
 
-  const mons = extractMonsFromResponse(content);
-  if (mons.length === 0) return {};
+  // Deterministic rewrite of 510/252-style EVs → Champions 66/32
+  // format. Runs regardless of whether there are hallucinations,
+  // because this has been the most persistent bug and prompt rules
+  // alone haven't fixed it.
+  const rewrittenContent = rewriteEvsToChampionsFormat(content);
+  const contentChanged = rewrittenContent !== content;
+
+  const mons = extractMonsFromResponse(rewrittenContent);
+  if (mons.length === 0) {
+    if (contentChanged) {
+      // Replace the last AI message with the rewritten content even
+      // when there's nothing to validate. messagesStateReducer treats
+      // messages with the same id as an update, not an append.
+      const replacement = new AIMessage({
+        content: rewrittenContent,
+        id: (lastMsg as AIMessage).id,
+      });
+      return { messages: [replacement] };
+    }
+    return {};
+  }
 
   // Only enforce Champions roster when context + persona is Champions-aligned.
   // If we ever add more formats, add a state flag here. For now MetaGross
@@ -127,11 +215,27 @@ export async function verifyResponseNode(
     }
   }
 
-  if (violations.length === 0) return {};
+  if (violations.length === 0) {
+    if (contentChanged) {
+      const replacement = new AIMessage({
+        content: rewrittenContent,
+        id: (lastMsg as AIMessage).id,
+      });
+      return { messages: [replacement] };
+    }
+    return {};
+  }
 
   const retries = state.verificationRetries ?? 0;
   if (retries >= MAX_RETRIES) {
     // Let it through — render-time warnings will surface the issue.
+    if (contentChanged) {
+      const replacement = new AIMessage({
+        content: rewrittenContent,
+        id: (lastMsg as AIMessage).id,
+      });
+      return { messages: [replacement] };
+    }
     return {};
   }
 

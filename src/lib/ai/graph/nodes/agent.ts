@@ -11,6 +11,8 @@ import {
   CHAMPIONS_POKEMON,
   CHAMPIONS_MEGAS,
   NOT_IN_CHAMPIONS,
+  CHAMPIONS_ITEMS_CONFIRMED,
+  CHAMPIONS_ITEMS_UNCERTAIN,
 } from "@/lib/data/champions";
 
 /**
@@ -19,7 +21,7 @@ import {
  * ~900 tokens but prevents the "Landorus-Therian is totally in
  * Champions, right?" failure mode entirely.
  */
-const ROSTER_CONTEXT = `ALLOWED CHAMPIONS POKEMON ROSTER (187 species — use ONLY these):
+const ROSTER_CONTEXT = `ALLOWED CHAMPIONS POKEMON ROSTER (${CHAMPIONS_POKEMON.length} species — use ONLY these):
 ${CHAMPIONS_POKEMON.join(", ")}
 
 AVAILABLE MEGA EVOLUTIONS (${Object.keys(CHAMPIONS_MEGAS).length} forms):
@@ -34,7 +36,22 @@ If you want to recommend a Pokemon not on the ALLOWED list, STOP — the respons
 - Amoonguss → Rage Powder goes to Sinistcha or Clefable
 - Urshifu → Sneasler (Fighting hyper-offense pivot)
 - Iron Hands / Flutter Mane / any Paradox → not in format
-- Zacian / Koraidon / Miraidon / Calyrex / any restricted → not in format`;
+- Zacian / Koraidon / Miraidon / Calyrex / any restricted → not in format
+
+ALLOWED CHAMPIONS ITEMS (confirmed in-game — use ONLY these when you specify a held item):
+${CHAMPIONS_ITEMS_CONFIRMED.join(", ")}
+
+UNCERTAIN ITEMS (appear on Showdown previews but may be cut on-cartridge — prefer confirmed equivalents):
+${CHAMPIONS_ITEMS_UNCERTAIN.join(", ")}
+
+Common "not in Champions" item traps (and their Champions replacements):
+- Life Orb → Charcoal / Soft Sand / Black Glasses (type-boost items, 20% no recoil)
+- Assault Vest → Sitrus Berry or type-resist berry for situational bulk
+- Choice Band / Choice Specs → Black Glasses / Mystic Water / Charcoal (type-boost) OR Choice Scarf (the only Choice item that is in)
+- Rocky Helmet → Covert Cloak
+- Heavy-Duty Boots / Eviolite / Light Clay → not in format at all
+
+If a source team lists an uncertain or "not-in-Champions" item, keep it only when copying the source verbatim — do NOT introduce it into a new custom build.`;
 
 const FEW_SHOT_EXAMPLES = `EXAMPLES OF CORRECT RESEARCH BEHAVIOUR:
 
@@ -63,7 +80,72 @@ Example 3 — "Build me a Scovillain team."
     4. Call write_team_report to save the deliverable.
   INCORRECT:
     - Suggesting Landorus-Therian or Rillaboom to "round out the coverage" — they are not in the roster and the response will be rejected.
-    - Emitting a spread without calling optimize_ev_spread.`;
+    - Emitting a spread without calling optimize_ev_spread.
+
+Example 4 — "Build me a Trick Room Conkeldurr team with Wolfe's exact Mega Scovillain."
+  CORRECT OUTPUT (shape — Champions EVs, unique items, post-Mega ability, no "X or Y"):
+
+    ## Team
+
+    ### Scovillain
+    - **Role**: Post-Mega burn wall + redirection
+    - **Ability**: Spicy Spray — post-Mega swap from Chlorophyll; punishes every contact move with a burn
+    - **Item**: Scovillainite
+    - **Nature**: Calm
+    - **Moves**: Overheat / Leech Seed / Rage Powder / Protect
+    - **Points**: HP 32 / Atk 0 / Def 24 / SpA 0 / SpD 10 / Spe 0
+    - **Spread Reasoning**: Copied verbatim from Wolfe Glick creator entry (trust 1.0).
+
+    ### Conkeldurr
+    - **Role**: Slow physical wincon under Trick Room
+    - **Ability**: Guts
+    - **Item**: Flame Orb
+    - **Nature**: Brave
+    - **Moves**: Drain Punch / Mach Punch / Facade / Protect
+    - **Points**: HP 32 / Atk 32 / Def 0 / SpA 0 / SpD 2 / Spe 0
+    - **Spread Reasoning**: Max HP + Atk points, 0 Spe IV for Trick Room. Flame Orb self-activates Guts turn 2.
+
+    ### Mimikyu
+    - **Role**: Trick Room setter
+    - **Ability**: Disguise
+    - **Item**: Mental Herb
+    - **Nature**: Brave
+    - **Moves**: Trick Room / Play Rough / Shadow Sneak / Protect
+    - **Points**: HP 32 / Atk 32 / Def 0 / SpA 0 / SpD 2 / Spe 0
+    - **Spread Reasoning**: Disguise buys the TR turn, Mental Herb blocks the one-turn Taunt window.
+
+    ### Farigiraf
+    - **Role**: Secondary TR setter + anti-priority
+    - **Ability**: Armor Tail
+    - **Item**: Sitrus Berry
+    - **Nature**: Quiet
+    - **Moves**: Trick Room / Psychic / Hyper Voice / Protect
+    - **Points**: HP 32 / Atk 0 / Def 14 / SpA 20 / SpD 0 / Spe 0
+    - **Spread Reasoning**: Armor Tail shuts down Sucker Punch / Fake Out into TR setup.
+
+    ### Incineroar
+    - **Role**: Glue pivot + Intimidate support
+    - **Ability**: Intimidate
+    - **Item**: Safety Goggles
+    - **Nature**: Careful
+    - **Moves**: Fake Out / Parting Shot / Flare Blitz / Knock Off
+    - **Points**: HP 32 / Atk 2 / Def 10 / SpA 0 / SpD 22 / Spe 0
+    - **Spread Reasoning**: Special-bulk leaning so Incineroar survives Draco Meteor chip from Farigiraf mirrors.
+
+    ### Primarina
+    - **Role**: Secondary special wincon under TR
+    - **Ability**: Liquid Voice
+    - **Item**: Leftovers
+    - **Nature**: Modest
+    - **Moves**: Hyper Voice / Moonblast / Calm Mind / Protect
+    - **Points**: HP 30 / Atk 0 / Def 1 / SpA 32 / SpD 1 / Spe 2
+    - **Spread Reasoning**: Copied from Wolfe entry (trust 1.0). Hyper Voice is Water-type via Liquid Voice and bypasses Rage Powder.
+
+  KEY PROPERTIES:
+    - Every Points line sums to ≤66 with each stat ≤32.
+    - Ability is a SINGLE ability per Pokemon (Mega Scovillain cites Spicy Spray, not "Chlorophyll or Spicy Spray").
+    - Items are UNIQUE across the team (Scovillainite, Flame Orb, Mental Herb, Sitrus Berry, Safety Goggles, Leftovers) — no duplicates.
+    - Scovillain + Primarina are copied VERBATIM from the Wolfe creator entry in the pool; the other 4 are custom.`;
 
 const BASE_SYSTEM_PROMPT = `You are MetaGross, an expert Pokemon VGC doubles copilot for Champions Regulation M-A.
 
