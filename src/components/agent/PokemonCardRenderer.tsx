@@ -189,6 +189,14 @@ function parseContent(content: string): ContentBlock[] {
     //   - Source: val        (bullet without bold)
     //   **Source**: val      (bold without bullet)
     //   Source: val          (plain label)
+    // Bare-label keywords — when a line is JUST one of these (no colon,
+    // no value), we treat it as a section marker and collect
+    // continuation lines below it. Handles the agent drift we saw in
+    // the screenshot where "Team" and "Core tech" sat alone on a line
+    // with the content below.
+    const BARE_TEAM_KEYWORDS = /^\s*\*?\*?(Team|Roster|Pokemon|Lineup)\*?\*?\s*:?\s*$/i;
+    const BARE_TECH_KEYWORDS = /^\s*\*?\*?(Core\s*tech|Core|Tech|Strategy|Why\s*it\s*works)\*?\*?\s*:?\s*$/i;
+
     function matchField(line: string): { key: string; val: string } | null {
       // Try with non-empty value first (covers almost every bullet).
       const bullet = line.match(/^\s*[-*]\s*\*\*(.+?)\*\*:\s*(.+)/);
@@ -202,6 +210,9 @@ function parseContent(content: string): ContentBlock[] {
       // empty values AND trailing whitespace.
       const plain = line.match(/^([A-Z][A-Za-z ]{1,30}):\s*(.*)$/);
       if (plain) return { key: plain[1].toLowerCase(), val: plain[2].trim() };
+      // Bare section markers (no colon, no value on the line).
+      if (BARE_TEAM_KEYWORDS.test(line)) return { key: "team", val: "" };
+      if (BARE_TECH_KEYWORDS.test(line)) return { key: "core tech", val: "" };
       return null;
     }
 
@@ -214,8 +225,10 @@ function parseContent(content: string): ContentBlock[] {
       "core tech", "core", "tech", "record", "placement",
     ]);
 
-    let collectingTeam = false;
+    type Mode = "none" | "team" | "coreTech";
+    let mode: Mode = "none";
     const teamLines: string[] = [];
+    const coreTechLines: string[] = [];
 
     for (const line of lines) {
       const field = matchField(line);
@@ -223,41 +236,47 @@ function parseContent(content: string): ContentBlock[] {
         const { key, val } = field;
 
         // Pokemon build fields (### Pokemon-name template)
-        if (key === "role") data.role = val;
-        else if (key === "ability") data.ability = val;
-        else if (key === "item") data.item = val;
-        else if (key === "moves") data.moves = val;
-        else if (key === "nature") data.nature = val;
-        else if (key === "points" || key === "evs") data.points = val;
-        else if (key === "spread reasoning" || key === "reasoning" || key === "ev reasoning") data.spreadReasoning = val;
+        if (key === "role") { data.role = val; mode = "none"; }
+        else if (key === "ability") { data.ability = val; mode = "none"; }
+        else if (key === "item") { data.item = val; mode = "none"; }
+        else if (key === "moves") { data.moves = val; mode = "none"; }
+        else if (key === "nature") { data.nature = val; mode = "none"; }
+        else if (key === "points" || key === "evs") { data.points = val; mode = "none"; }
+        else if (key === "spread reasoning" || key === "reasoning" || key === "ev reasoning") { data.spreadReasoning = val; mode = "none"; }
         // Research-report fields (### Player — Archetype template)
-        else if (key === "source") { research.source = val; collectingTeam = false; }
-        else if (key === "url" || key === "source url") { research.url = val; collectingTeam = false; }
+        else if (key === "source") { research.source = val; mode = "none"; }
+        else if (key === "url" || key === "source url") { research.url = val; mode = "none"; }
         else if (key === "record" || key === "placement") {
-          // Fold "Record: X" into the subtitle if we haven't got one.
           if (!research.subtitle) research.subtitle = val;
-          collectingTeam = false;
+          mode = "none";
         }
-        else if (key === "team" || key === "roster" || key === "pokemon") {
+        else if (key === "team" || key === "roster" || key === "pokemon" || key === "lineup") {
           const split = val.split(/\s*\/\s*|\s*,\s*/).map((s) => s.trim()).filter(Boolean);
           if (split.length > 0) {
             research.team = split;
-            collectingTeam = false;
+            mode = "none";
           } else {
-            // "Team:" with empty value — collect subsequent lines.
-            collectingTeam = true;
+            mode = "team";
           }
         }
-        else if (key === "core tech" || key === "core" || key === "tech") {
-          research.coreTech = val;
-          collectingTeam = false;
+        else if (
+          key === "core tech" || key === "core" || key === "tech" ||
+          key === "strategy" || key === "why it works"
+        ) {
+          if (val) {
+            research.coreTech = val;
+            mode = "none";
+          } else {
+            mode = "coreTech";
+          }
         }
         else {
-          if (collectingTeam) teamLines.push(line.trim());
+          if (mode === "team") teamLines.push(line.trim());
+          else if (mode === "coreTech") coreTechLines.push(line);
           else extraLines.push(line);
         }
       } else if (line.trim()) {
-        if (collectingTeam) {
+        if (mode === "team") {
           // Each continuation line is a species (possibly with a
           // bullet prefix or leading digit).
           const sp = line
@@ -265,18 +284,22 @@ function parseContent(content: string): ContentBlock[] {
             .replace(/^[-*\d.)]+\s*/, "")
             .trim();
           if (sp) teamLines.push(sp);
+        } else if (mode === "coreTech") {
+          coreTechLines.push(line.trim());
         } else {
           extraLines.push(line);
         }
       } else {
-        // blank line — if we were collecting team, stop.
-        collectingTeam = false;
+        // blank line ends a continuation-collection block.
+        mode = "none";
       }
     }
 
-    // If we collected team lines inline, commit them.
     if (teamLines.length > 0 && !research.team) {
       research.team = teamLines.filter(Boolean);
+    }
+    if (coreTechLines.length > 0 && !research.coreTech) {
+      research.coreTech = coreTechLines.join(" ").trim();
     }
 
     const extra = extraLines.join("\n").trim();
