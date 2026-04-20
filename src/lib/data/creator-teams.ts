@@ -439,7 +439,9 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         // softened by redirection + Calm Mind Primarina cycle.
         moves: ["Overheat", "Leech Seed", "Rage Powder", "Protect"],
         nature: "Calm",
-        evs: "252 HP / 196 Def / 60 SpD",
+        // Champions 66-point / 32-max format. Converted from the
+        // traditional 252 HP / 196 Def / 60 SpD spread (÷8, capped 32).
+        evs: "HP 32 / Atk 0 / Def 24 / SpA 0 / SpD 10 / Spe 0",
         ivs: "0 Atk / 0 Spe",
       },
       {
@@ -448,7 +450,7 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         item: "Leftovers",
         moves: ["Hyper Voice", "Moonblast", "Calm Mind", "Protect"],
         nature: "Modest",
-        evs: "244 HP / 4 Def / 252 SpA / 4 SpD / 4 Spe",
+        evs: "HP 30 / Atk 0 / Def 1 / SpA 32 / SpD 1 / Spe 2",
         ivs: "0 Atk",
       },
       {
@@ -457,7 +459,7 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         item: "Focus Sash",
         moves: ["Close Combat", "Dire Claw", "Fake Out", "Coaching"],
         nature: "Adamant",
-        evs: "4 HP / 252 Atk / 252 Spe",
+        evs: "HP 2 / Atk 32 / Def 0 / SpA 0 / SpD 0 / Spe 32",
       },
       {
         species: "Kingambit",
@@ -465,7 +467,7 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         item: "Black Glasses",
         moves: ["Kowtow Cleave", "Sucker Punch", "Swords Dance", "Protect"],
         nature: "Adamant",
-        evs: "252 HP / 252 Atk / 4 SpD",
+        evs: "HP 32 / Atk 32 / Def 0 / SpA 0 / SpD 2 / Spe 0",
       },
       {
         species: "Aerodactyl",
@@ -473,7 +475,7 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         item: "Focus Sash",
         moves: ["Tailwind", "Rock Slide", "Wide Guard", "Protect"],
         nature: "Jolly",
-        evs: "4 HP / 252 Atk / 252 Spe",
+        evs: "HP 2 / Atk 32 / Def 0 / SpA 0 / SpD 0 / Spe 32",
       },
       {
         species: "Garchomp",
@@ -481,7 +483,7 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         item: "Haban Berry",
         moves: ["Dragon Claw", "Earthquake", "Stomping Tantrum", "Protect"],
         nature: "Jolly",
-        evs: "4 HP / 252 Atk / 252 Spe",
+        evs: "HP 2 / Atk 32 / Def 0 / SpA 0 / SpD 0 / Spe 32",
       },
     ],
     strategy:

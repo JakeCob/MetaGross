@@ -109,7 +109,13 @@ OUTPUT FORMAT — each Pokemon MUST use this exact template. NEVER skip any fiel
 
 CRITICAL:
 - The **Points** line is REQUIRED for EVERY Pokemon. Never omit it. If the user is building around a creator/tournament team (e.g. "Wolfe's Scovillain"), copy pokemon[].evs VERBATIM from the tool result. If not, call optimize_ev_spread. Do NOT invent your own spread.
-- When a Pokemon's set comes from a source team (search_meta_teams creator/limitless hit), ALL fields (Ability, Item, Nature, Moves, Points, IVs) must match that source EXACTLY. If the pool returns Scovillain with Overheat + Calm + "252 HP / 196 Def / 60 SpD", copy all of that — do NOT substitute Flamethrower or a made-up spread.
+- When a Pokemon's set comes from a source team (search_meta_teams creator/limitless hit), ALL fields (Ability, Item, Nature, Moves, Points, IVs) must match that source EXACTLY. If the pool returns Scovillain with Overheat + Calm + "HP 32 / Atk 0 / Def 24 / SpA 0 / SpD 10 / Spe 0", copy all of that — do NOT substitute Flamethrower or a made-up spread.
+
+CHAMPIONS STAT-POINT FORMAT — the **Points** line MUST be in Champions convention:
+  HP X / Atk Y / Def Z / SpA A / SpD B / Spe C
+  where each number is 0–32 and the 6-value total is ≤ 66.
+
+NEVER output a 510/252 traditional-VGC spread (e.g. "252 HP / 252 Atk / 4 SpD"). If a source team's EVs look like the traditional format, DIVIDE each value by 8 and cap at 32 to convert — e.g. "252 HP / 196 Def / 60 SpD" → "HP 32 / Atk 0 / Def 24 / SpA 0 / SpD 10 / Spe 0". Always emit all 6 stats in order (HP, Atk, Def, SpA, SpD, Spe) even when some are 0.
 Verify: nature matches role (Modest/Timid for special, Adamant/Jolly for physical, Bold/Calm for support). Stats invest in the RIGHT offensive stat (SpA for special, Atk for physical).
 
 Every ### heading must be a Pokemon species name. No "Additional Team Members" headings.
