@@ -189,13 +189,19 @@ function parseContent(content: string): ContentBlock[] {
     //   - Source: val        (bullet without bold)
     //   **Source**: val      (bold without bullet)
     //   Source: val          (plain label)
-    // Bare-label keywords — when a line is JUST one of these (no colon,
-    // no value), we treat it as a section marker and collect
-    // continuation lines below it. Handles the agent drift we saw in
-    // the screenshot where "Team" and "Core tech" sat alone on a line
-    // with the content below.
-    const BARE_TEAM_KEYWORDS = /^\s*\*?\*?(Team|Roster|Pokemon|Lineup)\*?\*?\s*:?\s*$/i;
-    const BARE_TECH_KEYWORDS = /^\s*\*?\*?(Core\s*tech|Core|Tech|Strategy|Why\s*it\s*works)\*?\*?\s*:?\s*$/i;
+    // Bare-label keywords — when a line is JUST one of these (no value),
+    // we treat it as a section marker and collect continuation lines
+    // below it. Flexible enough to handle every drift seen so far:
+    //   Team            — plain word
+    //   Team:           — plain word + colon
+    //   **Team**        — bold word
+    //   **Team:**       — bold with colon INSIDE the asterisks (GPT-5.4 habit)
+    //   **Team**:       — bold with colon AFTER
+    //   **Pokémon:**    — accented, colon inside (also GPT-5.4)
+    const BARE_TEAM_KEYWORDS =
+      /^\s*\*{0,2}\s*(Team|Roster|Pok[ée]mon|Lineup)\s*:?\s*\*{0,2}\s*:?\s*$/i;
+    const BARE_TECH_KEYWORDS =
+      /^\s*\*{0,2}\s*(Core\s*tech|Core|Tech|Strategy|Why\s*it\s*works)\s*:?\s*\*{0,2}\s*:?\s*$/i;
 
     function matchField(line: string): { key: string; val: string } | null {
       // Try with non-empty value first (covers almost every bullet).
@@ -203,14 +209,20 @@ function parseContent(content: string): ContentBlock[] {
       if (bullet) return { key: bullet[1].toLowerCase(), val: bullet[2].trim() };
       const bulletPlain = line.match(/^\s*[-*]\s*([A-Z][A-Za-z ]{1,30}):\s*(.+)/);
       if (bulletPlain) return { key: bulletPlain[1].toLowerCase(), val: bulletPlain[2].trim() };
-      const boldPlain = line.match(/^\*\*(.+?)\*\*:\s*(.+)/);
-      if (boldPlain) return { key: boldPlain[1].toLowerCase(), val: boldPlain[2].trim() };
+      // Two bold patterns — colon AFTER (**X**: val) or colon INSIDE
+      // the asterisks (**X:** val). GPT-5.4 uses the inside form a lot.
+      const boldColonAfter = line.match(/^\*\*(.+?)\*\*:\s*(.+)/);
+      if (boldColonAfter) return { key: boldColonAfter[1].toLowerCase(), val: boldColonAfter[2].trim() };
+      const boldColonInside = line.match(/^\*\*(.+?):\s*\*\*\s*(.+)/);
+      if (boldColonInside) return { key: boldColonInside[1].toLowerCase(), val: boldColonInside[2].trim() };
       // Fall through to empty-value patterns — "Team:" / "Roster:"
       // with the list on the following lines. Use .* so we accept
       // empty values AND trailing whitespace.
       const plain = line.match(/^([A-Z][A-Za-z ]{1,30}):\s*(.*)$/);
       if (plain) return { key: plain[1].toLowerCase(), val: plain[2].trim() };
-      // Bare section markers (no colon, no value on the line).
+      // Bare section markers (no colon, no value on the line). These
+      // fire AFTER the colon-bearing patterns above so we don't
+      // accidentally eat a "**Team:** val" line.
       if (BARE_TEAM_KEYWORDS.test(line)) return { key: "team", val: "" };
       if (BARE_TECH_KEYWORDS.test(line)) return { key: "core tech", val: "" };
       return null;
@@ -245,12 +257,17 @@ function parseContent(content: string): ContentBlock[] {
         else if (key === "spread reasoning" || key === "reasoning" || key === "ev reasoning") { data.spreadReasoning = val; mode = "none"; }
         // Research-report fields (### Player — Archetype template)
         else if (key === "source") { research.source = val; mode = "none"; }
-        else if (key === "url" || key === "source url") { research.url = val; mode = "none"; }
+        else if (key === "url" || key === "source url" || key === "link") {
+          research.url = val; mode = "none";
+        }
         else if (key === "record" || key === "placement") {
           if (!research.subtitle) research.subtitle = val;
           mode = "none";
         }
-        else if (key === "team" || key === "roster" || key === "pokemon" || key === "lineup") {
+        else if (
+          key === "team" || key === "roster" || key === "lineup" ||
+          key === "pokemon" || key === "pokémon" || key === "pokemons"
+        ) {
           const split = val.split(/\s*\/\s*|\s*,\s*/).map((s) => s.trim()).filter(Boolean);
           if (split.length > 0) {
             research.team = split;

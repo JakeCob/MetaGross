@@ -81,6 +81,26 @@ Garchomp
 Core tech
 The centerpiece is Scovillain + Primarina.`;
 
+// Exact drift pattern captured from GPT-5.4 live output:
+// **Label:** (colon INSIDE the asterisks), "Link" instead of "URL",
+// accented "Pokémon" as the team header, bullet list underneath.
+const gpt54Drift = `## Wolfe Glick
+
+### Wolfe Glick — Mega Scovillain Ladder Team — #1 Ranked Champions
+**Source:** creator-verified team entry
+**Link:** https://www.youtube.com/watch?v=nADGfhosH70
+
+**Pokémon:**
+- Scovillain
+- Primarina
+- Sneasler
+- Kingambit
+- Aerodactyl
+- Garchomp
+
+**Core tech:**
+The centerpiece is Scovillain + Primarina. Wolfe's line is Rage Powder + burn.`;
+
 describe("PokemonCardRenderer — research cards", () => {
   it("renders two ResearchTeamCards for canonical format", () => {
     render(<PokemonCardRenderer content={canonical} />);
@@ -104,6 +124,23 @@ describe("PokemonCardRenderer — research cards", () => {
     expect(screen.getByText("Wolfe Glick")).toBeInTheDocument();
     const sprites = screen.getAllByTestId("sprite");
     expect(sprites.length).toBe(6);
+  });
+
+  it("renders a ResearchTeamCard for GPT-5.4 drift format (**Pokémon:** + Link + bullet list)", () => {
+    render(<PokemonCardRenderer content={gpt54Drift} />);
+    // "Wolfe Glick" appears twice — once as h2, once as card header.
+    expect(screen.getAllByText("Wolfe Glick").length).toBeGreaterThanOrEqual(1);
+    // Subtitle should be the archetype (first em-dash split)
+    expect(
+      screen.getByText(/Mega Scovillain Ladder Team/),
+    ).toBeInTheDocument();
+    // All 6 sprites must render — this is the critical regression
+    // check: the drift used to fail parser and render species as
+    // plain text instead of sprites.
+    const sprites = screen.getAllByTestId("sprite");
+    expect(sprites.length).toBe(6);
+    // URL should have been extracted (via "Link" alias)
+    expect(screen.getByText(/youtube\.com/)).toBeInTheDocument();
   });
 
   it("extracts source badges from mixed source strings", () => {
