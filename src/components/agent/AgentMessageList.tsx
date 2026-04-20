@@ -117,9 +117,34 @@ export function AgentMessageList({
                 <div className="space-y-2">
                   <div className="rounded-2xl rounded-bl-md bg-card ring-1 ring-foreground/10 px-3 py-2 text-sm text-card-foreground">
                     <PokemonCardRenderer content={msg.content || ""} actions={cardActions} />
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      {formatTime(msg.timestamp)}
-                    </p>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <p className="text-[10px] text-muted-foreground">
+                        {formatTime(msg.timestamp)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const raw = msg.content ?? "";
+                          try {
+                            await navigator.clipboard.writeText(raw);
+                            // Also log so dev can see it without pasting.
+                            // eslint-disable-next-line no-console
+                            console.log(
+                              "[MetaGross] Raw assistant markdown:\n" + raw,
+                            );
+                          } catch {
+                            // eslint-disable-next-line no-console
+                            console.log(
+                              "[MetaGross] Raw assistant markdown:\n" + raw,
+                            );
+                          }
+                        }}
+                        className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 cursor-pointer"
+                        title="Copy raw markdown (and log to console) for debugging"
+                      >
+                        Copy raw
+                      </button>
+                    </div>
                   </div>
                   {msg.toolCalls && msg.toolCalls.length > 0 && (
                     <AgentToolTrace toolCalls={msg.toolCalls} />
