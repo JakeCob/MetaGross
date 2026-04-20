@@ -50,6 +50,17 @@ export async function POST(request: Request) {
       contextType = thread.contextType ?? "general";
       contextId = thread.contextId ?? null;
       persona = thread.persona ?? "default";
+
+      // Inherit provider/model from the thread row when the client
+      // didn't pass them. That way resuming a thread preserves the
+      // model it was created with, even if the user's global
+      // preference has since changed.
+      if (typeof body.provider !== "string" && thread.provider) {
+        body.provider = thread.provider;
+      }
+      if (typeof body.modelName !== "string" && thread.model) {
+        body.modelName = thread.model;
+      }
     } else {
       // Create new thread
       const ctxParsed = threadCreateSchema.safeParse(body);
@@ -67,8 +78,21 @@ export async function POST(request: Request) {
         );
       }
 
-      const provider = detectProvider();
-      const model = getModelName(provider);
+      // Honour the user's selected provider/model when present, fall
+      // back to detection otherwise. This means the thread row
+      // persists whatever the user picked so future resumes inherit
+      // the same choice.
+      const provider =
+        typeof body.provider === "string" &&
+        (body.provider === "openai" ||
+          body.provider === "openrouter" ||
+          body.provider === "anthropic")
+          ? body.provider
+          : detectProvider();
+      const model =
+        typeof body.modelName === "string" && body.modelName.trim().length > 0
+          ? body.modelName.trim()
+          : getModelName(provider);
 
       const thread = createThread({
         title: ctxParsed.data.title ?? body.message.slice(0, 80),
