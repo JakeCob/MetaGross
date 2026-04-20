@@ -7,6 +7,7 @@ import { getMetaDataTool } from "./read/get-meta-data";
 import { getEvBenchmarksTool } from "./read/get-ev-benchmarks";
 import { searchWebTool } from "./read/search-web";
 import { fetchUrlTool } from "./read/fetch-url";
+import { getSmogonAnalysisTool } from "./read/get-smogon-analysis";
 import { lookupPokemonTool } from "./read/lookup-pokemon";
 import { lookupMoveTool } from "./read/lookup-move";
 import { getPokemonSetsTool } from "./read/get-pokemon-sets";
@@ -35,6 +36,7 @@ export const readTools = [
   getEvBenchmarksTool,
   searchWebTool,
   fetchUrlTool,
+  getSmogonAnalysisTool,
   lookupPokemonTool,
   lookupMoveTool,
   getPokemonSetsTool,
