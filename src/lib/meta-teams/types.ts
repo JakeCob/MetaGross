@@ -19,6 +19,11 @@ export interface MetaTeamPokemon {
   nature?: string;
   moves?: string[];
   teraType?: string;
+  /** Formatted EV string ("252 HP / 252 Atk / 4 SpD"). Optional; present
+   *  on creator teams where Wolfe / etc. published the exact numbers. */
+  evs?: string;
+  /** Formatted IV string ("0 Atk / 0 Spe"). Optional. */
+  ivs?: string;
 }
 
 export interface MetaTeam {

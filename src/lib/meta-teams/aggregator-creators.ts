@@ -73,6 +73,8 @@ export function aggregateFromCreators(
           nature: p.nature || undefined,
           moves: p.moves,
           teraType: p.tera || undefined,
+          evs: p.evs || undefined,
+          ivs: p.ivs || undefined,
         })),
         trust: 1.0,
         seenAt,

@@ -388,6 +388,34 @@ describe("PokemonCardRenderer — research cards", () => {
     expect(sprites.length).toBeGreaterThanOrEqual(6);
   });
 
+  it("splits '### 1) Species @ Item' heading so sprite lookup gets clean species", () => {
+    const content = `### 1) Conkeldurr @ Leftovers
+Ability: **Guts**
+Moves:
+- Drain Punch
+- Mach Punch
+- Protect
+- Ice Punch
+
+### 2) Mimikyu @ Mental Herb
+Ability: **Disguise**
+Moves:
+- Trick Room
+- Will-O-Wisp
+- Play Rough
+- Protect`;
+    render(<PokemonCardRenderer content={content} />);
+    const sprites = screen.getAllByTestId("sprite");
+    expect(sprites.length).toBe(2);
+    const species = sprites.map((s) => s.getAttribute("data-species"));
+    // Clean species names — no "@ Leftovers" garbage appended.
+    expect(species).toContain("Conkeldurr");
+    expect(species).toContain("Mimikyu");
+    // Items came from the heading's @ portion.
+    expect(screen.getByText(/Leftovers/)).toBeInTheDocument();
+    expect(screen.getByText(/Mental Herb/)).toBeInTheDocument();
+  });
+
   it("merges '### N) Name' + '**Name @ Item**' + 'Moves:\\n- bullet' (screenshot + raw-md capture)", () => {
     const content = `## Full 6-Pokémon team
 

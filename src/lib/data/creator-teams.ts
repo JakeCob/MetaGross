@@ -30,6 +30,12 @@ export interface CreatorTeam {
     moves: string[];
     nature?: string;
     tera?: string; // SV formats only
+    /** EV spread as a ready-to-display string ("252 HP / 252 Atk / 4 SpD").
+     *  Champions format uses 66 stat points / 32 max per stat, but the
+     *  display string is free-form so callers can format either convention. */
+    evs?: string;
+    /** IV string — usually blank unless deliberate 0s (0 Spe for TR / 0 Atk for SpA mons). */
+    ivs?: string;
   }>;
   strategy?: string;
   tags?: string[];
@@ -428,8 +434,13 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         species: "Scovillain",
         ability: "Spicy Spray",
         item: "Scovillainite",
-        moves: ["Flamethrower", "Leech Seed", "Rage Powder", "Protect"],
+        // Overheat (not Flamethrower) — Wolfe's revealed set uses the
+        // nuke to force Intimidate pivots on turn 1. The SpA drop is
+        // softened by redirection + Calm Mind Primarina cycle.
+        moves: ["Overheat", "Leech Seed", "Rage Powder", "Protect"],
         nature: "Calm",
+        evs: "252 HP / 196 Def / 60 SpD",
+        ivs: "0 Atk / 0 Spe",
       },
       {
         species: "Primarina",
@@ -437,6 +448,8 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         item: "Leftovers",
         moves: ["Hyper Voice", "Moonblast", "Calm Mind", "Protect"],
         nature: "Modest",
+        evs: "244 HP / 4 Def / 252 SpA / 4 SpD / 4 Spe",
+        ivs: "0 Atk",
       },
       {
         species: "Sneasler",
@@ -444,6 +457,7 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         item: "Focus Sash",
         moves: ["Close Combat", "Dire Claw", "Fake Out", "Coaching"],
         nature: "Adamant",
+        evs: "4 HP / 252 Atk / 252 Spe",
       },
       {
         species: "Kingambit",
@@ -451,6 +465,7 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         item: "Black Glasses",
         moves: ["Kowtow Cleave", "Sucker Punch", "Swords Dance", "Protect"],
         nature: "Adamant",
+        evs: "252 HP / 252 Atk / 4 SpD",
       },
       {
         species: "Aerodactyl",
@@ -458,6 +473,7 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         item: "Focus Sash",
         moves: ["Tailwind", "Rock Slide", "Wide Guard", "Protect"],
         nature: "Jolly",
+        evs: "4 HP / 252 Atk / 252 Spe",
       },
       {
         species: "Garchomp",
@@ -465,6 +481,7 @@ export const CREATOR_TEAMS: CreatorTeam[] = [
         item: "Haban Berry",
         moves: ["Dragon Claw", "Earthquake", "Stomping Tantrum", "Protect"],
         nature: "Jolly",
+        evs: "4 HP / 252 Atk / 252 Spe",
       },
     ],
     strategy:

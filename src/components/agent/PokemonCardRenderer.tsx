@@ -510,7 +510,19 @@ function parseContent(content: string): ContentBlock[] {
       continue;
     }
 
-    const name = normalizeSectionTitle(headerMatch[1].trim());
+    let name = normalizeSectionTitle(headerMatch[1].trim());
+
+    // Split "### 1) Species @ Item" style headings — the " @ Item"
+    // portion is an inline item reveal, not part of the species name.
+    // Without this split the sprite lookup tries "Conkeldurr @ Leftovers"
+    // and fails silently.
+    const headingAtMatch = name.match(/^(.+?)\s*@\s+(.+?)\s*$/);
+    if (headingAtMatch && /^[A-Z]/.test(headingAtMatch[1].trim())) {
+      name = headingAtMatch[1].trim();
+      if (!pokepasteItem) {
+        pokepasteItem = headingAtMatch[2].trim();
+      }
+    }
 
     // Skip section headings that aren't Pokemon names
     const nonPokemonHeadings = [
