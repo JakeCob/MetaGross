@@ -388,6 +388,49 @@ describe("PokemonCardRenderer — research cards", () => {
     expect(sprites.length).toBeGreaterThanOrEqual(6);
   });
 
+  it("merges '### N) Name' + '**Name @ Item**' + 'Moves:\\n- bullet' (screenshot + raw-md capture)", () => {
+    const content = `## Full 6-Pokémon team
+
+### 1) Conkeldurr
+**Conkeldurr @ Leftovers**
+Ability: **Guts**
+Nature: **Brave**
+EVs: **252 HP / 252 Atk / 4 SpD**
+IVs: **0 Spe**
+Moves:
+- Drain Punch
+- Facade
+- Mach Punch
+- Protect
+
+### 2) Mimikyu
+**Mimikyu @ Mental Herb**
+Ability: **Disguise**
+Nature: **Sassy**
+Moves:
+- Trick Room
+- Will-O-Wisp
+- Play Rough
+- Protect`;
+
+    render(<PokemonCardRenderer content={content} />);
+    // 2 species → 2 cards → 2 sprites. NO duplicate card or stub h3.
+    // (Sprite count is the reliable signal — the mock renders the
+    // species name inside each sprite, which would inflate a raw
+    // text count.)
+    const sprites = screen.getAllByTestId("sprite");
+    expect(sprites.length).toBe(2);
+    // Items should have been absorbed from the **Species @ Item** line.
+    expect(screen.getByText(/Leftovers/)).toBeInTheDocument();
+    expect(screen.getByText(/Mental Herb/)).toBeInTheDocument();
+    // Moves should be populated from the bulleted list under "Moves:".
+    // They render as Badge components with the move name.
+    expect(screen.getByText("Drain Punch")).toBeInTheDocument();
+    expect(screen.getByText("Mach Punch")).toBeInTheDocument();
+    expect(screen.getByText("Trick Room")).toBeInTheDocument();
+    expect(screen.getByText("Will-O-Wisp")).toBeInTheDocument();
+  });
+
   it("renders cards for Pokepaste-style build with intro + 'Team:' prose line (screenshot 060702)", () => {
     const content = `Here's a solid 6-Pokémon direction built around your idea:
 

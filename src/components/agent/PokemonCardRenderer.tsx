@@ -168,6 +168,11 @@ function isStandaloneBoldHeading(line: string): boolean {
 
   const inner = match[1].trim();
   if (!/^[A-Z]/.test(inner)) return false;
+  // Don't treat Pokepaste "**Species @ Item**" lines as generic
+  // standalone bold headings — they're a sub-header of an existing
+  // Pokemon section that should be absorbed as the item, not split
+  // into its own block.
+  if (/@/.test(inner)) return false;
 
   const normalized = normalizeFieldKey(inner);
   return !RESERVED_BOLD_FIELD_LABELS.has(normalized);
@@ -178,12 +183,14 @@ function isStandaloneBoldHeading(line: string): boolean {
  * header (Pokepaste-style). Matches:
  *   Cooklediaw @ Leftovers
  *   Scovillain-Mega @ Scovillainite
- *   **Mega Scovillain** @ Scovillainite
+ *   **Mega Scovillain** @ Scovillainite   ← partial bold is fine
  *
- * Does NOT match lines with a leading bullet — those are nested
- * "Imported set list" items inside a research card, not standalone
- * Pokemon headers. Requires no colon so labels like "Item: X @ Y"
- * don't fire.
+ * Rejects:
+ *   - leading bullet ("- Mega Scovillain @ Stone") — nested list item
+ *   - fully-wrapped bold ("**Species @ Item**") — that's a sub-header
+ *     inside an existing Pokemon section, handled by the absorb path
+ *     in parseContent, not as a new section split
+ *   - colon-bearing lines ("Item: X @ Y")
  */
 function isSpeciesAtItemHeader(line: string): boolean {
   if (/^\s*[-*+]\s/.test(line)) return false;
@@ -191,6 +198,8 @@ function isSpeciesAtItemHeader(line: string): boolean {
   if (!trimmed) return false;
   if (trimmed.includes(":")) return false;
   if (!/@/.test(trimmed)) return false;
+  // Reject the full-bold variant — absorbed as an item-line, not a split.
+  if (/^\*\*.+\*\*\s*$/.test(trimmed)) return false;
   return /^\*{0,2}[A-Z][A-Za-z0-9'’. -]{1,40}\*{0,2}\s*@\s+.+$/.test(trimmed);
 }
 
@@ -536,12 +545,41 @@ function parseContent(content: string): ContentBlock[] {
       continue;
     }
 
-    const lines = partLines.slice(1);
+    let lines = partLines.slice(1);
 
     const data: PokemonBlock = { name };
     if (pokepasteItem) {
       data.item = pokepasteItem;
     }
+
+    // Absorb a `**Species @ Item**` (or plain `Species @ Item`) sub-
+    // header that sits right below the primary section heading. The
+    // agent occasionally emits `### 1) Conkeldurr` and a second
+    // `**Conkeldurr @ Leftovers**` line below — without this merge,
+    // each becomes its own block, producing a duplicate plain-text
+    // h3 + a Pokemon card.
+    if (!pokepasteItem) {
+      const firstBodyIdx = lines.findIndex((l) => l.trim().length > 0);
+      if (firstBodyIdx !== -1) {
+        const candidate = lines[firstBodyIdx].trim();
+        const atAbsorb =
+          candidate.match(/^\*\*(.+?)\*\*\s*$/)?.[1]?.match(/^(.+?)\s*@\s+(.+?)\s*$/) ||
+          candidate.match(/^(.+?)\s*@\s+(.+?)\s*$/);
+        if (atAbsorb && /^[A-Z]/.test(atAbsorb[1].trim())) {
+          const absorbedItem = stripMarkdownDecorations(atAbsorb[2]).trim();
+          if (absorbedItem) {
+            data.item = absorbedItem;
+            // Drop the absorbed line (and any blank lines before it)
+            // from the body — they'd otherwise be rendered as extra.
+            lines = [
+              ...lines.slice(0, firstBodyIdx),
+              ...lines.slice(firstBodyIdx + 1),
+            ];
+          }
+        }
+      }
+    }
+
     const research: ResearchTeamBlock = { name };
     const extraLines: string[] = [];
     const importedSetItems = extractImportedSetItems(part);
@@ -613,10 +651,11 @@ function parseContent(content: string): ContentBlock[] {
       "core tech", "core", "tech", "record", "placement",
     ]);
 
-    type Mode = "none" | "team" | "coreTech" | "skipImportedSetList";
+    type Mode = "none" | "team" | "coreTech" | "moves" | "skipImportedSetList";
     let mode: Mode = "none";
     const teamLines: string[] = [];
     const coreTechLines: string[] = [];
+    const moveLines: string[] = [];
 
     for (const line of lines) {
       const field = matchField(line);
@@ -638,7 +677,15 @@ function parseContent(content: string): ContentBlock[] {
         if (key === "role") { data.role = val; mode = "none"; }
         else if (key === "ability") { data.ability = val; mode = "none"; }
         else if (key === "item") { data.item = val; mode = "none"; }
-        else if (key === "moves") { data.moves = val; mode = "none"; }
+        else if (key === "moves" || key === "attacks") {
+          if (val) {
+            data.moves = val;
+            mode = "none";
+          } else {
+            // "Moves:" alone, then bullet list below — switch modes.
+            mode = "moves";
+          }
+        }
         else if (key === "nature") { data.nature = val; mode = "none"; }
         else if (key === "points" || key === "evs") { data.points = val; mode = "none"; }
         else if (key === "spread reasoning" || key === "reasoning" || key === "ev reasoning") { data.spreadReasoning = val; mode = "none"; }
@@ -681,6 +728,7 @@ function parseContent(content: string): ContentBlock[] {
         else {
           if (mode === "team") teamLines.push(line.trim());
           else if (mode === "coreTech") coreTechLines.push(line);
+          else if (mode === "moves") moveLines.push(line.trim());
           else extraLines.push(line);
         }
       } else if (line.trim()) {
@@ -694,6 +742,13 @@ function parseContent(content: string): ContentBlock[] {
             .replace(/^[-*\d.)]+\s*/, "")
             .trim();
           if (sp) teamLines.push(sp);
+        } else if (mode === "moves") {
+          const mv = line
+            .trim()
+            .replace(/^[-*\d.)]+\s*/, "")
+            .replace(/\*\*/g, "")
+            .trim();
+          if (mv) moveLines.push(mv);
         } else if (mode === "coreTech") {
           coreTechLines.push(line);
         } else {
@@ -710,6 +765,9 @@ function parseContent(content: string): ContentBlock[] {
     }
     if (coreTechLines.length > 0 && !research.coreTech) {
       research.coreTech = coreTechLines.join("\n").trim();
+    }
+    if (moveLines.length > 0 && !data.moves) {
+      data.moves = moveLines.filter(Boolean).join(" / ");
     }
 
     const extra = extraLines.join("\n").trim();
@@ -761,13 +819,19 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
   // Validate the agent's claim — catches hallucinations like
   // "Mega Scovillain with Rough Skin + Dragon Claw" (Garchomp build
   // misfiled under the Scovillain header).
-  const cleanAbilityName = (data.ability || "").split(/[—–\-(:]/)[0].trim();
+  const cleanAbilityName = stripMarkdownDecorations(data.ability || "")
+    .split(/\s+[—–]\s+|\s+-\s+|\s+\(|\s*:\s+/)[0]
+    .trim();
   const moveList = useMemo(
     () =>
       data.moves
         ? data.moves
             .split(/\s*\/\s*/)
-            .map((m) => m.split(/[—–\-]/)[0].trim())
+            .map((m) =>
+              stripMarkdownDecorations(m)
+                .split(/\s+[—–]\s+|\s+-\s+|\s+\(/)[0]
+                .trim(),
+            )
             .filter(Boolean)
         : [],
     [data.moves],
@@ -789,13 +853,20 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
 
   // Extract just the first word/short identifier from fields that may have inline explanations
   // e.g., "Stamina — boosts defense when hit" → "Stamina"
+  // Only split on spaced em/en-dashes + " - " / " : " / " (" so we
+  // don't chop up legitimate hyphenated names ("Will-O-Wisp",
+  // "Mental Herb", "Mega-Y").
   const cleanField = (val?: string): { short: string; long?: string } => {
     if (!val) return { short: "" };
-    const sepMatch = val.match(/^([^—–\-:(]+?)(?:\s*[—–\-]\s*|\s*:\s*|\s*\(\s*)(.+)/);
+    const stripped = stripMarkdownDecorations(val);
+    const sepMatch = stripped.match(/^(.+?)(?:\s+[—–]\s+|\s+-\s+|\s+:\s+|\s+\(\s*)(.+)/);
     if (sepMatch) {
-      return { short: sepMatch[1].trim(), long: sepMatch[2].replace(/\)$/, "").trim() };
+      return {
+        short: sepMatch[1].trim(),
+        long: sepMatch[2].replace(/\)$/, "").trim(),
+      };
     }
-    return { short: val.trim() };
+    return { short: stripped.trim() };
   };
 
   const abilityField = cleanField(data.ability);
@@ -870,7 +941,12 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
           {data.moves && (
             <div className="flex flex-wrap gap-1 mt-1">
               {data.moves.split(/\s*\/\s*/).map((move, i) => {
-                const cleanMove = move.split(/[—–\-]/)[0].trim();
+                // Only strip spaced em/en-dashes + " - " used for
+                // inline annotations. Keep bare hyphens so move
+                // names like "Will-O-Wisp" or "U-turn" stay intact.
+                const cleanMove = stripMarkdownDecorations(move)
+                  .split(/\s+[—–]\s+|\s+-\s+|\s+\(/)[0]
+                  .trim();
                 return (
                   <Badge
                     key={`${cleanMove}-${i}`}
