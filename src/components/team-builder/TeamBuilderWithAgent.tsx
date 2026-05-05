@@ -12,6 +12,10 @@ import { Button } from "@/components/ui/button";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
 import type { MetaTeamPokemon } from "@/lib/meta-teams/types";
+import {
+  applyPokemonPatchToTeam,
+  type PokemonPatchPayload,
+} from "@/lib/ai/graph/team-patch";
 
 /**
  * Discovery chips for the team-builder agent empty state.
@@ -57,6 +61,12 @@ interface TeamBuilderWithAgentProps {
   teamId?: string;
   initialSpecies?: string[];
   initialName?: string;
+}
+
+function hasSpecies(
+  pokemon: Partial<TeamPokemon>,
+): pokemon is Partial<TeamPokemon> & { species: string } {
+  return (pokemon.species ?? "").trim().length > 0;
 }
 
 /**
@@ -112,6 +122,24 @@ function buildVariantPrompt(data: ResearchTeamBlock): string {
     .join("\n");
 }
 
+/**
+ * Strip the agent's trailing "value — rationale" annotation before we
+ * write it into a saved TeamPokemon. The card renderer does the same
+ * thing upstream; this is a belt-and-braces guard for edge cases (pastes,
+ * old cached blocks, etc.).
+ */
+function cleanBuildValue(raw: string | undefined): string {
+  if (!raw) return "";
+  let v = raw.trim();
+  const dashMatch = v.match(/\s+[—–-]\s+/);
+  if (dashMatch && dashMatch.index !== undefined) {
+    v = v.slice(0, dashMatch.index).trim();
+  }
+  const parenIdx = v.indexOf(" (");
+  if (parenIdx > 0) v = v.slice(0, parenIdx).trim();
+  return v.replace(/^\*+|\*+$/g, "").trim();
+}
+
 function pokemonBlockToTeamPokemon(block: PokemonBlock): Partial<TeamPokemon> {
   // Parse points string "HP 32 / Atk 0 / Def 4 / SpA 24 / SpD 8 / Spe 18"
   const evs = { ...DEFAULT_EVS };
@@ -143,9 +171,9 @@ function pokemonBlockToTeamPokemon(block: PokemonBlock): Partial<TeamPokemon> {
 
   return {
     species,
-    ability: block.ability || "",
-    item: block.item || "",
-    nature: block.nature || "Hardy",
+    ability: cleanBuildValue(block.ability),
+    item: cleanBuildValue(block.item),
+    nature: cleanBuildValue(block.nature) || "Hardy",
     level: 50,
     moves,
     evs,
@@ -161,25 +189,130 @@ export function TeamBuilderWithAgent({
   const [agentOpen, setAgentOpen] = useState(false);
   // Ref for TeamBuilder's add function — set via callback
   const addToTeamRef = useRef<((pokemon: Partial<TeamPokemon>) => void) | null>(null);
+  // Ref for TeamBuilder's bulk-replace function. "+ Add All N to Team"
+  // needs this because onAddFromAgent only fills empty slots — once
+  // the builder has 6 filled slots from a previous suggestion, the
+  // per-Pokemon adds silently no-op.
+  const replaceTeamRef = useRef<
+    ((pokemon: Partial<TeamPokemon>[]) => void) | null
+  >(null);
   // Ref for the AgentPanel's sendMessage — set via callback so we can
   // trigger follow-up prompts (e.g. "Make my version of X") from a
   // ResearchTeamCard button.
   const sendMessageRef = useRef<((m: string) => void) | null>(null);
+  // Getter that returns the current draft team from TeamBuilder. The
+  // AgentPanel calls this before every POST so the agent gets the live
+  // team state (not just the saved one) and can propose patches to
+  // the team the user is actively building.
+  const currentTeamGetterRef = useRef<
+    (() => { name: string; format: string; pokemon: Partial<TeamPokemon>[] }) | null
+  >(null);
 
   const handleAddToTeam = useCallback((block: PokemonBlock) => {
-    const teamPokemon = pokemonBlockToTeamPokemon(block);
-    if (addToTeamRef.current) {
-      addToTeamRef.current(teamPokemon);
+    if (!addToTeamRef.current) {
+      console.warn(
+        "[TeamBuilderWithAgent] addToTeamRef not wired — TeamBuilder didn't register its onAddFromAgent callback yet.",
+      );
+      return;
     }
+    const teamPokemon = pokemonBlockToTeamPokemon(block);
+    addToTeamRef.current(teamPokemon);
   }, []);
 
   const handleAddAllToTeam = useCallback((blocks: PokemonBlock[]) => {
-    if (!addToTeamRef.current) return;
-    for (const block of blocks) {
-      const teamPokemon = pokemonBlockToTeamPokemon(block);
+    const team = blocks.map(pokemonBlockToTeamPokemon);
+    // Prefer the bulk-replace path. It wipes the 6 slots so a user
+    // whose builder is already full doesn't end up with the adds
+    // silently dropped.
+    if (replaceTeamRef.current) {
+      replaceTeamRef.current(team);
+      return;
+    }
+    if (!addToTeamRef.current) {
+      console.warn(
+        "[TeamBuilderWithAgent] addToTeamRef not wired — cannot add all.",
+      );
+      return;
+    }
+    for (const teamPokemon of team) {
       addToTeamRef.current(teamPokemon);
     }
   }, []);
+
+  const handleApplyDraftPatch = useCallback((payload: PokemonPatchPayload) => {
+    const snapshot = currentTeamGetterRef.current
+      ? currentTeamGetterRef.current()
+      : null;
+    if (!snapshot || !replaceTeamRef.current) return;
+
+    const filledPokemon = snapshot.pokemon.filter(hasSpecies);
+    if (filledPokemon.length === 0) return;
+
+    try {
+      const patched = applyPokemonPatchToTeam(filledPokemon, payload);
+      replaceTeamRef.current(patched);
+    } catch (err) {
+      console.error("[TeamBuilderWithAgent] apply draft patch failed", err);
+    }
+  }, []);
+
+  const handleSaveResearchTeamAsDraft = useCallback(
+    async (data: ResearchTeamBlock) => {
+      const species = data.team ?? [];
+      if (species.length === 0) return;
+      try {
+        const res = await fetch("/api/teams/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            drafts: [
+              {
+                name: data.subtitle
+                  ? `[Draft] ${data.name} — ${data.subtitle}`
+                  : `[Draft] ${data.name}`,
+                archetype: data.subtitle ?? null,
+                description: data.coreTech ?? null,
+                sourceUrl: data.url ?? null,
+                species,
+              },
+            ],
+          }),
+        });
+        if (!res.ok) {
+          console.error(
+            "[TeamBuilderWithAgent] draft save HTTP",
+            res.status,
+          );
+        }
+      } catch (err) {
+        console.error(
+          "[TeamBuilderWithAgent] draft save failed",
+          err,
+        );
+      }
+    },
+    [],
+  );
+
+  const handleOpenResearchTeamInNewTab = useCallback(
+    (data: ResearchTeamBlock) => {
+      const species = data.team ?? [];
+      if (species.length === 0) return;
+      // /teams/new reads `core` (comma-separated species) and `name`.
+      const params = new URLSearchParams();
+      params.set("core", species.join(","));
+      const suggestedName = data.subtitle
+        ? `${data.name} — ${data.subtitle}`
+        : data.name;
+      if (suggestedName) params.set("name", suggestedName);
+      window.open(
+        `/teams/new?${params.toString()}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+    },
+    [],
+  );
 
   /**
    * Fetch the full meta-team decklist for a given species list and
@@ -189,9 +322,24 @@ export function TeamBuilderWithAgent({
    */
   const applyResearchTeamToBuilder = useCallback(
     async (data: ResearchTeamBlock): Promise<boolean> => {
-      if (!addToTeamRef.current) return false;
       const species = data.team ?? [];
       if (species.length === 0) return false;
+      if (!replaceTeamRef.current && !addToTeamRef.current) return false;
+
+      const bareFallback = (): Partial<TeamPokemon>[] =>
+        species.map((sp) => ({
+          species: sp
+            .replace(/^Mega\s+/, "")
+            .replace(/\s*\(Mega\)/, "")
+            .trim(),
+          ability: "",
+          item: "",
+          nature: "Hardy",
+          level: 50,
+          moves: ["", "", "", ""],
+          evs: { ...DEFAULT_EVS },
+          ivs: { ...DEFAULT_IVS },
+        }));
 
       try {
         const res = await fetch("/api/meta-teams/match", {
@@ -211,27 +359,15 @@ export function TeamBuilderWithAgent({
           }>;
         };
         const full = payload.matches?.[0]?.pokemon ?? [];
-        if (full.length === 0) {
-          // Fall back to bare species entries.
-          for (const sp of species) {
-            addToTeamRef.current({
-              species: sp
-                .replace(/^Mega\s+/, "")
-                .replace(/\s*\(Mega\)/, "")
-                .trim(),
-              ability: "",
-              item: "",
-              nature: "Hardy",
-              level: 50,
-              moves: ["", "", "", ""],
-              evs: { ...DEFAULT_EVS },
-              ivs: { ...DEFAULT_IVS },
-            });
-          }
-          return true;
-        }
-        for (const mon of full) {
-          addToTeamRef.current(metaTeamPokemonToTeamPokemon(mon));
+        const team: Partial<TeamPokemon>[] =
+          full.length === 0
+            ? bareFallback()
+            : full.map(metaTeamPokemonToTeamPokemon);
+
+        if (replaceTeamRef.current) {
+          replaceTeamRef.current(team);
+        } else if (addToTeamRef.current) {
+          for (const mon of team) addToTeamRef.current(mon);
         }
         return true;
       } catch (err) {
@@ -293,53 +429,144 @@ export function TeamBuilderWithAgent({
     [applyResearchTeamToBuilder],
   );
 
+  const cardActions = {
+    onAddToTeam: handleAddToTeam,
+    onAddAllToTeam: handleAddAllToTeam,
+    onUseResearchTeam: handleUseResearchTeam,
+    onMakeVariant: handleMakeVariant,
+    onUseAllResearchTeams: handleUseAllResearchTeams,
+    onSaveResearchTeamAsDraft: handleSaveResearchTeamAsDraft,
+    onOpenResearchTeamInNewTab: handleOpenResearchTeamInNewTab,
+  };
+
+  // One TeamBuilder, one AgentPanel — layout is CSS-only. Previously
+  // we rendered separate desktop + mobile TeamBuilders (hidden via
+  // Tailwind breakpoints) which caused a ref-race: both instances
+  // mounted, both registered their add/replace fns against the same
+  // parent ref, and whichever ran its effect last "won". State updates
+  // from "+ Add All 6" often landed in the hidden instance, making the
+  // button look broken.
   return (
     <>
-      {/* Desktop: side-by-side layout */}
-      <div className="hidden lg:grid lg:grid-cols-[2fr_1fr] lg:gap-6">
-        <TeamBuilder teamId={teamId} initialSpecies={initialSpecies} initialName={initialName} onAddFromAgent={(fn) => { addToTeamRef.current = fn; }} />
-        <div className="sticky top-4 h-[calc(100vh-6rem)]">
+      {/* Responsive grid — 1 column on small screens, 2fr|1fr on lg+. */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[2fr_1fr]">
+        <TeamBuilder
+          teamId={teamId}
+          initialSpecies={initialSpecies}
+          initialName={initialName}
+          onAddFromAgent={(fn) => {
+            addToTeamRef.current = fn;
+          }}
+          onReplaceFromAgent={(fn) => {
+            replaceTeamRef.current = fn;
+          }}
+          onCurrentTeamRef={(fn) => {
+            currentTeamGetterRef.current = fn;
+          }}
+        />
+
+        {/* Side panel: AgentPanel sticky on the right column at md+
+            (covers most laptop split-screen widths). Below md the
+            mobile FAB takes over. */}
+        <div className="hidden md:block md:sticky md:top-4 md:h-[calc(100vh-6rem)]">
           <AgentPanel
             contextType="team"
             contextId={teamId}
             starterSuggestions={TEAM_STARTER_SUGGESTIONS}
-            onSendMessageRef={(fn) => { sendMessageRef.current = fn; }}
-            cardActions={{
-              onAddToTeam: handleAddToTeam,
-              onAddAllToTeam: handleAddAllToTeam,
-              onUseResearchTeam: handleUseResearchTeam,
-              onMakeVariant: handleMakeVariant,
-              onUseAllResearchTeams: handleUseAllResearchTeams,
+            onSendMessageRef={(fn) => {
+              sendMessageRef.current = fn;
+            }}
+            cardActions={cardActions}
+            onApplyDraftPatch={handleApplyDraftPatch}
+            getDraftTeam={() => {
+              const snap = currentTeamGetterRef.current
+                ? currentTeamGetterRef.current()
+                : null;
+              if (!snap) return null;
+              return {
+                name: snap.name,
+                format: snap.format,
+                pokemon: snap.pokemon.map((p) => ({
+                  species: p.species,
+                  ability: p.ability,
+                  item: p.item,
+                  nature: p.nature,
+                  moves: Array.isArray(p.moves)
+                    ? (p.moves as string[]).filter(Boolean)
+                    : undefined,
+                  evs: p.evs as Record<string, number> | undefined,
+                  ivs: p.ivs as Record<string, number> | undefined,
+                  level: p.level,
+                  teraType: p.teraType,
+                })),
+              };
             }}
           />
         </div>
       </div>
 
-      {/* Mobile/tablet: stacked with collapsible agent */}
-      <div className="lg:hidden">
-        <TeamBuilder teamId={teamId} initialSpecies={initialSpecies} initialName={initialName} onAddFromAgent={(fn) => { addToTeamRef.current = fn; }} />
-
-        <div className="fixed bottom-4 right-4 z-40">
+      {/* Mobile (below md): labeled FAB + fixed bottom drawer. The
+          desktop column is hidden, so AgentPanel only mounts here
+          when the viewport is below the md breakpoint. */}
+      <div className="md:hidden">
+        <div
+          className="fixed right-4 z-50"
+          style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+        >
           <Button
-            size="icon-lg"
-            className="h-12 w-12 rounded-full shadow-lg"
             onClick={() => setAgentOpen((o) => !o)}
             aria-label={agentOpen ? "Close AI assistant" : "Open AI assistant"}
+            className="gap-2 rounded-full px-4 py-3 shadow-lg shadow-primary/30"
           >
-            {agentOpen ? "✕" : "🤖"}
+            <span aria-hidden className="text-base leading-none">
+              {agentOpen ? "✕" : "🤖"}
+            </span>
+            <span className="text-sm font-medium">
+              {agentOpen ? "Close" : "Ask AI"}
+            </span>
           </Button>
         </div>
 
         {agentOpen && (
-          <div className="fixed inset-x-0 bottom-0 z-30 h-[60vh] bg-background border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300">
-            <div className="h-full p-3">
+          <div
+            // `dvh` (dynamic viewport height) accounts for the iOS
+            // Safari URL bar collapsing/expanding — `vh` uses the
+            // static viewport which includes the URL bar and pushes
+            // our composer below the screen edge on iPhone SE. Using
+            // 92dvh + small inner padding gives breathing room above
+            // the home-indicator without burying the composer.
+            className="fixed inset-x-0 bottom-0 z-40 h-[92dvh] bg-background border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300"
+            style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
+          >
+            <div className="h-full p-2 sm:p-3">
               <AgentPanel
                 contextType="team"
                 contextId={teamId}
                 starterSuggestions={TEAM_STARTER_SUGGESTIONS}
-                cardActions={{
-                  onAddToTeam: handleAddToTeam,
-                  onAddAllToTeam: handleAddAllToTeam,
+                cardActions={cardActions}
+                onApplyDraftPatch={handleApplyDraftPatch}
+                getDraftTeam={() => {
+                  const snap = currentTeamGetterRef.current
+                    ? currentTeamGetterRef.current()
+                    : null;
+                  if (!snap) return null;
+                  return {
+                    name: snap.name,
+                    format: snap.format,
+                    pokemon: snap.pokemon.map((p) => ({
+                      species: p.species,
+                      ability: p.ability,
+                      item: p.item,
+                      nature: p.nature,
+                      moves: Array.isArray(p.moves)
+                        ? (p.moves as string[]).filter(Boolean)
+                        : undefined,
+                      evs: p.evs as Record<string, number> | undefined,
+                      ivs: p.ivs as Record<string, number> | undefined,
+                      level: p.level,
+                      teraType: p.teraType,
+                    })),
+                  };
                 }}
               />
             </div>

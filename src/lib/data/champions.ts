@@ -135,6 +135,8 @@ export const NOT_IN_CHAMPIONS: string[] = [
   "Calyrex-Shadow", "Zacian", "Zamazenta", "Eternatus",
   "Koraidon", "Miraidon", "Ogerpon", "Raging Bolt", "Iron Crown",
   "Landorus", "Thundurus", "Tornadus", "Chien-Pao",
+  // Paldea-era legendaries/ghost-types that aren't in Champions
+  "Gholdengo", "Gimmighoul", "Ting-Lu", "Wo-Chien", "Chi-Yu",
   // Confirmed cut from Champions Reg M-A (verified against Bulbapedia
   // roster 2026-04-13) — do NOT recommend these:
   "Metagross", "Salamence", "Dondozo", "Tatsugiri", "Grimmsnarl",
@@ -164,35 +166,49 @@ export const NOT_IN_CHAMPIONS: string[] = [
 // ---------------------------------------------------------------------------
 
 /**
- * Items confirmed in Champions from competitive usage (Pikalytics).
- * NOTE: Some items (Life Orb, Choice Specs) appear in Showdown Champions Preview
- * but may be unavailable on cartridge. Flagged as "unverified_cartridge".
+ * Items confirmed in Champions — canonical list from Game8
+ * (https://game8.co/games/Pokemon-Champions/archives/588871).
+ *
+ * IMPORTANT: many VGC staples (Weakness Policy, Life Orb, Choice Band,
+ * Choice Specs, Rocky Helmet, Safety Goggles, Clear Amulet, Covert Cloak,
+ * Assault Vest, Eject Button, Throat Spray, Power Herb, Wide Lens,
+ * Toxic Orb, Air Balloon, Black Sludge, Figy/Aguav Berries, Mirror Herb)
+ * are NOT in Champions. Do not suggest them. Anything not on this list
+ * should be treated as disallowed.
  */
 export const CHAMPIONS_ITEMS_CONFIRMED: string[] = [
-  // Berries
-  "Sitrus Berry", "Lum Berry", "Figy Berry", "Aguav Berry",
-  "Shuca Berry", "Chople Berry", "Occa Berry", "Colbur Berry",
-  // Competitive staples
-  "Focus Sash", "Choice Scarf", "Leftovers", "Rocky Helmet",
-  "Safety Goggles", "Clear Amulet", "Covert Cloak", "Mental Herb",
-  "White Herb", "Mirror Herb", "Weakness Policy", "Eject Button",
-  "Throat Spray", "Psychic Seed", "Room Service",
-  "Normal Gem", "Power Herb", "Wide Lens", "Razor Fang",
-  "Toxic Orb", "Air Balloon", "Muscle Band", "Adrenaline Orb",
-  "Black Glasses", "Black Sludge",
-  // Mega Stones
-  "Charizardite X", "Charizardite Y", "Venusaurite", "Blastoisinite",
-  "Garchompite", "Gengarite", "Tyranitarite", "Kangaskhanite",
-  "Gyaradosite", "Scizorite", "Heracronite", "Houndoominite",
-  "Aerodactylite", "Alakazite", "Ampharosite", "Absolite",
-  "Altarianite", "Banettite", "Beedrillite", "Cameruptite",
-  "Lopunnite", "Lucarionite", "Medichamite",
-  "Pidgeotite", "Pinsirite", "Sablenite", "Sharpedonite",
-  "Slowbronite", "Steelixite", "Audinite", "Gardevoirite",
-  "Aggronite", "Glalitite", "Abomasite", "Galladite", "Manectite",
-  // New Champions Mega Stones (Legends Z-A) — spellings per Bulbapedia
+  // Pinch Berries
+  "Sitrus Berry", "Lum Berry", "Persim Berry", "Oran Berry",
+  "Leppa Berry", "Aspear Berry", "Rawst Berry", "Pecha Berry",
+  "Chesto Berry", "Cheri Berry",
+  // Type-resist Berries
+  "Roseli Berry", "Chilan Berry", "Babiri Berry", "Haban Berry",
+  "Charti Berry", "Tanga Berry", "Payapa Berry", "Kebia Berry",
+  "Chople Berry", "Rindo Berry", "Occa Berry", "Wacan Berry",
+  "Colbur Berry", "Kasib Berry", "Coba Berry", "Shuca Berry",
+  "Yache Berry", "Passho Berry",
+  // Type-boost held items
+  "Soft Sand", "Sharp Beak", "Silk Scarf", "Magnet",
+  "Black Belt", "Black Glasses", "Silver Powder", "Miracle Seed",
+  "Hard Stone", "Mystic Water", "Poison Barb", "Never-Melt Ice",
+  "Twisted Spoon", "Charcoal", "Dragon Fang", "Fairy Feather",
+  "Spell Tag", "Metal Coat",
+  // Competitive staples actually in Champions
+  "Focus Sash", "Choice Scarf", "Leftovers", "Shell Bell",
+  "White Herb", "Mental Herb", "Focus Band", "Light Ball",
+  "King's Rock", "Bright Powder", "Scope Lens", "Quick Claw",
+  // Mega Stones (Gen 6 legacy)
+  "Venusaurite", "Charizardite X", "Charizardite Y", "Blastoisinite",
+  "Beedrillite", "Pidgeotite", "Alakazite", "Slowbronite",
+  "Gengarite", "Kangaskhanite", "Pinsirite", "Gyaradosite",
+  "Aerodactylite", "Ampharosite", "Scizorite", "Heracronite",
+  "Houndoominite", "Tyranitarite", "Gardevoirite", "Sablenite",
+  "Aggronite", "Medichamite", "Manectite", "Sharpedonite",
+  "Cameruptite", "Altarianite", "Banettite", "Absolite",
+  "Glalitite", "Lopunnite", "Garchompite", "Lucarionite",
+  "Abomasite", "Galladite", "Audinite",
+  // Mega Stones (Legends Z-A additions)
   "Clefablite", "Victreebelite", "Starminite",
-  "Raichunite X", "Raichunite Y",
   "Chimechite", "Skarmorite",
   "Meganiumite", "Feraligite",
   "Dragoninite", "Excadrite", "Emboarite", "Chandelurite",
@@ -203,13 +219,81 @@ export const CHAMPIONS_ITEMS_CONFIRMED: string[] = [
 ];
 
 /**
- * Items that may NOT be in Champions (reportedly cut, but appear in Showdown preview).
- * Use these with caution — Pikalytics Showdown data may include them.
+ * Items reported in other data sources (Showdown Preview, Bulbapedia) but
+ * NOT on the Game8 list. Treat as not-in-format unless a newer source
+ * confirms them.
  */
 export const CHAMPIONS_ITEMS_UNCERTAIN: string[] = [
-  "Life Orb", "Choice Band", "Choice Specs", "Assault Vest",
-  "Eject Pack", "Loaded Dice", "Damp Rock",
+  // Raichu Mega stones — Raichu is in roster but Game8 doesn't list these stones.
+  "Raichunite X", "Raichunite Y",
 ];
+
+/**
+ * Items that VGC players expect but are confirmed NOT in Champions.
+ * Prompt includes this verbatim so the agent knows exactly what to avoid.
+ */
+export const CHAMPIONS_ITEMS_BANNED: string[] = [
+  "Weakness Policy", "Life Orb", "Choice Band", "Choice Specs",
+  "Assault Vest", "Rocky Helmet", "Safety Goggles", "Clear Amulet",
+  "Covert Cloak", "Eject Button", "Eject Pack", "Throat Spray",
+  "Power Herb", "Wide Lens", "Razor Fang", "Toxic Orb",
+  "Flame Orb", "Air Balloon", "Muscle Band", "Adrenaline Orb",
+  "Black Sludge", "Mirror Herb", "Psychic Seed", "Grassy Seed",
+  "Electric Seed", "Misty Seed", "Room Service", "Loaded Dice",
+  "Damp Rock", "Heat Rock", "Smooth Rock", "Icy Rock",
+  "Light Clay", "Figy Berry", "Aguav Berry", "Iapapa Berry",
+  "Mago Berry", "Wiki Berry", "Normal Gem",
+];
+
+// ---------------------------------------------------------------------------
+// Moves that a species LOSES in Champions (but @pkmn/dex still says it learns)
+// ---------------------------------------------------------------------------
+
+/**
+ * Species → list of moves that are NOT legal for them in Champions Reg M-A,
+ * even though @pkmn/dex thinks they're learnable. Champions cuts a subset
+ * of TMs and egg-move tutors; the validator + prompt reference this so the
+ * agent doesn't propose moves the user literally cannot put on the set.
+ *
+ * Keep entries narrow and well-sourced — wrong entries here block legal
+ * builds. Add as users report hallucinated moves. Matching is
+ * case-insensitive and whitespace-tolerant.
+ */
+export const CHAMPIONS_UNAVAILABLE_MOVES: Record<string, string[]> = {
+  // Incineroar: Knock Off was cut — not in Incineroar's Champions
+  // movepool (reported 2026-04-23). Fake Out, Flare Blitz, Parting
+  // Shot, Darkest Lariat, Throat Chop are the common replacements.
+  Incineroar: ["Knock Off"],
+};
+
+/**
+ * Case-insensitive lookup for CHAMPIONS_UNAVAILABLE_MOVES.
+ * Returns the canonical-cased blocked list for a species (empty if none).
+ */
+export function getUnavailableMovesFor(species: string): string[] {
+  const base = species
+    .replace(/-Mega(-[XY])?$/i, "")
+    .trim();
+  const direct = CHAMPIONS_UNAVAILABLE_MOVES[base];
+  if (direct) return direct;
+  const ci = Object.entries(CHAMPIONS_UNAVAILABLE_MOVES).find(
+    ([k]) => k.toLowerCase() === base.toLowerCase(),
+  );
+  return ci ? ci[1] : [];
+}
+
+/**
+ * Returns true if `move` is explicitly blocked for `species` in Champions.
+ * Case/whitespace-insensitive.
+ */
+export function isMoveBlockedForSpecies(
+  species: string,
+  move: string,
+): boolean {
+  const blocked = getUnavailableMovesFor(species);
+  const needle = move.trim().toLowerCase();
+  return blocked.some((m) => m.toLowerCase() === needle);
+}
 
 // ---------------------------------------------------------------------------
 // Mega Evolutions
@@ -307,6 +391,9 @@ export const NO_MEGA_DESPITE_BASE: string[] = [];
 // ---------------------------------------------------------------------------
 
 const CHAMPIONS_SPECIES_ALIASES: Record<string, string> = {
+  "floette": "floette-eternal",
+  "eternal floette": "floette-eternal",
+  "eternal flower floette": "floette-eternal",
   "meowstic-female": "meowstic-f",
   "basculegion-female": "basculegion-f",
   "gourgeist-jumbo": "gourgeist-super",

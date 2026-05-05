@@ -25,6 +25,7 @@ describe("Champions mega helpers", () => {
     expect(getMegaFormFor("Floette-Eternal", "Floettite")).toBe(
       "Floette-Mega",
     );
+    expect(isChampionsPokemon("Floette")).toBe(true);
     expect(getMegaFormFor("Meowstic-F", "Meowsticite")).toBe(
       "Meowstic-F-Mega",
     );

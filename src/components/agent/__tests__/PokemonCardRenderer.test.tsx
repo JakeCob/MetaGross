@@ -496,4 +496,85 @@ Moves: Hyper Voice / Moonblast / Calm Mind / Protect`;
       ]),
     );
   });
+
+  it("dedupes identical Pokemon cards when the agent emits a team twice", () => {
+    // User-reported bug: agent wrote the same 3-mon team in two
+    // sections of the reply, so every card rendered twice. Dedupe
+    // by (name + item + moves) should collapse the repeats.
+    const doubledTeam = `## Team summary
+
+### Conkeldurr
+- **Item**: Leftovers
+- **Ability**: Guts
+- **Moves**: Drain Punch / Facade / Mach Punch / Protect
+
+### Mimikyu
+- **Item**: Mental Herb
+- **Ability**: Disguise
+- **Moves**: Trick Room / Will-O-Wisp / Play Rough / Protect
+
+## Full breakdown
+
+### Conkeldurr
+- **Item**: Leftovers
+- **Ability**: Guts
+- **Moves**: Drain Punch / Facade / Mach Punch / Protect
+
+### Mimikyu
+- **Item**: Mental Herb
+- **Ability**: Disguise
+- **Moves**: Trick Room / Will-O-Wisp / Play Rough / Protect`;
+
+    render(<PokemonCardRenderer content={doubledTeam} />);
+    const sprites = screen.getAllByTestId("sprite");
+    // 2 unique Pokemon → 2 sprites despite appearing twice in the markdown.
+    expect(sprites.length).toBe(2);
+    const species = sprites.map((s) => s.getAttribute("data-species"));
+    expect(species).toContain("Conkeldurr");
+    expect(species).toContain("Mimikyu");
+  });
+
+  it("strips em-dash rationale from item/ability/nature so saves use clean values", () => {
+    const content = `### Scovillain
+- **Role**: Post-Mega burn wall
+- **Ability**: Spicy Spray — post-Mega swap from Chlorophyll; punishes every contact
+- **Item**: Scovillainite — mandatory for Mega evolution and the team's late-game damage plan
+- **Nature**: Calm — boost SpD for the burn wall role
+- **Moves**: Overheat / Leech Seed / Rage Powder / Protect
+- **Points**: HP 32 / Atk 0 / Def 24 / SpA 0 / SpD 10 / Spe 0`;
+
+    const { container } = render(<PokemonCardRenderer content={content} />);
+    // The Item row should only show the clean "Scovillainite" (inside the
+    // item's Badge/display). The rationale tail should be gone.
+    expect(container.textContent).toContain("Scovillainite");
+    expect(container.textContent).not.toContain("mandatory for Mega evolution");
+    // Same for ability and nature — no trailing reasoning in the card.
+    expect(container.textContent).toContain("Spicy Spray");
+    expect(container.textContent).not.toContain("post-Mega swap from Chlorophyll");
+    expect(container.textContent).toContain("Calm");
+    expect(container.textContent).not.toContain("boost SpD for the burn wall");
+  });
+
+  it("dedupes identical research team cards when the same team appears twice", () => {
+    const doubledResearch = `## Teams
+
+### Wolfe Glick — Spicy Spray Burn Wall
+- **Source**: search_meta_teams
+- **URL**: https://www.youtube.com/watch?v=nADGfhosH70
+- **Team**: Scovillain / Primarina / Sneasler / Kingambit / Aerodactyl / Garchomp
+- **Core tech**: Centerpiece is Scovillain + Primarina.
+
+## Repeated
+
+### Wolfe Glick — Spicy Spray Burn Wall
+- **Source**: search_meta_teams
+- **URL**: https://www.youtube.com/watch?v=nADGfhosH70
+- **Team**: Scovillain / Primarina / Sneasler / Kingambit / Aerodactyl / Garchomp
+- **Core tech**: Centerpiece is Scovillain + Primarina.`;
+
+    render(<PokemonCardRenderer content={doubledResearch} />);
+    const sprites = screen.getAllByTestId("sprite");
+    // Only one team, not two — dedupe should collapse the repeat.
+    expect(sprites.length).toBe(6);
+  });
 });

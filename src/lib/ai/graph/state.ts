@@ -23,6 +23,19 @@ export const AgentState = Annotation.Root({
     default: () => [],
   }),
   pendingAction: Annotation<WriteActionProposal | null>(),
+
+  /**
+   * Memories the extract_memory node persisted on THIS turn. Surfaced
+   * in the SSE stream as a `memory_saved` event so the UI can show a
+   * confirmation toast. Cleared at the start of every new turn —
+   * default empty so a stale value never leaks across turns.
+   */
+  extractedMemoriesThisTurn: Annotation<
+    Array<{ summary: string; kind: string; merged: boolean }>
+  >({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
   /**
    * Counter for the response-verifier → agent correction loop.
    * Capped at 1 retry — if the agent still hallucinates after one
@@ -44,6 +57,29 @@ export const AgentState = Annotation.Root({
     default: () => null,
   }),
   modelOverride: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+  /**
+   * Live draft team from the TeamBuilder UI. Lets the agent see the
+   * team the user is actively editing (which may not be saved yet) so
+   * edit requests can patch it instead of generating a new team.
+   */
+  draftTeam: Annotation<{
+    name?: string;
+    format?: string;
+    pokemon?: Array<{
+      species?: string;
+      ability?: string;
+      item?: string;
+      nature?: string;
+      moves?: string[];
+      evs?: Record<string, number>;
+      ivs?: Record<string, number>;
+      level?: number;
+      teraType?: string;
+    }>;
+  } | null>({
     reducer: (_prev, next) => next,
     default: () => null,
   }),

@@ -17,7 +17,7 @@ export interface AgentLogEntry {
   node?: string;
   model: string;
   provider: string;
-  action: "llm_call" | "tool_call" | "tool_result" | "validation" | "error" | "start" | "end";
+  action: "llm_call" | "tool_call" | "tool_result" | "validation" | "error" | "start" | "end" | "memory_extraction";
   inputTokens?: number;
   outputTokens?: number;
   costUsd?: number;

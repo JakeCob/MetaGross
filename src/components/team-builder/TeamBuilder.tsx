@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,11 +97,24 @@ function emptyPokemon(): Partial<TeamPokemon> {
   };
 }
 
+export interface CurrentTeamSnapshot {
+  name: string;
+  format: string;
+  pokemon: Partial<TeamPokemon>[];
+}
+
 export interface TeamBuilderProps {
   teamId?: string;
   initialSpecies?: string[];
   initialName?: string;
   onAddFromAgent?: (addFn: (pokemon: Partial<TeamPokemon>) => void) => void;
+  onReplaceFromAgent?: (
+    replaceFn: (pokemon: Partial<TeamPokemon>[]) => void,
+  ) => void;
+  /** Exposes a live getter so the parent can read the current draft
+   *  team state at any time (e.g. to attach it to an /api/agent POST
+   *  so the agent can patch it instead of generating a new one). */
+  onCurrentTeamRef?: (getFn: () => CurrentTeamSnapshot) => void;
 }
 
 export function TeamBuilder({
@@ -109,6 +122,8 @@ export function TeamBuilder({
   initialSpecies,
   initialName,
   onAddFromAgent,
+  onReplaceFromAgent,
+  onCurrentTeamRef,
 }: TeamBuilderProps) {
   const router = useRouter();
   const isEditing = Boolean(teamId);
@@ -147,6 +162,26 @@ export function TeamBuilder({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep a ref to the latest draft so the getCurrentTeam snapshot the
+  // parent calls always sees fresh state, not a stale closure value.
+  const latestRef = useRef({ pokemon, teamName, format });
+  useEffect(() => {
+    latestRef.current = { pokemon, teamName, format };
+  }, [pokemon, teamName, format]);
+
+  // Publish a getter the parent can invoke at any time to read the
+  // current draft team. This is how the AgentPanel attaches a
+  // `draftTeam` to its /api/agent POST so the agent can see the team
+  // the user is actively editing.
+  useEffect(() => {
+    if (!onCurrentTeamRef) return;
+    onCurrentTeamRef(() => ({
+      name: latestRef.current.teamName,
+      format: latestRef.current.format,
+      pokemon: latestRef.current.pokemon,
+    }));
+  }, [onCurrentTeamRef]);
+
   // Register the add-from-agent callback
   useEffect(() => {
     if (onAddFromAgent) {
@@ -154,13 +189,40 @@ export function TeamBuilder({
         setPokemon((prev) => {
           const next = [...prev];
           const emptyIdx = next.findIndex((p) => !p.species?.trim());
-          if (emptyIdx === -1) return next; // no empty slots
+          if (emptyIdx === -1) {
+            // No empty slot — overwrite the last slot so the add never
+            // silently fails. "+ Add All N to Team" uses
+            // onReplaceFromAgent for a cleaner bulk path.
+            next[next.length - 1] = { ...emptyPokemon(), ...newPokemon };
+            return next;
+          }
           next[emptyIdx] = { ...emptyPokemon(), ...newPokemon };
           return next;
         });
       });
     }
   }, [onAddFromAgent]);
+
+  // Register the replace-from-agent callback — used by "+ Add All 6".
+  // This wholesale-replaces the 6 slots with the agent's team so the
+  // user never has to clear the builder by hand before applying a new
+  // suggestion.
+  useEffect(() => {
+    if (onReplaceFromAgent) {
+      onReplaceFromAgent((newTeam: Partial<TeamPokemon>[]) => {
+        setPokemon(() => {
+          const slots: Partial<TeamPokemon>[] = Array.from(
+            { length: 6 },
+            () => emptyPokemon(),
+          );
+          for (let i = 0; i < Math.min(newTeam.length, 6); i++) {
+            slots[i] = { ...emptyPokemon(), ...newTeam[i] };
+          }
+          return slots;
+        });
+      });
+    }
+  }, [onReplaceFromAgent]);
 
   // Load existing team data when editing
   useEffect(() => {
@@ -293,6 +355,91 @@ export function TeamBuilder({
     .map((p) => p.species!.trim());
   const hasEmptySlots = pokemon.some((p) => !p.species?.trim());
 
+  const [exportFeedback, setExportFeedback] = useState<string | null>(null);
+
+  /**
+   * Serialise the current team to Showdown pokepaste format and copy it
+   * to the clipboard. We format it inline because @pkmn/sets is server-
+   * only and this doesn't need a round-trip for such a small string.
+   */
+  const handleExportPokepaste = useCallback(async () => {
+    const filled = pokemon.filter((p) => p.species && p.species.trim());
+    if (filled.length === 0) {
+      setExportFeedback("Team is empty — nothing to export.");
+      setTimeout(() => setExportFeedback(null), 2500);
+      return;
+    }
+
+    const statOrder: Array<[keyof NonNullable<TeamPokemon["evs"]>, string]> = [
+      ["hp", "HP"],
+      ["atk", "Atk"],
+      ["def", "Def"],
+      ["spa", "SpA"],
+      ["spd", "SpD"],
+      ["spe", "Spe"],
+    ];
+
+    const blocks = filled.map((p) => {
+      const lines: string[] = [];
+      const header = p.item
+        ? `${p.species} @ ${p.item}`
+        : (p.species ?? "");
+      lines.push(header);
+      if (p.ability) lines.push(`Ability: ${p.ability}`);
+      lines.push(`Level: ${p.level ?? 50}`);
+      if (p.teraType) lines.push(`Tera Type: ${p.teraType}`);
+
+      const evParts: string[] = [];
+      for (const [key, label] of statOrder) {
+        const v = p.evs?.[key];
+        if (v && v > 0) evParts.push(`${v} ${label}`);
+      }
+      if (evParts.length > 0) lines.push(`EVs: ${evParts.join(" / ")}`);
+
+      if (p.nature) lines.push(`${p.nature} Nature`);
+
+      const ivParts: string[] = [];
+      for (const [key, label] of statOrder) {
+        const v = p.ivs?.[key];
+        if (v !== undefined && v !== 31) ivParts.push(`${v} ${label}`);
+      }
+      if (ivParts.length > 0) lines.push(`IVs: ${ivParts.join(" / ")}`);
+
+      for (const m of p.moves ?? []) {
+        if (m && m.trim()) lines.push(`- ${m.trim()}`);
+      }
+      return lines.join("\n");
+    });
+
+    // Drop the `=== [format] Name ===` header — Showdown's paste
+    // importer rejects any team whose format tag isn't a known
+    // Showdown format id (e.g. gen9vgc2025regg). "Champions Reg M-A"
+    // isn't recognised, so the whole paste fails silently. Emitting
+    // just the per-Pokemon blocks imports cleanly on Showdown and
+    // pokepaste.es alike.
+    const paste = blocks.join("\n\n");
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(paste);
+        setExportFeedback("Pokepaste copied to clipboard");
+      } else {
+        // Fallback for non-secure contexts.
+        const ta = document.createElement("textarea");
+        ta.value = paste;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        setExportFeedback("Pokepaste copied (legacy fallback)");
+      }
+    } catch (err) {
+      console.error("[TeamBuilder] copy failed", err);
+      setExportFeedback("Copy failed — see console");
+    }
+    setTimeout(() => setExportFeedback(null), 3000);
+  }, [pokemon, teamName, format]);
+
   const handleSave = useCallback(async () => {
     setErrors([]);
 
@@ -392,9 +539,18 @@ export function TeamBuilder({
         return;
       }
 
-      // Navigate to team detail page on success
+      // After save, land on the EDIT view (not the read-only detail
+      // page). This keeps the Agent panel live with a real contextId
+      // so get_team and propose_pokemon_patch work against the team
+      // the user just saved. The old redirect to /teams/[id] dropped
+      // the agent panel entirely.
       const savedId = data.team?.id ?? teamId;
-      router.push(`/teams/${savedId}`);
+      if (isEditing) {
+        // Already on the edit page — just refresh state.
+        router.refresh();
+      } else {
+        router.push(`/teams/${savedId}/edit`);
+      }
     } catch (err) {
       setErrors([
         err instanceof Error ? err.message : "Failed to save team",
@@ -564,6 +720,13 @@ export function TeamBuilder({
         >
           Import Paste
         </Button>
+        <Button
+          variant="outline"
+          onClick={handleExportPokepaste}
+          title="Copy the team as a Showdown-compatible pokepaste"
+        >
+          Export Pokepaste
+        </Button>
         <Button onClick={handleSave} disabled={saving}>
           {saving
             ? "Saving..."
@@ -571,6 +734,11 @@ export function TeamBuilder({
               ? "Update Team"
               : "Save Team"}
         </Button>
+        {exportFeedback && (
+          <span className="self-center text-xs text-muted-foreground">
+            {exportFeedback}
+          </span>
+        )}
         <Button
           variant="outline"
           onClick={() => router.push("/teams")}

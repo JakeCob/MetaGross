@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { getThread } from "@/lib/db/queries/agent-threads";
+import {
+  getThread,
+  deleteThread,
+  updateThread,
+} from "@/lib/db/queries/agent-threads";
 import { getThreadState, getThreadInterrupts } from "@/lib/ai/graph";
 import type { BaseMessage } from "@langchain/core/messages";
 
@@ -64,4 +68,43 @@ export async function GET(_request: Request, { params }: RouteParams) {
       pendingApproval: null,
     });
   }
+}
+
+/**
+ * PATCH /api/agent/[threadId]
+ *
+ * Rename a thread (and/or change its persona). Checkpointer state is
+ * untouched — only the row in agent_threads changes.
+ */
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const { threadId } = await params;
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Invalid body" }, { status: 400 });
+  }
+  const { title, persona } = body as { title?: string; persona?: string };
+  const updated = updateThread(threadId, {
+    ...(typeof title === "string" ? { title } : {}),
+    ...(typeof persona === "string" ? { persona } : {}),
+  });
+  if (!updated) {
+    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+  }
+  return NextResponse.json({ thread: updated });
+}
+
+/**
+ * DELETE /api/agent/[threadId]
+ *
+ * Remove the thread row. The LangGraph checkpoint stays on disk (cheap
+ * to leave — it's a keyed blob) but becomes orphaned and will be
+ * garbage-collected the next time we prune.
+ */
+export async function DELETE(_request: Request, { params }: RouteParams) {
+  const { threadId } = await params;
+  const ok = deleteThread(threadId);
+  if (!ok) {
+    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true });
 }

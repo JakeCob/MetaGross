@@ -8,7 +8,7 @@ export default async function EditTeamPage({
   const { id } = await params;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-8">
+    <div className="mx-auto max-w-[1400px] px-4 py-6 sm:py-8">
       <TeamBuilderWithAgent teamId={id} />
     </div>
   );

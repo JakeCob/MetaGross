@@ -130,10 +130,22 @@ export interface AgentMemory {
 export interface WriteActionProposal {
   actionType: 'update_match_notes' | 'update_team_notes' | 'create_team_variant' | 'patch_team_pokemon';
   description: string; // human-readable summary
-  payload: unknown;    // structured data for the write
+  payload:
+    | unknown
+    | PokemonPatchPayload;    // structured data for the write
 }
 
 // Chat message for UI
+export interface AgentMessageAttachment {
+  /** Original filename — surfaced in the bubble as alt text. */
+  name: string;
+  /** MIME type — used to format multimodal content blocks per provider. */
+  mimeType: string;
+  /** `data:image/png;base64,…` URL. Stored as-is on the client; on the
+   *  server we transform to provider-native formats. */
+  dataUrl: string;
+}
+
 export interface AgentChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'tool';
@@ -141,4 +153,8 @@ export interface AgentChatMessage {
   toolCalls?: { name: string; args: unknown; result?: unknown }[];
   pendingApproval?: WriteActionProposal;
   timestamp: number;
+  /** Image attachments included with this user turn (only on user
+   *  messages — assistant responses are text-only for now). */
+  attachments?: AgentMessageAttachment[];
 }
+import type { PokemonPatchPayload } from "@/lib/ai/graph/team-patch";

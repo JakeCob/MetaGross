@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function ChampionsPage() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
       <ChampionsRoster />
     </div>
   );

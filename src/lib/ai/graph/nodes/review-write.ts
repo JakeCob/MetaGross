@@ -1,9 +1,17 @@
 import { interrupt } from "@langchain/langgraph";
-import { AIMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import type { AgentStateType, AgentStateUpdate } from "../state";
 import type { WriteActionProposal } from "@/lib/types/agent";
 import { updateMatch } from "@/lib/db/queries/matches";
-import { updateTeam } from "@/lib/db/queries/teams";
+import { getTeamById, updateTeam } from "@/lib/db/queries/teams";
+import {
+  applyPokemonPatchToTeam,
+  type PokemonPatchPayload,
+} from "../team-patch";
+import {
+  getLatestUserMessageText,
+  isTentativeTeamEditSuggestion,
+} from "../edit-intent";
 
 interface ResumeDecision {
   action: "approve" | "reject" | "edit";
@@ -41,8 +49,20 @@ async function executeWriteAction(
     }
 
     case "patch_team_pokemon": {
-      const data = payload as { teamId: string; pokemon: unknown[] };
-      const result = updateTeam(data.teamId, { pokemon: data.pokemon as never });
+      const data = payload as PokemonPatchPayload;
+
+      // Unsaved draft-team patches are applied locally in the TeamBuilder
+      // UI after approval. The graph still needs a success message so the
+      // interruption completes cleanly.
+      if (!data.teamId) {
+        return `Draft team patch approved.`;
+      }
+
+      const currentTeam = getTeamById(data.teamId);
+      if (!currentTeam) return "Failed to patch team — team not found.";
+
+      const nextPokemon = applyPokemonPatchToTeam(currentTeam.pokemon, data);
+      const result = updateTeam(data.teamId, { pokemon: nextPokemon });
       if (!result) return "Failed to patch team — team not found.";
       return `Team pokemon updated successfully.`;
     }
@@ -67,6 +87,20 @@ export async function reviewWriteNode(
 
   if (!proposal) {
     return { pendingAction: null };
+  }
+
+  if (proposal.actionType === "patch_team_pokemon") {
+    const latestUserMessage = getLatestUserMessageText(state.messages);
+    if (isTentativeTeamEditSuggestion(latestUserMessage)) {
+      return {
+        pendingAction: null,
+        messages: [
+          new HumanMessage(
+            "[VERIFIER] The user's latest message floated a possible team change as an option under discussion, not a clear instruction to apply it. Do NOT call propose_pokemon_patch on this turn. Answer the analysis first, explain the tradeoffs, and wait for an explicit apply request before opening an approval card.",
+          ),
+        ],
+      };
+    }
   }
 
   // Interrupt execution — the proposal is sent to the client.

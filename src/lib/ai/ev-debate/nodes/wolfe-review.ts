@@ -3,6 +3,10 @@ import { createModel, detectProvider } from "@/lib/ai/graph/model";
 import { AGENT_PERSONAS } from "@/lib/types/agent";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { CHAMPIONS_POINTS } from "@/lib/data/champions";
+import {
+  getReferenceSetsForSpecies,
+  formatReferenceSetsBlock,
+} from "@/lib/meta-teams/species-sets";
 
 /**
  * Node: Wolfe Glick reviews the current spread from an aggressive/creative
@@ -54,6 +58,9 @@ export async function wolfeReviewNode(
 
   const systemPrompt = `${persona.systemPromptAddition} You are reviewing the WHOLE set — Ability, Item, Moves, Nature, and ${isChampions ? "stat points" : "EVs"} — not just the numbers. Keep it to 3-5 sentences. Focus on speed tiers, offensive benchmarks${isChampions ? " against Champions Reg M-A threats" : ""}, role coherence (the Nature must match move categories), teammate synergy, and creative adjustments. If an ability, item, or move choice is wrong for the role, say so explicitly.`;
 
+  const referenceSets = getReferenceSetsForSpecies(pokemon.species, format, 6);
+  const referenceBlock = formatReferenceSetsBlock(referenceSets);
+
   const userPrompt = `Review this full set for ${pokemon.species}:
   Ability: ${currentAbility || pokemon.ability}
   Item:    ${currentItem || pokemon.item}
@@ -68,7 +75,14 @@ Teammates on the team:
 Fresh benchmark simulation vs the format's top meta threats:
 ${simSnapshot || "(no sim data)"}
 
-What would you keep or change — across Ability, Item, Moves, Nature, and the spread — and why? Cite specific benchmarks from the sim and call out teammate overlap/synergy. Flag any clear mismatch (e.g., Adamant on a fully-special set, Focus Sash on a Mega-evolving Pokemon).`;
+VERIFIED TOURNAMENT/CREATOR REFERENCE SETS for ${pokemon.species}:
+${referenceBlock}
+
+What would you keep or change — across Ability, Item, Moves, Nature, and the spread — and why? Compare the proposed set to the reference sets above:
+- If the proposed Move/Item/Ability appears in 2+ reference sets, it's likely correct.
+- If a move ISN'T in any reference set, call it out as suspicious and suggest a replacement that IS in the references.
+- Cite specific benchmarks from the sim and teammate overlap/synergy.
+- Flag any clear mismatch (Adamant on a fully-special set, Focus Sash on a Mega-evolving Pokemon, etc.).`;
 
   const response = await model.invoke([
     new SystemMessage(systemPrompt),

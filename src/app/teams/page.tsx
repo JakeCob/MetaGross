@@ -4,14 +4,14 @@ import { TeamList } from "@/components/team-builder/TeamList";
 
 export default function TeamsPage() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Teams</h1>
-          <p className="mt-1 text-muted-foreground">Manage and build your VGC teams.</p>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">My Teams</h1>
+          <p className="mt-1 text-sm text-muted-foreground sm:text-base">Manage and build your VGC teams.</p>
         </div>
-        <Link href="/teams/new">
-          <Button>+ New Team</Button>
+        <Link href="/teams/new" className="sm:self-auto">
+          <Button className="w-full sm:w-auto">+ New Team</Button>
         </Link>
       </div>
 

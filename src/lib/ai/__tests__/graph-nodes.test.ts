@@ -2,6 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import type { AgentStateType } from "../graph/state";
 
+// Server-only modules and the embeddings util must be mocked so the
+// retrieve-memory node — which imports them via src/lib/ai/embeddings —
+// can load in a jsdom test environment.
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/ai/embeddings", () => ({
+  embed: vi.fn(async () => null),
+  cosine: vi.fn(() => 0),
+  keywordScore: vi.fn(() => 0),
+  EMBEDDING_MODEL: "text-embedding-3-small",
+  EMBEDDING_DIMS: 1536,
+}));
+
 // Mock DB queries
 vi.mock("@/lib/db/queries/matches", () => ({
   getMatchById: vi.fn(),
@@ -15,6 +27,7 @@ vi.mock("@/lib/db/queries/teams", () => ({
 
 vi.mock("@/lib/db/queries/agent-memories", () => ({
   getMemoriesByScope: vi.fn(() => []),
+  searchRelevantMemories: vi.fn(() => []),
 }));
 
 import { getMatchById } from "@/lib/db/queries/matches";
@@ -34,6 +47,8 @@ function createMockState(overrides?: Partial<AgentStateType>): AgentStateType {
     verificationRetries: 0,
     providerOverride: null,
     modelOverride: null,
+    draftTeam: null,
+    extractedMemoriesThisTurn: [],
     ...overrides,
   };
 }
@@ -148,12 +163,12 @@ describe("retrieveMemoryNode", () => {
     vi.mocked(getMemoriesByScope).mockImplementation((scope, scopeRef) => {
       if (scope === "global") {
         return [
-          { id: "m1", scope: "global", scopeRef: null, kind: "preference", summary: "Prefers aggressive play", content: "", confidence: 0.8, sourceFeedbackId: null, createdAt: 0, updatedAt: 0 },
+          { id: "m1", scope: "global", scopeRef: null, kind: "preference", summary: "Prefers aggressive play", content: "", confidence: 0.8, sourceFeedbackId: null, sourceThreadId: null, embedding: null, embeddingModel: null, createdAt: 0, updatedAt: 0 },
         ];
       }
       if (scope === "thread" && scopeRef === "test-thread-1") {
         return [
-          { id: "m2", scope: "thread", scopeRef: "test-thread-1", kind: "correction", summary: "Speed calc was wrong for Zacian", content: "", confidence: 0.9, sourceFeedbackId: null, createdAt: 0, updatedAt: 0 },
+          { id: "m2", scope: "thread", scopeRef: "test-thread-1", kind: "correction", summary: "Speed calc was wrong for Zacian", content: "", confidence: 0.9, sourceFeedbackId: null, sourceThreadId: null, embedding: null, embeddingModel: null, createdAt: 0, updatedAt: 0 },
         ];
       }
       return [];
@@ -174,7 +189,7 @@ describe("retrieveMemoryNode", () => {
     vi.mocked(getMemoriesByScope).mockImplementation((scope, scopeRef) => {
       if (scope === "team" && scopeRef === "team-1") {
         return [
-          { id: "m3", scope: "team", scopeRef: "team-1", kind: "team_style", summary: "This team is weak to Trick Room", content: "", confidence: 0.7, sourceFeedbackId: null, createdAt: 0, updatedAt: 0 },
+          { id: "m3", scope: "team", scopeRef: "team-1", kind: "team_style", summary: "This team is weak to Trick Room", content: "", confidence: 0.7, sourceFeedbackId: null, sourceThreadId: null, embedding: null, embeddingModel: null, createdAt: 0, updatedAt: 0 },
         ];
       }
       return [];

@@ -9,6 +9,7 @@ const SOURCE_LABEL: Record<MetaTeam["source"], string> = {
   reddit: "Reddit",
   user: "Community",
   creator: "Creator",
+  vgcpastes: "VGCPastes",
 };
 
 const SOURCE_VARIANT: Record<
@@ -21,6 +22,7 @@ const SOURCE_VARIANT: Record<
   reddit: "warning",
   user: "outline",
   creator: "success",
+  vgcpastes: "info",
 };
 
 /** Compact card showing a known meta team. Used on match lists, browse, etc. */

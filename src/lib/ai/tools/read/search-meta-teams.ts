@@ -56,10 +56,30 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
       .optional()
       .default(8)
       .describe("Max rows to return."),
+    maxPerTournament: z
+      .number()
+      .int()
+      .min(1)
+      .max(16)
+      .optional()
+      .default(2)
+      .describe(
+        "mode=list: cap how many teams come from the same Limitless tournament. Defaults to 2 so one event can't flood the result.",
+      ),
   }),
-  func: async ({ mode, author, species, source, archetype, format, limit }) => {
+  func: async ({
+    mode,
+    author,
+    species,
+    source,
+    archetype,
+    format,
+    limit,
+    maxPerTournament,
+  }) => {
     const fmt = format ?? "champions-reg-m-a";
     const cap = limit ?? 8;
+    const perTournamentCap = maxPerTournament ?? 2;
 
     if (mode === "byAuthor") {
       const needle = (author ?? "").trim().toLowerCase();
@@ -155,7 +175,10 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
     }
 
     // mode === "list"
-    const rows = listMetaTeams(fmt, cap * 3); // over-fetch then filter
+    // Over-fetch aggressively so the per-tournament cap has room to
+    // bring in entries from older events. The DB is small so this is
+    // still cheap.
+    const rows = listMetaTeams(fmt, Math.max(cap * 10, 80));
     const filtered = rows.filter((row) => {
       if (source && row.source !== source) return false;
       if (archetype) {
@@ -164,8 +187,30 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
       }
       return true;
     });
+
+    // Diversify by tournament (source_ref prefix = Limitless tournament
+    // id). Without this, all standings from the newest tournament
+    // monopolize the response because listMetaTeams orders by seenAt
+    // desc. Creator entries and non-limitless sources use a null /
+    // unique key so they never get deduped against each other.
+    const tournamentCounts = new Map<string, number>();
+    const diversified: typeof filtered = [];
+    for (const row of filtered) {
+      let bucket: string;
+      if (row.source === "limitless" && row.sourceRef) {
+        bucket = row.sourceRef.split("::")[0] ?? row.sourceRef;
+      } else {
+        bucket = `${row.source}:${row.id ?? row.sourceRef ?? Math.random()}`;
+      }
+      const soFar = tournamentCounts.get(bucket) ?? 0;
+      if (soFar >= perTournamentCap) continue;
+      tournamentCounts.set(bucket, soFar + 1);
+      diversified.push(row);
+      if (diversified.length >= cap) break;
+    }
+
     return JSON.stringify({
-      teams: filtered.slice(0, cap).map((row) => ({
+      teams: diversified.map((row) => ({
         source: row.source,
         author: row.author,
         record: row.record,
@@ -176,8 +221,11 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
         pokemon: row.pokemon,
       })),
       totalAfterFilter: filtered.length,
+      tournamentsRepresented: tournamentCounts.size,
       nextStep:
-        "When you cite a team, COPY the pokemon[] field VERBATIM — ability, item, moves, nature, teraType. Do NOT substitute training-data defaults. Attribute using author + record.",
+        "Results are diversified across tournaments (max " +
+        perTournamentCap +
+        " teams/event) so you see real meta breadth, not one event's top 8. When you cite a team, COPY the pokemon[] field VERBATIM — ability, item, moves, nature, teraType. Attribute using author + record.",
     });
   },
 });

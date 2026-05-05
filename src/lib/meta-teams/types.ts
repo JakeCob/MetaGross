@@ -10,7 +10,8 @@ export type MetaTeamSource =
   | "smogon"
   | "reddit"
   | "user"
-  | "creator";
+  | "creator"
+  | "vgcpastes";
 
 export interface MetaTeamPokemon {
   species: string;

@@ -1,11 +1,12 @@
 import { aggregateFromPikalytics } from "@/lib/meta-teams/aggregator-pikalytics";
 import { aggregateFromLimitless } from "@/lib/meta-teams/aggregator-limitless";
 import { aggregateFromCreators } from "@/lib/meta-teams/aggregator-creators";
+import { aggregateFromVgcPastes } from "@/lib/meta-teams/aggregator-vgcpastes";
 
 export const runtime = "nodejs";
-export const maxDuration = 180;
+export const maxDuration = 300;
 
-type Source = "all" | "limitless" | "pikalytics" | "creators";
+type Source = "all" | "limitless" | "pikalytics" | "creators" | "vgcpastes";
 
 /**
  * POST /api/meta-teams/aggregate
@@ -26,9 +27,16 @@ export async function POST(request: Request) {
     const source: Source =
       body?.source === "limitless" ||
       body?.source === "pikalytics" ||
-      body?.source === "creators"
+      body?.source === "creators" ||
+      body?.source === "vgcpastes"
         ? body.source
         : "all";
+    const vgcPastesLimit: number | undefined =
+      typeof body?.vgcPastesLimit === "number" ? body.vgcPastesLimit : undefined;
+    const vgcPastesMaxAgeDays: number | undefined =
+      typeof body?.vgcPastesMaxAgeDays === "number"
+        ? body.vgcPastesMaxAgeDays
+        : undefined;
     const format: string | undefined = body?.format;
     const internalFormat: string | undefined = body?.internalFormat;
     const topN: number | undefined =
@@ -62,6 +70,14 @@ export async function POST(request: Request) {
         format,
         internalFormat,
         topN,
+      });
+    }
+
+    if (source === "vgcpastes" || source === "all") {
+      output.vgcpastes = await aggregateFromVgcPastes({
+        internalFormat,
+        limit: vgcPastesLimit,
+        maxAgeDays: vgcPastesMaxAgeDays,
       });
     }
 

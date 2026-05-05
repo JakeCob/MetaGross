@@ -319,11 +319,24 @@ export const agentMemories = sqliteTable(
     sourceFeedbackId: text('source_feedback_id').references(
       (): AnySQLiteColumn => agentFeedbackEvents.id,
     ),
+    // Thread this memory was extracted from — used by retrieval to
+    // show provenance ("remembered from chat 'Build my sun team'").
+    sourceThreadId: text('source_thread_id').references(
+      (): AnySQLiteColumn => agentThreads.id,
+    ),
+    // Float32 embedding vector serialised as JSON. Stored as text so we
+    // don't need the sqlite-vec extension. We cosine-compare in-memory
+    // at retrieval time — fine for the small row counts we expect.
+    embedding: text('embedding', { mode: 'json' }),
+    // Dimensions of the stored vector. Lets retrieval skip rows whose
+    // embedding came from a different model than the query.
+    embeddingModel: text('embedding_model'),
     createdAt: integer('created_at').$defaultFn(() => Date.now()),
     updatedAt: integer('updated_at').$defaultFn(() => Date.now()),
   },
   (table) => [
     index('agent_memories_scope_kind_idx').on(table.scope, table.kind),
+    index('agent_memories_source_thread_idx').on(table.sourceThreadId),
   ],
 );
 

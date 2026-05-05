@@ -58,8 +58,13 @@ export function AgentMessageList({
 
   if (messages.length === 0 && !isStreaming) {
     const chips = starterSuggestions ?? [];
+    // `min-h-0` is critical inside a flex-col parent — without it the
+    // empty state grows past the available height and the composer
+    // falls below the viewport (the iPhone SE bug). `overflow-y-auto`
+    // lets the starter chips scroll instead of pushing the composer
+    // off-screen.
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-10 text-center">
+      <div className="flex flex-1 min-h-0 flex-col items-center gap-4 overflow-y-auto px-4 py-6 text-center sm:py-10">
         <BotIcon className="size-10 text-muted-foreground/50" />
         <div>
           <p className="text-sm font-medium text-foreground">Ask MetaGross</p>
@@ -89,13 +94,26 @@ export function AgentMessageList({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+    <div className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4">
       {messages.map((msg) => (
         <div key={msg.id}>
           {msg.role === "user" && (
             <div className="flex justify-end">
               <div className="flex items-end gap-2 max-w-[80%]">
                 <div className="rounded-2xl rounded-br-md bg-primary px-3 py-2 text-sm text-primary-foreground">
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-1.5">
+                      {msg.attachments.map((a, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={`${msg.id}-att-${i}`}
+                          src={a.dataUrl}
+                          alt={a.name}
+                          className="h-20 w-20 rounded object-cover ring-1 ring-primary-foreground/20"
+                        />
+                      ))}
+                    </div>
+                  )}
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                   <p className="mt-1 text-[10px] opacity-70">
                     {formatTime(msg.timestamp)}

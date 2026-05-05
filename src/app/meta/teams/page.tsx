@@ -18,7 +18,7 @@ export default function MetaTeamsPage() {
   const counts = countMetaTeams(format);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 flex flex-col gap-6">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8 flex flex-col gap-6">
       <header className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Meta Teams</h1>

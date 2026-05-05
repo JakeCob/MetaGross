@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TeamBuilderWithAgent } from "@/components/team-builder/TeamBuilderWithAgent";
 import { getTeamById } from "@/lib/db/queries/teams";
 import { getSpecies } from "@/lib/pokemon/species";
 import { calcStat } from "@/lib/pokemon/stats";
@@ -63,6 +64,15 @@ export default async function TeamDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  if (id === "new") {
+    return (
+      <div className="mx-auto max-w-[1400px] px-4 py-6 sm:py-8">
+        <TeamBuilderWithAgent />
+      </div>
+    );
+  }
+
   const team = getTeamById(id);
 
   if (!team) {
@@ -70,11 +80,11 @@ export default async function TeamDetailPage({
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">{team.name}</h1>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{team.name}</h1>
             {team.format && (
               <Badge variant="info">{team.format}</Badge>
             )}
@@ -82,7 +92,7 @@ export default async function TeamDetailPage({
               <Badge variant="success">Active</Badge>
             )}
           </div>
-          <p className="mt-1 text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground sm:text-base">
             {team.pokemon.length} Pokemon &middot; Created{" "}
             {team.createdAt
               ? new Date(team.createdAt).toLocaleDateString()
@@ -90,11 +100,11 @@ export default async function TeamDetailPage({
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/teams">
-            <Button variant="outline">Back to Teams</Button>
+          <Link href="/teams" className="flex-1 sm:flex-none">
+            <Button variant="outline" className="w-full sm:w-auto">Back to Teams</Button>
           </Link>
-          <Link href={`/teams/${id}/edit`}>
-            <Button>Edit Team</Button>
+          <Link href={`/teams/${id}/edit`} className="flex-1 sm:flex-none">
+            <Button className="w-full sm:w-auto">Edit Team</Button>
           </Link>
         </div>
       </div>

@@ -36,6 +36,11 @@ export interface UpsertMetaTeamInput {
     nature?: string;
     moves?: string[];
     teraType?: string;
+    /** Raw EV string from the source paste ("252 HP / 4 Def / 252 SpA").
+     *  Optional — pokepastes occasionally omit it. */
+    evs?: string;
+    /** Raw IV string ("0 Atk"). Optional. */
+    ivs?: string;
   }>;
   trust?: number;
   seenAt?: number | null;

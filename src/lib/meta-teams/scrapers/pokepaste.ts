@@ -29,6 +29,12 @@ export interface ParsedPokepastePokemon {
   nature?: string;
   moves?: string[];
   teraType?: string;
+  /** Raw EV string as written ("252 HP / 4 Def / 252 SpA"). Optional —
+   *  not every paste includes EVs. */
+  evs?: string;
+  /** Raw IV string ("0 Atk"). Pasted only when off the default 31. */
+  ivs?: string;
+  level?: number;
 }
 
 export interface ParsedPokepaste {
@@ -69,6 +75,15 @@ export function parsePokepaste(raw: string): ParsedPokepaste {
         mon.ability = line.slice("Ability:".length).trim();
       } else if (line.startsWith("Tera Type:")) {
         mon.teraType = line.slice("Tera Type:".length).trim();
+      } else if (line.startsWith("EVs:")) {
+        const v = line.slice("EVs:".length).trim();
+        if (v) mon.evs = v;
+      } else if (line.startsWith("IVs:")) {
+        const v = line.slice("IVs:".length).trim();
+        if (v) mon.ivs = v;
+      } else if (line.startsWith("Level:")) {
+        const lvl = parseInt(line.slice("Level:".length).trim(), 10);
+        if (Number.isFinite(lvl) && lvl > 0) mon.level = lvl;
       } else if (line.endsWith("Nature")) {
         mon.nature = line.replace(/\s*Nature\s*$/, "").trim();
       } else if (line.startsWith("- ")) {

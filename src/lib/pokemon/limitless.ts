@@ -59,6 +59,34 @@ export interface LimitlessPokemonDetail {
 
 const LIMITLESS_BASE = "https://play.limitlesstcg.com/api";
 const USER_AGENT = "MetaGross/1.0 (VGC analysis tool)";
+const LIMITLESS_TIMEOUT_MS = 5000;
+
+/**
+ * fetch() with an AbortController-based timeout so a Limitless DNS/connect
+ * hang can't block the agent for 10s+. Returns null on timeout or network
+ * error — callers already handle null by falling back to cached/empty data.
+ */
+async function timedFetch(
+  url: string,
+  timeoutMs: number = LIMITLESS_TIMEOUT_MS,
+): Promise<Response | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    const reason = (err as Error).name === "AbortError"
+      ? `timeout (${timeoutMs}ms)`
+      : (err as Error).message;
+    console.error(`[limitless] fetch failed for ${url}: ${reason}`);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // In-memory cache (24-hour TTL)
@@ -145,9 +173,8 @@ export async function getChampionsTournaments(): Promise<
 
   try {
     const url = `${LIMITLESS_BASE}/tournaments?game=VGC&format=M-A`;
-    const response = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT },
-    });
+    const response = await timedFetch(url);
+    if (!response) return [];
 
     if (!response.ok) {
       console.error(
@@ -200,9 +227,8 @@ export async function getTournamentStandings(
 
   try {
     const url = `${LIMITLESS_BASE}/tournaments/${encodeURIComponent(tournamentId)}/standings`;
-    const response = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT },
-    });
+    const response = await timedFetch(url);
+    if (!response) return [];
 
     if (!response.ok) {
       console.error(

@@ -69,12 +69,59 @@ export interface CardActions {
   onMakeVariant?: (data: ResearchTeamBlock) => void;
   /** Fired from the "Use first, save rest as drafts" bulk action. */
   onUseAllResearchTeams?: (teams: ResearchTeamBlock[]) => void;
+  /** Save a single research team as a draft without loading it into the
+   *  current TeamBuilder. Lets the user stash "I'll build this later"
+   *  candidates instead of having to pick one immediately. */
+  onSaveResearchTeamAsDraft?: (data: ResearchTeamBlock) => void;
+  /** Open a research team in a new tab as a fresh TeamBuilder session,
+   *  keeping the current build intact. */
+  onOpenResearchTeamInNewTab?: (data: ResearchTeamBlock) => void;
 }
 
 type ContentBlock =
   | { type: "text"; text: string }
   | { type: "pokemon"; data: PokemonBlock }
   | { type: "research"; data: ResearchTeamBlock };
+
+/**
+ * Collapse duplicate cards so the same team/Pokemon doesn't render twice.
+ *
+ * The agent occasionally emits the same team in two formats (summary +
+ * full per-Pokemon breakdown, or research-card + re-listed below). Rather
+ * than let that bleed into the UI, fingerprint each card and drop repeats
+ * — the first occurrence wins and subsequent duplicates get stripped.
+ */
+function dedupeBlocks(blocks: ContentBlock[]): ContentBlock[] {
+  const seenPokemon = new Set<string>();
+  const seenResearch = new Set<string>();
+  const out: ContentBlock[] = [];
+  for (const block of blocks) {
+    if (block.type === "pokemon") {
+      const key = [
+        (block.data.name ?? "").trim().toLowerCase(),
+        (block.data.item ?? "").trim().toLowerCase(),
+        (block.data.moves ?? "").trim().toLowerCase(),
+      ].join("|");
+      if (key && seenPokemon.has(key)) continue;
+      if (key) seenPokemon.add(key);
+      out.push(block);
+      continue;
+    }
+    if (block.type === "research") {
+      const teamFingerprint = [...(block.data.team ?? [])]
+        .map((s) => s.trim().toLowerCase())
+        .sort()
+        .join(",");
+      const key = `${(block.data.name ?? "").trim().toLowerCase()}|${teamFingerprint}`;
+      if (teamFingerprint && seenResearch.has(key)) continue;
+      if (teamFingerprint) seenResearch.add(key);
+      out.push(block);
+      continue;
+    }
+    out.push(block);
+  }
+  return out;
+}
 
 /**
  * Pull out every <user-question>{JSON}</user-question> block from the
@@ -87,6 +134,13 @@ function extractUserQuestions(
   content: string,
 ): { stripped: string; questions: UserQuestionBlock[] } {
   const questions: UserQuestionBlock[] = [];
+  // Dedupe when the agent emits the same question twice — happens when a
+  // streamed partial gets re-sent, or the model literally re-asks. Key
+  // off the question text + first option value so near-dupes collapse.
+  const seenQuestionKeys = new Map<string, number>();
+  const keyOf = (q: UserQuestionBlock): string =>
+    `${q.question.trim().toLowerCase()}|${(q.options[0]?.value ?? "").trim().toLowerCase()}`;
+
   const stripped = content.replace(
     /<user-question>\s*([\s\S]*?)\s*<\/user-question>/gi,
     (_, inner: string) => {
@@ -111,20 +165,74 @@ function extractUserQuestions(
             options.push({ label, value });
           }
           if (typeof q === "string" && q.trim() && options.length > 0) {
-            questions.push({ question: q.trim(), options });
+            const newQuestion: UserQuestionBlock = { question: q.trim(), options };
+            const key = keyOf(newQuestion);
+            const existingIdx = seenQuestionKeys.get(key);
+            if (existingIdx !== undefined) {
+              // Same question already seen — point the placeholder at the
+              // original index and drop the raw tag entirely so the UI
+              // renders just one QuestionCard.
+              return `\n\n<<__USER_QUESTION_${existingIdx}__>>\n\n`;
+            }
+            questions.push(newQuestion);
+            seenQuestionKeys.set(key, questions.length - 1);
             // Leave a placeholder token where the question was so we can
             // interleave it back into the block order.
             return `\n\n<<__USER_QUESTION_${questions.length - 1}__>>\n\n`;
           }
         }
       } catch {
-        // fall through — leave the raw tag in place so the user sees
-        // what the model tried to do instead of silently hiding it.
+        // JSON parse failed — usually a truncated/partial stream. Drop
+        // the raw tag silently so users don't see "Question / ... / No —
+        // proper Aggron support b" garbage at the bottom of the answer.
+        return "";
       }
-      return `<user-question>${inner}</user-question>`;
+      return "";
     },
   );
-  return { stripped, questions };
+
+  // Second pass — if the SAME placeholder ID appears more than once in
+  // the stripped text (e.g. because the agent genuinely rendered the
+  // question twice in different sections), keep only the first
+  // occurrence. Happens rarely but the cost of a second scan is low.
+  const seenPlaceholders = new Set<number>();
+  const deduped = stripped.replace(
+    /<<__USER_QUESTION_(\d+)__>>/g,
+    (_m, idxStr: string) => {
+      const idx = Number(idxStr);
+      if (seenPlaceholders.has(idx)) return "";
+      seenPlaceholders.add(idx);
+      return `<<__USER_QUESTION_${idx}__>>`;
+    },
+  );
+
+  return { stripped: deduped, questions };
+}
+
+/**
+ * Strip trailing rationale that the agent writes after a concise value.
+ *   "Floettite — mandatory for Mega Floette…"  → "Floettite"
+ *   "Intimidate — drops opposing Atk"           → "Intimidate"
+ *   "Sitrus Berry (reliable sustain)"           → "Sitrus Berry"
+ *
+ * Splits ONLY on em-dash / en-dash / ASCII hyphen surrounded by spaces,
+ * so multi-word hyphenated items/moves like "Never-Melt Ice",
+ * "Quick-Guard", "Will-O-Wisp" survive intact.
+ */
+function stripValueAnnotation(value: string): string {
+  if (!value) return value;
+  let v = value.trim();
+  // Cut at the first " — " / " – " / " - " we encounter.
+  const dashMatch = v.match(/\s+[—–-]\s+/);
+  if (dashMatch && dashMatch.index !== undefined) {
+    v = v.slice(0, dashMatch.index).trim();
+  }
+  // Cut off a trailing parenthetical rationale.
+  const parenIdx = v.indexOf(" (");
+  if (parenIdx > 0) v = v.slice(0, parenIdx).trim();
+  // Drop any stray markdown emphasis wrappers.
+  v = v.replace(/^\*+|\*+$/g, "").trim();
+  return v;
 }
 
 const RESERVED_BOLD_FIELD_LABELS = new Set([
@@ -685,10 +793,14 @@ function parseContent(content: string): ContentBlock[] {
       if (field) {
         const { key, val } = field;
 
-        // Pokemon build fields (### Pokemon-name template)
+        // Pokemon build fields (### Pokemon-name template).
+        // The agent frequently appends reasoning after an em-dash
+        // ("Floettite — mandatory for Mega Floette") — strip that
+        // before storing so the TeamBuilder save / item-clause validator
+        // see a clean value.
         if (key === "role") { data.role = val; mode = "none"; }
-        else if (key === "ability") { data.ability = val; mode = "none"; }
-        else if (key === "item") { data.item = val; mode = "none"; }
+        else if (key === "ability") { data.ability = stripValueAnnotation(val); mode = "none"; }
+        else if (key === "item") { data.item = stripValueAnnotation(val); mode = "none"; }
         else if (key === "moves" || key === "attacks") {
           if (val) {
             data.moves = val;
@@ -698,7 +810,7 @@ function parseContent(content: string): ContentBlock[] {
             mode = "moves";
           }
         }
-        else if (key === "nature") { data.nature = val; mode = "none"; }
+        else if (key === "nature") { data.nature = stripValueAnnotation(val); mode = "none"; }
         else if (key === "points" || key === "evs") { data.points = val; mode = "none"; }
         else if (key === "spread reasoning" || key === "reasoning" || key === "ev reasoning") { data.spreadReasoning = val; mode = "none"; }
         // Research-report fields (### Player — Archetype template)
@@ -1146,8 +1258,11 @@ function ResearchTeamCard({
 }) {
   const sourceKey = getResearchSourceKey(data);
   const sourceVariant = sourceKey ? SOURCE_BADGE_VARIANT[sourceKey] : "secondary";
-  const canUse = Boolean(actions?.onUseResearchTeam && data.team && data.team.length > 0);
-  const canVariant = Boolean(actions?.onMakeVariant && data.team && data.team.length > 0);
+  const hasTeam = Boolean(data.team && data.team.length > 0);
+  const canUse = Boolean(actions?.onUseResearchTeam && hasTeam);
+  const canVariant = Boolean(actions?.onMakeVariant && hasTeam);
+  const canSaveDraft = Boolean(actions?.onSaveResearchTeamAsDraft && hasTeam);
+  const canOpenNewTab = Boolean(actions?.onOpenResearchTeamInNewTab && hasTeam);
 
   return (
     <div className="rounded-xl border border-primary/30 bg-card/80 backdrop-blur-sm p-3 flex flex-col gap-2">
@@ -1248,7 +1363,7 @@ function ResearchTeamCard({
       )}
 
       {/* Action buttons — let the user act on this team right from the card. */}
-      {(canUse || canVariant) && (
+      {(canUse || canVariant || canSaveDraft || canOpenNewTab) && (
         <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
           {canUse && (
             <Button
@@ -1266,6 +1381,26 @@ function ResearchTeamCard({
               onClick={() => actions!.onMakeVariant!(data)}
             >
               Make my version
+            </Button>
+          )}
+          {canSaveDraft && (
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => actions!.onSaveResearchTeamAsDraft!(data)}
+              title="Save this team as a draft — keeps your current build untouched"
+            >
+              Save as draft
+            </Button>
+          )}
+          {canOpenNewTab && (
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => actions!.onOpenResearchTeamInNewTab!(data)}
+              title="Open this team in a new tab without replacing your current build"
+            >
+              Open in new tab
             </Button>
           )}
         </div>
@@ -1344,7 +1479,7 @@ export function PokemonCardRenderer({
   // Pokemon cards in the right spot.
   const { stripped, questions } = extractUserQuestions(content);
 
-  const blocks = parseContent(stripped);
+  const blocks = dedupeBlocks(parseContent(stripped));
   const pokemonBlocks = blocks.filter(
     (b): b is { type: "pokemon"; data: PokemonBlock } => b.type === "pokemon",
   );

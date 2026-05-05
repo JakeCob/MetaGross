@@ -200,6 +200,27 @@ describe("write tools", () => {
       expect(parsed.payload.notes).toBe("Weak to Trick Room");
     });
   });
+
+  describe("propose_pokemon_patch", () => {
+    it("supports species replacement patches", async () => {
+      const { proposePokemonPatchTool } = await import(
+        "../tools/write/propose-pokemon-patch"
+      );
+
+      const result = await proposePokemonPatchTool.invoke({
+        teamId: "team-1",
+        species: "Incineroar",
+        patch: { species: "Farigiraf" },
+        reason: "Replace Incineroar with Farigiraf while keeping the rest of the team intact.",
+      });
+      const parsed = JSON.parse(result);
+
+      expect(parsed.actionType).toBe("patch_team_pokemon");
+      expect(parsed.payload.teamId).toBe("team-1");
+      expect(parsed.payload.species).toBe("Incineroar");
+      expect(parsed.payload.patch.species).toBe("Farigiraf");
+    });
+  });
 });
 
 describe("tool arrays", () => {

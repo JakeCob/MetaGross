@@ -28,6 +28,8 @@ function stateFor(content: string): AgentStateType {
     verificationRetries: 0,
     providerOverride: null,
     modelOverride: null,
+    draftTeam: null,
+    extractedMemoriesThisTurn: [],
   };
 }
 
@@ -64,5 +66,118 @@ describe("verifyResponseNode — EV rewriter", () => {
     const update = await verifyResponseNode(stateFor(input));
     const rewritten = String((update.messages as AIMessage[] | undefined)?.[0]?.content ?? "");
     expect(rewritten).toMatch(/HP 32 \/ Atk 32 \/ Def 0 \/ SpA 0 \/ SpD 0 \/ Spe 0/);
+  });
+
+  it("flags prose-only allowlist misses like Heatran for a retry", async () => {
+    const input = `You can keep Milotic, replace Incineroar, and use Heatran as your Mega Scizor answer.`;
+    const update = await verifyResponseNode(stateFor(input));
+    const correction = Array.isArray(update.messages)
+      ? update.messages[0]
+      : undefined;
+    expect(correction).toBeTruthy();
+    expect(correction?._getType()).toBe("human");
+    expect(String(correction?.content ?? "")).toContain("Heatran");
+    expect(update.verificationRetries).toBe(1);
+  });
+
+  it("forces patch mode on direct edit requests instead of allowing a full rebuild", async () => {
+    const update = await verifyResponseNode({
+      ...stateFor(`### Farigiraf
+- **Role**: Anti-priority support
+
+### Talonflame
+- **Role**: Speed control
+
+### Floette-Eternal
+- **Role**: Fairy support
+
+### Milotic
+- **Role**: Bulky water
+
+### Garchomp
+- **Role**: Physical pressure
+
+### Sneasler
+- **Role**: Cleaner`),
+      messages: [
+        new HumanMessage(
+          "I think I could add Farigiraf and I don't use Incineroar much, maybe let's replace it, but keep Milotic.",
+        ),
+        new AIMessage({
+          id: "resp",
+          content: `### Farigiraf
+- **Role**: Anti-priority support
+
+### Talonflame
+- **Role**: Speed control
+
+### Floette-Eternal
+- **Role**: Fairy support
+
+### Milotic
+- **Role**: Bulky water
+
+### Garchomp
+- **Role**: Physical pressure
+
+### Sneasler
+- **Role**: Cleaner`,
+        }),
+      ],
+      draftTeam: {
+        name: "Bulaklak",
+        format: "Champions Reg M-A",
+        pokemon: [
+          { species: "Floette-Eternal" },
+          { species: "Milotic" },
+          { species: "Garchomp" },
+          { species: "Talonflame" },
+          { species: "Sneasler" },
+          { species: "Incineroar" },
+        ],
+      },
+    });
+
+    const correction = Array.isArray(update.messages)
+      ? update.messages[0]
+      : undefined;
+    expect(correction).toBeTruthy();
+    expect(String(correction?.content ?? "")).toContain("direct edit request");
+  });
+
+  it("rejects confirmation-loop replies on clear edit requests", async () => {
+    const update = await verifyResponseNode({
+      ...stateFor("Do you agree to replace incineroar with Farigiraf? Do a deep analysis"),
+      messages: [
+        new HumanMessage(
+          "Replace Incineroar with Farigiraf and keep the rest of my team the same.",
+        ),
+        new AIMessage({
+          id: "resp",
+          content:
+            "Do you agree to replace incineroar with Farigiraf? Do a deep analysis",
+        }),
+      ],
+      draftTeam: {
+        name: "Bulaklak",
+        format: "Champions Reg M-A",
+        pokemon: [
+          { species: "Floette-Eternal" },
+          { species: "Milotic" },
+          { species: "Garchomp" },
+          { species: "Talonflame" },
+          { species: "Sneasler" },
+          { species: "Incineroar" },
+        ],
+      },
+    });
+
+    const correction = Array.isArray(update.messages)
+      ? update.messages[0]
+      : undefined;
+    expect(correction).toBeTruthy();
+    expect(String(correction?.content ?? "")).toContain(
+      "Do NOT ask the user to confirm",
+    );
   });
 });

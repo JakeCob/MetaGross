@@ -1,6 +1,10 @@
 import type { EVDebateStateType, EVDebateStateUpdate } from "../state";
 import { createModel, detectProvider } from "@/lib/ai/graph/model";
 import { getMetaThreats } from "@/lib/ev/meta-lookup";
+import {
+  getReferenceSetsForSpecies,
+  formatReferenceSetsBlock,
+} from "@/lib/meta-teams/species-sets";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import type { EVSpread } from "@/lib/types/pokemon";
 import { CHAMPIONS_POINTS } from "@/lib/data/champions";
@@ -147,6 +151,13 @@ HARD RULES:
 ${isChampions ? `- ${label}: total must equal exactly ${totalMax}, max ${perStatMax} per stat. Spread across 3-5 stats. 1 Champions point = 8 traditional EVs.` : `- ${label}: total must equal exactly ${totalMax}, max ${perStatMax} per stat. Spread across 3-5 stats.`}
 - Consider teammate coverage — don't duplicate roles that teammates already provide.`;
 
+  // Pull verified tournament/creator sets for this species from
+  // meta_teams (Limitless top-cut + VGCPastes + creator entries).
+  // Anchoring the proposer in real tournament data is what stops it
+  // from inventing nonsense moves like "Knock Off on Incineroar".
+  const referenceSets = getReferenceSetsForSpecies(pokemon.species, format, 6);
+  const referenceBlock = formatReferenceSetsBlock(referenceSets);
+
   const userPrompt = `Pokemon: ${pokemon.species}
 ${userSet}
 
@@ -157,6 +168,11 @@ Teammates on this team:
 ${teammates || "  • (none yet)"}
 
 Top meta threats in this format (defensive benchmarks should target these): ${threatList}
+
+REFERENCE SETS — verified tournament/creator builds for ${pokemon.species} (highest trust first):
+${referenceBlock}
+
+Use these reference sets as your starting point. Copy moves/item/ability/nature when they make sense for the team — every move that appears in 2+ tournament sets is presumed legal AND viable. Deviate ONLY if you can name a specific reason the team needs something different (and cite that reason in Reasoning). Never invent a move that isn't in any reference set unless you're absolutely sure of its competitive history for this species.
 ${feedbackSection}
 
 Respond with EXACTLY this format (and nothing else):
@@ -165,7 +181,7 @@ Item: <item name>
 Moves: Move1 / Move2 / Move3 / Move4
 Nature: <NatureName>
 Spread: HP <n> / Atk <n> / Def <n> / SpA <n> / SpD <n> / Spe <n>
-Reasoning: <2-3 sentences explaining how the changes address the sim failures and complement teammates>`;
+Reasoning: <2-3 sentences. If you copied a reference set, name the source (e.g. "Wolfe Glick creator entry"). If you deviated, justify the change.>`;
 
   const response = await model.invoke([
     new SystemMessage(systemPrompt),

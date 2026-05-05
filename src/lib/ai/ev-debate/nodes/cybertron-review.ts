@@ -3,6 +3,10 @@ import { createModel, detectProvider } from "@/lib/ai/graph/model";
 import { AGENT_PERSONAS } from "@/lib/types/agent";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { CHAMPIONS_POINTS } from "@/lib/data/champions";
+import {
+  getReferenceSetsForSpecies,
+  formatReferenceSetsBlock,
+} from "@/lib/meta-teams/species-sets";
 
 /**
  * Node: CybertronVGC (Aaron Zheng) reviews the current spread from a
@@ -55,6 +59,9 @@ export async function cybertronReviewNode(
 
   const systemPrompt = `${persona.systemPromptAddition} You are reviewing the WHOLE set — Ability, Item, Moves, Nature, and ${isChampions ? "stat points" : "EVs"} — not just the numbers. Keep it to 3-5 sentences. Focus on survival benchmarks${isChampions ? " against Champions Reg M-A threats (Sneasler, Archaludon, Kingambit, Garchomp, Dragonite-Mega, Tyranitar-Mega, Charizard-Mega-Y)" : ""}, defensive calcs, and fundamental consistency. Flag Nature/moveset mismatches and weak item/ability choices explicitly.`;
 
+  const referenceSets = getReferenceSetsForSpecies(pokemon.species, format, 6);
+  const referenceBlock = formatReferenceSetsBlock(referenceSets);
+
   const userPrompt = `Review this full set for ${pokemon.species}:
   Ability: ${currentAbility || pokemon.ability}
   Item:    ${currentItem || pokemon.item}
@@ -69,9 +76,12 @@ Teammates on the team:
 Fresh benchmark simulation vs the format's top meta threats:
 ${simSnapshot || "(no sim data)"}
 
+VERIFIED TOURNAMENT/CREATOR REFERENCE SETS for ${pokemon.species}:
+${referenceBlock}
+
 Wolfe Glick said: "${wolfeReview ?? "No comment yet."}"
 
-Do you agree or disagree with Wolfe? What would you change across Ability, Item, Moves, Nature, and spread? Be specific about survival calcs, cite the sim, and consider teammate coverage.`;
+Do you agree or disagree with Wolfe? What would you change across Ability, Item, Moves, Nature, and spread? Be specific about survival calcs, cite the sim, consider teammate coverage, AND cross-check the proposed set against the reference sets — if a move/item/ability isn't in any reference set, that's a strong signal something is off.`;
 
   const response = await model.invoke([
     new SystemMessage(systemPrompt),

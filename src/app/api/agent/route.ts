@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { chatMessageSchema, threadCreateSchema } from "@/lib/validation/agent";
-import { createThread, getThread } from "@/lib/db/queries/agent-threads";
+import {
+  createThread,
+  getThread,
+  deriveThreadTitle,
+} from "@/lib/db/queries/agent-threads";
 import { invokeAgent } from "@/lib/ai/graph";
+import { sanitizeAgentAttachments } from "@/lib/ai/attachments";
 import { detectProvider, getModelName } from "@/lib/ai/graph/model";
+import { isTentativeTeamEditSuggestion } from "@/lib/ai/graph/edit-intent";
 import type { BaseMessage } from "@langchain/core/messages";
 import type { AIMessage } from "@langchain/core/messages";
 import type { WriteActionProposal } from "@/lib/types/agent";
@@ -95,7 +101,11 @@ export async function POST(request: Request) {
           : getModelName(provider);
 
       const thread = createThread({
-        title: ctxParsed.data.title ?? body.message.slice(0, 80),
+        // Derive a cleaner title from the first user message: strip markdown,
+        // collapse whitespace, word-boundary truncation. Falls back to raw
+        // slice for defensive safety.
+        title:
+          ctxParsed.data.title ?? deriveThreadTitle(body.message as string),
         contextType: ctxParsed.data.contextType,
         contextId: ctxParsed.data.contextId ?? null,
         provider,
@@ -110,6 +120,7 @@ export async function POST(request: Request) {
     }
 
     const message = body.message as string;
+    const suppressPatchProposalStreaming = isTentativeTeamEditSuggestion(message);
 
     // Stream the response
     const stream = new ReadableStream({
@@ -125,6 +136,11 @@ export async function POST(request: Request) {
         try {
           send("thread", { threadId });
 
+          // Sanitize image attachments. Defense-in-depth in case a
+          // malicious client bypasses the composer's MIME / size /
+          // count guards. Logic + tests live in src/lib/ai/attachments.
+          const attachments = sanitizeAgentAttachments(body.attachments);
+
           const eventStream = await invokeAgent(message, {
             threadId,
             contextType,
@@ -132,12 +148,23 @@ export async function POST(request: Request) {
             persona,
             provider: typeof body.provider === "string" ? body.provider : null,
             modelName: typeof body.modelName === "string" ? body.modelName : null,
+            // Forward the user's live draft team so the agent can
+            // propose a patch to THIS team instead of inventing a new
+            // one when the user asks for an edit.
+            draftTeam:
+              body.draftTeam && typeof body.draftTeam === "object"
+                ? body.draftTeam
+                : null,
+            attachments: attachments.length > 0 ? attachments : undefined,
           });
 
           // Buffer the final text — only send the LAST AI text message
           // (the validation node may replace earlier AI messages)
           let finalText = "";
           let toolCallsSent = 0;
+          // Track which memory summaries we've already announced so a
+          // late state snapshot that re-includes them doesn't double-fire.
+          const memoryEventsSeen = new Set<string>();
 
           for await (const state of eventStream) {
             const messages: BaseMessage[] = state.messages ?? [];
@@ -150,7 +177,14 @@ export async function POST(request: Request) {
 
               // Stream tool calls immediately (these are progress indicators)
               if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
-                const newCalls = aiMsg.tool_calls.slice(toolCallsSent);
+                const newCalls = aiMsg.tool_calls
+                  .slice(toolCallsSent)
+                  .filter((tc) =>
+                    !(
+                      suppressPatchProposalStreaming &&
+                      tc.name === "propose_pokemon_patch"
+                    )
+                  );
                 if (newCalls.length > 0) {
                   // Send human-readable status for each tool call
                   for (const tc of newCalls) {
@@ -173,8 +207,8 @@ export async function POST(request: Request) {
                       id: tc.id,
                     })),
                   });
-                  toolCallsSent = aiMsg.tool_calls.length;
                 }
+                toolCallsSent = aiMsg.tool_calls.length;
               }
 
               // Buffer text content — DON'T send yet (validation may replace it)
@@ -197,6 +231,26 @@ export async function POST(request: Request) {
               }
             }
 
+            // Memory-saved confirmation — extract_memory writes this
+            // when it persists or merges memories on this turn. Emit a
+            // single SSE event the UI can render as a toast.
+            const extracted = (
+              state as { extractedMemoriesThisTurn?: Array<{
+                summary: string;
+                kind: string;
+                merged: boolean;
+              }> }
+            ).extractedMemoriesThisTurn;
+            if (extracted && extracted.length > 0) {
+              const fingerprint = extracted
+                .map((m) => `${m.kind}:${m.summary}`)
+                .join("|");
+              if (!memoryEventsSeen.has(fingerprint)) {
+                memoryEventsSeen.add(fingerprint);
+                send("memory_saved", { memories: extracted });
+              }
+            }
+
             // Stream tool results immediately (progress indicators)
             if (lastMsg._getType() === "tool") {
               const toolContent = typeof lastMsg.content === "string"
@@ -206,11 +260,6 @@ export async function POST(request: Request) {
                 name: (lastMsg as unknown as { name?: string }).name ?? "tool",
                 result: toolContent.slice(0, 500),
               });
-            }
-
-            // Check for pending approval (interrupt)
-            if (state.pendingAction) {
-              send("pending_approval", state.pendingAction as WriteActionProposal);
             }
           }
 

@@ -19,6 +19,9 @@ import {
   getPokemonTournamentDetailTool,
 } from "./read/get-tournament-teams";
 import { writeTeamReportTool } from "./read/write-team-report";
+import { validateTeamBuildTool } from "./read/validate-team-build";
+import { simulateVsTopTeamsTool } from "./read/simulate-vs-top-teams";
+import { exportPokepasteTool } from "./read/export-pokepaste";
 
 import { proposeMatchNoteTool } from "./write/propose-match-note";
 import { proposeTeamNoteTool } from "./write/propose-team-note";
@@ -45,6 +48,9 @@ export const readTools = [
   searchMetaTeamsTool,
   getTournamentTeamsTool,
   getPokemonTournamentDetailTool,
+  validateTeamBuildTool,
+  simulateVsTopTeamsTool,
+  exportPokepasteTool,
   writeTeamReportTool,
 ];
 

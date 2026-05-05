@@ -96,21 +96,21 @@ export default async function MatchDetailPage({
   const oppLeads = parseStringArray(match.opponentLeads);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">Match Detail</h1>
+      <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Match Detail</h1>
             <Badge variant={isWin ? "success" : "error"} className="text-sm">
               {isWin ? "Win" : "Loss"}
             </Badge>
           </div>
-          <p className="mt-1 text-muted-foreground">{formatDate(match.playedAt)}</p>
+          <p className="mt-1 text-sm text-muted-foreground sm:text-base">{formatDate(match.playedAt)}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/battles/${id}/analysis`}>
-            <Button variant="outline">View Analysis</Button>
+          <Link href={`/battles/${id}/analysis`} className="flex-1 sm:flex-none">
+            <Button variant="outline" className="w-full sm:w-auto">View Analysis</Button>
           </Link>
           <DeleteMatchButton matchId={id} />
         </div>

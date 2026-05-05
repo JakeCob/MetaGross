@@ -265,22 +265,24 @@ export default function NewBattlePage() {
   const currentIdx = STEPS.findIndex((s) => s.key === step);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-6 sm:py-8">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">New Battle</h1>
-          <p className="mt-1 text-muted-foreground">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">New Battle</h1>
+          <p className="mt-1 text-sm text-muted-foreground sm:text-base">
             Log a new match result step by step.
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleStartOver}>
+        <Button variant="ghost" size="sm" onClick={handleStartOver} className="self-start sm:self-auto">
           Start Over
         </Button>
       </div>
 
-      {/* Step indicator */}
-      <div className="mb-8 flex items-center gap-1">
+      {/* Step indicator — horizontally scrollable on phones so all 5
+          steps remain reachable without overlapping. */}
+      <div className="-mx-4 mb-6 overflow-x-auto px-4 sm:mb-8">
+      <div className="flex items-center gap-1 whitespace-nowrap">
         {STEPS.map((s, i) => (
           <div key={s.key} className="flex items-center">
             <div
@@ -303,6 +305,7 @@ export default function NewBattlePage() {
             )}
           </div>
         ))}
+      </div>
       </div>
 
       {/* Step content */}

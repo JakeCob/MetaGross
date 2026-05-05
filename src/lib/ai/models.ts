@@ -34,12 +34,16 @@ export const PROVIDERS: ProviderOption[] = [
     label: "OpenAI (direct)",
     envKey: "OPENAI_API_KEY",
     models: [
-      // GPT-5.4 family — latest flagship chat models (released after
-      // GPT-5 and GPT-5.2; strongest at tool use + instruction following).
+      // GPT-5.5 family — newest flagship (announced 2026-04-24). 1M
+      // context, $5/$30 per 1M tokens. Pro variant has higher accuracy
+      // at $30/$180. Both support native tool use.
+      { id: "gpt-5.5-pro", label: "GPT-5.5 Pro", tier: "premium", supportsTools: true },
+      { id: "gpt-5.5", label: "GPT-5.5", tier: "premium", supportsTools: true },
+      // GPT-5.4 family — previous flagship.
       { id: "gpt-5.4", label: "GPT-5.4", tier: "premium", supportsTools: true },
       { id: "gpt-5.4-mini", label: "GPT-5.4 mini", tier: "balanced", supportsTools: true },
       { id: "gpt-5.4-nano", label: "GPT-5.4 nano", tier: "fast", supportsTools: true },
-      // GPT-5 family — previous-gen flagship.
+      // GPT-5 family — earlier-gen flagship.
       { id: "gpt-5", label: "GPT-5", tier: "premium", supportsTools: true },
       { id: "gpt-5-mini", label: "GPT-5 mini", tier: "balanced", supportsTools: true },
       { id: "gpt-5-nano", label: "GPT-5 nano", tier: "fast", supportsTools: true },
@@ -74,6 +78,8 @@ export const PROVIDERS: ProviderOption[] = [
     envKey: "OPENROUTER_API_KEY",
     models: [
       // OpenAI via OpenRouter
+      { id: "openai/gpt-5.5-pro", label: "GPT-5.5 Pro (via OpenRouter)", tier: "premium", supportsTools: true },
+      { id: "openai/gpt-5.5", label: "GPT-5.5 (via OpenRouter)", tier: "premium", supportsTools: true },
       { id: "openai/gpt-5.4", label: "GPT-5.4 (via OpenRouter)", tier: "premium", supportsTools: true },
       { id: "openai/gpt-5.4-mini", label: "GPT-5.4 mini (via OpenRouter)", tier: "balanced", supportsTools: true },
       { id: "openai/gpt-5", label: "GPT-5 (via OpenRouter)", tier: "premium", supportsTools: true },
@@ -93,7 +99,7 @@ export const PROVIDERS: ProviderOption[] = [
 
 /** Default selection — matches detectProvider's auto-pick priority. */
 export const DEFAULT_PROVIDER: ProviderId = "openai";
-export const DEFAULT_MODEL_ID = "gpt-5.4";
+export const DEFAULT_MODEL_ID = "gpt-5.5";
 
 /** Look up a specific model by provider + id. Returns null when absent. */
 export function findModel(

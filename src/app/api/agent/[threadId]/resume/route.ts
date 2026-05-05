@@ -88,10 +88,6 @@ export async function POST(request: Request, { params }: RouteParams) {
                 send("text", { content: aiMsg.content });
               }
             }
-
-            if (state.pendingAction) {
-              send("pending_approval", state.pendingAction as WriteActionProposal);
-            }
           }
 
           send("done", { threadId });

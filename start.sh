@@ -70,14 +70,72 @@ fi
 
 PORT=4649
 
-# Allocate more memory for Node (Next.js + LangGraph + @pkmn/dex can be heavy)
-export NODE_OPTIONS="--max-old-space-size=4096"
+# Allocate more memory for Node. Next.js + LangGraph + @pkmn/dex +
+# embeddings + the memory-extractor LLM all coexist in one process, and
+# 4GB was tripping the WSL OOM killer (SIGTERM = exit 143) under long
+# team-build conversations. 6GB gives comfortable headroom. Override
+# METAGROSS_NODE_MEMORY if you're on a tighter machine.
+export NODE_OPTIONS="--max-old-space-size=${METAGROSS_NODE_MEMORY:-6144}"
 
-# Kill any existing process on the port
-if lsof -ti:$PORT > /dev/null 2>&1; then
-  echo "⚠️  Port $PORT is in use, killing existing process..."
-  lsof -ti:$PORT | xargs -r kill -9 2>/dev/null
-  sleep 1
+# Free the port. Used both at startup and inside the restart loop —
+# without re-running this between retries, a stale dev server holding
+# the port produces 5 EADDRINUSE failures in a row and the loop dies.
+free_port() {
+  # Kill any RIVAL start.sh instances first. Without this, a previous
+  # backgrounded start.sh keeps respawning `next dev` in its restart
+  # loop and steals the port back from us between iterations.
+  # Skip our own PID + ancestor PIDs so we don't suicide.
+  ME=$$
+  PARENT=$(ps -o ppid= $ME 2>/dev/null | tr -d ' ' || echo 0)
+  pgrep -f "start\.sh" 2>/dev/null | while read -r pid; do
+    if [ "$pid" != "$ME" ] && [ "$pid" != "$PARENT" ]; then
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+  done
+
+  if lsof -ti:$PORT > /dev/null 2>&1; then
+    echo "⚠️  Port $PORT is in use; killing the holding process(es)..."
+    # Walk up the parent chain so the npm-exec / sh wrapper can't
+    # re-spawn the child after we kill it. We grab PIDs first, then
+    # kill -9 the whole set in one pass.
+    HOLDER_PIDS=$(lsof -ti:$PORT 2>/dev/null)
+    for pid in $HOLDER_PIDS; do
+      ppid=$(ps -o ppid= "$pid" 2>/dev/null | tr -d ' ')
+      gppid=$(ps -o ppid= "$ppid" 2>/dev/null | tr -d ' ')
+      kill -9 "$pid" "$ppid" "$gppid" 2>/dev/null || true
+    done
+    # Belt and braces — fuser kills processes lsof might miss
+    # (different namespaces, etc.). Both project-specific patterns
+    # so we don't kill unrelated next-dev servers (e.g. another
+    # project on a different port).
+    fuser -k "${PORT}/tcp" 2>/dev/null || true
+    pkill -9 -f "next dev -p $PORT" 2>/dev/null || true
+    pkill -9 -f "MetaGross/node_modules/.bin/next" 2>/dev/null || true
+    # Wait up to 5s for the kernel to release the socket. WSL can
+    # leave it in TIME_WAIT for a beat.
+    for _ in 1 2 3 4 5; do
+      if ! lsof -ti:$PORT > /dev/null 2>&1; then return 0; fi
+      sleep 1
+    done
+    if lsof -ti:$PORT > /dev/null 2>&1; then
+      echo "❌ Could not free port $PORT. Still held by:"
+      lsof -i:$PORT 2>&1 | head -5
+      return 1
+    fi
+  fi
+  return 0
+}
+
+free_port || exit 1
+
+# Clear stale .next dev cache. HMR holds onto intermediate parse errors
+# from mid-save states, so a file that's now syntactically valid can
+# still show up as broken in the browser. Blowing the cache on every
+# start gives a clean recompile. Pass --keep-cache to skip (rare — only
+# when debugging a specific build artefact).
+if [ "$1" != "--keep-cache" ] && [ -d ".next" ]; then
+  echo "🧹 Clearing .next cache..."
+  rm -rf .next
 fi
 
 # Graceful shutdown handler — forwards Ctrl+C to the dev server
@@ -95,7 +153,14 @@ RESTART_COUNT=0
 MAX_RESTARTS=5
 
 while true; do
-  npx next dev -p $PORT
+  # Bind to 127.0.0.1 (IPv4 loopback) instead of the default ::
+  # (IPv6 wildcard). Under WSL2 the v4-loopback socket is stable when
+  # other localhost services start/stop on the box; the IPv6 wildcard
+  # socket can be invalidated when WSL's vEthernet bridge renegotiates,
+  # producing SIGTERM (exit 143) and EADDRINUSE crashes on neighbour
+  # state changes. Override with METAGROSS_HOST=0.0.0.0 if you ever
+  # need to hit the dev server from another device on the LAN.
+  npx next dev -p $PORT -H "${METAGROSS_HOST:-127.0.0.1}"
   EXIT_CODE=$?
 
   # Exit code 0 or 130 (Ctrl+C) means intentional shutdown — don't restart
@@ -115,5 +180,12 @@ while true; do
 
   echo ""
   echo "💥 MetaGross crashed (exit code $EXIT_CODE). Restarting... ($RESTART_COUNT/$MAX_RESTARTS)"
+  # If the previous next-dev half-died and is still bound to the port,
+  # the next iteration will fail with EADDRINUSE on every retry.
+  # Re-run the killer between attempts so the loop can recover.
+  free_port || {
+    echo "❌ Port $PORT could not be freed between restarts. Aborting."
+    exit 1
+  }
   sleep 2
 done

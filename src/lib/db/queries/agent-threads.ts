@@ -102,3 +102,32 @@ export function updateThread(id: string, data: UpdateThreadInput): AgentThreadRo
 
   return db.select().from(agentThreads).where(eq(agentThreads.id, id)).get() ?? null;
 }
+
+// ---------------------------------------------------------------------------
+// deleteThread
+// ---------------------------------------------------------------------------
+export function deleteThread(id: string): boolean {
+  const result = db.delete(agentThreads).where(eq(agentThreads.id, id)).run();
+  return result.changes > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Thread titling — derive a short title from the first user message.
+// Keeps it deterministic and free (no extra LLM call) for v1. We can
+// upgrade to an LLM summariser later if titles feel terse.
+// ---------------------------------------------------------------------------
+export function deriveThreadTitle(userMessage: string): string {
+  const cleaned = userMessage
+    // Strip markdown headings/bullets/emphasis so the title reads like prose.
+    .replace(/[#*_`>]/g, "")
+    // Collapse whitespace.
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return "Untitled chat";
+  // Cut at 60 chars on a word boundary when possible.
+  if (cleaned.length <= 60) return cleaned;
+  const truncated = cleaned.slice(0, 60);
+  const lastSpace = truncated.lastIndexOf(" ");
+  const base = lastSpace > 30 ? truncated.slice(0, lastSpace) : truncated;
+  return `${base}…`;
+}

@@ -1,8 +1,72 @@
 import type { AgentStateType, AgentStateUpdate } from "../state";
-import { isChampionsPokemon, isConfirmedNotInChampions, CHAMPIONS_ITEMS_CONFIRMED, CHAMPIONS_ITEMS_UNCERTAIN } from "@/lib/data/champions";
-import { AIMessage, SystemMessage, RemoveMessage } from "@langchain/core/messages";
-import { createModel, detectProvider, getModelName } from "../model";
+import {
+  isChampionsPokemon,
+  isConfirmedNotInChampions,
+  isMoveBlockedForSpecies,
+  getUnavailableMovesFor,
+  CHAMPIONS_ITEMS_UNCERTAIN,
+  CHAMPIONS_ITEMS_BANNED,
+} from "@/lib/data/champions";
+import { AIMessage } from "@langchain/core/messages";
+import { detectProvider, getModelName } from "../model";
 import { logAgentEvent } from "@/lib/ai/logger";
+import { saveFeedback } from "@/lib/ai/knowledge";
+import {
+  getLatestUserMessageText,
+  hasTeamContextForPatch,
+  isAssistantConfirmationLoop,
+  isPatchClarificationQuestion,
+  isDirectTeamEditRequest,
+} from "../edit-intent";
+import { extractSpeciesMentions } from "../species-mentions";
+
+function hasPriorPatchToolCall(state: AgentStateType): boolean {
+  return state.messages.some((message) => {
+    if (message._getType() !== "ai") return false;
+    return (
+      "tool_calls" in message &&
+      Array.isArray(message.tool_calls) &&
+      message.tool_calls.some((call) => call.name === "propose_pokemon_patch")
+    );
+  });
+}
+
+function looksLikeFullTeamResponse(content: string, pokemonCount: number): boolean {
+  const headingCount = (content.match(/^###\s+/gm) ?? []).length;
+  const numberedCount = (content.match(/^\d+[.)]\s+/gm) ?? []).length;
+  const explicitTeamMarkers =
+    /(^|\n)##\s*Team\b/im.test(content) ||
+    /\bhere(?:'|’)s\s+(?:a\s+)?6[- ](?:mon|pokemon)\s+team\b/i.test(content) ||
+    /\brecommended\s+6\b/i.test(content) ||
+    /\bteam summary\b/i.test(content);
+
+  return (
+    explicitTeamMarkers ||
+    headingCount >= 4 ||
+    numberedCount >= 4 ||
+    (pokemonCount >= 6 && /\bteam\b/i.test(content))
+  );
+}
+
+/**
+ * Did the user's latest message look like a team-build request? Used
+ * to gate the "you only proposed N Pokemon" check — a yes/no question
+ * about a single slot (e.g. "is Pelipper's Focus Sash ok?") should
+ * NOT trigger a "you need 6 Pokemon" complaint just because the
+ * agent's prose answer mentioned several species in its explanation.
+ */
+function userAskedForFullTeam(message: string): boolean {
+  const text = message.toLowerCase();
+  // Direct team-build phrasings.
+  if (/\b(?:build|make|design|propose|generate|give\s+me|recommend)\s+(?:a\s+|an\s+|me\s+a\s+|me\s+an\s+|the\s+)?(?:full\s+|new\s+|6[- ]?mon\s+|6\s*pokemon\s+)?(?:vgc\s+)?team\b/i.test(text)) return true;
+  if (/\bnew\s+team\b/.test(text)) return true;
+  if (/\bfull\s+(?:team|build|6[- ]?mon|6\s*pokemon)\b/.test(text)) return true;
+  if (/\b6[- ]?mon\s+team\b/.test(text)) return true;
+  if (/\bcounter[- ]team\b/.test(text)) return true;
+  // "rebuild", "redo the team", etc.
+  if (/\b(?:rebuild|redo)\s+(?:the\s+)?team\b/.test(text)) return true;
+  return false;
+}
 
 /**
  * Validation node that checks the agent's response for accuracy issues
@@ -39,14 +103,93 @@ export async function validateResponseNode(
   if (!content) return {};
 
   const issues: string[] = [];
+  const latestUserMessage = getLatestUserMessageText(state.messages);
+  const patchModeActive =
+    isDirectTeamEditRequest(latestUserMessage) &&
+    hasTeamContextForPatch({
+      loadedContext: state.loadedContext,
+      draftTeam: state.draftTeam,
+    });
 
-  // Check for Pokemon not in Champions
-  const pokemonMentions = content.match(/###\s+([A-Z][a-z]+(?:[- ][A-Za-z]+)?)/g);
-  if (pokemonMentions) {
-    for (const match of pokemonMentions) {
-      const species = match.replace(/^###\s+/, "").trim();
-      if (isConfirmedNotInChampions(species)) {
-        issues.push(`${species} is NOT available in Champions Reg M-A. Remove it and suggest an alternative.`);
+  const mentionedSpecies = new Set(extractSpeciesMentions(content));
+
+  // Flipped policy: use the CHAMPIONS_POKEMON ALLOWLIST as the source
+  // of truth. Anything that looks like a species heading but ISN'T on
+  // the allowed roster gets flagged. Previously we relied on
+  // NOT_IN_CHAMPIONS blocklist and missed every species we hadn't
+  // explicitly named (Gholdengo, etc.). The allowlist is authoritative
+  // — 187 species, verified against Bulbapedia.
+  const { CHAMPIONS_POKEMON } = await import(
+    "@/lib/data/champions"
+  );
+
+  const pokemonMentions = Array.from(mentionedSpecies);
+  for (const species of pokemonMentions) {
+    // Allowlist check first — species IS in the Champions roster → ok.
+    if (isChampionsPokemon(species)) continue;
+
+    // Second-chance for Mega forms (`-Mega`, `-Mega-X`, etc.). The
+    // roster stores the base species; `isChampionsPokemon` does the
+    // normalisation, but if someone types "Scovillain-Mega" explicitly
+    // we still want to accept it.
+    const baseStripped = species
+      .replace(/-Mega(-[XY])?$/i, "")
+      .replace(/-(Alola|Hisui|Galar|Paldea|Eternal|Therian|Origin)$/i, "$&");
+    if (isChampionsPokemon(baseStripped)) continue;
+
+    // Allowlist miss — now we flag. Include a specific hint when the
+    // species is on the known-blocked list.
+    const isKnownBad = isConfirmedNotInChampions(species);
+    const msg = isKnownBad
+      ? `${species} is NOT available in Champions Reg M-A. Remove it and suggest an alternative.`
+      : `${species} is not on the Champions Reg M-A roster (${CHAMPIONS_POKEMON.length} allowed species). Replace with a confirmed legal pick.`;
+    issues.push(msg);
+    try {
+      saveFeedback({
+        type: "correction",
+        topic: `${species} not in Champions`,
+        content: isKnownBad
+          ? `Agent proposed ${species} in a response, but ${species} is confirmed NOT in Pokemon Champions Reg M-A. Do not include it in any team or recommendation.`
+          : `Agent proposed ${species} but it is not on the authoritative CHAMPIONS_POKEMON allowlist. If you think it IS in the game, add it to src/lib/data/champions.ts; otherwise pick a confirmed legal alternative.`,
+        source: "validate-response node",
+      });
+    } catch {
+      // Non-fatal.
+    }
+  }
+
+  // Check for BANNED items — hard reject. These are VGC staples that Game8
+  // confirms are NOT in Champions (Weakness Policy, Life Orb, etc.).
+  // Context-aware: skip when the agent is correctly NOTING the item is
+  // illegal (e.g. "Weakness Policy isn't in Champions"). We look at a
+  // small window of text around each match for negation phrases.
+  const isMentionLegitimate = (text: string, match: number, len: number): boolean => {
+    const before = text.slice(Math.max(0, match - 80), match).toLowerCase();
+    const after = text.slice(match + len, match + len + 80).toLowerCase();
+    const window = `${before} ${after}`;
+    return /\b(?:not|isn'?t|no|cut|removed|unavailable|banned|illegal|n[''’]t in|not in|not available|don'?t (?:have|use)|cannot use|can'?t use|not legal)\b/.test(
+      window,
+    );
+  };
+  for (const item of CHAMPIONS_ITEMS_BANNED) {
+    const itemRegex = new RegExp(
+      `\\b${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "i",
+    );
+    const m = itemRegex.exec(content);
+    if (m && !isMentionLegitimate(content, m.index, m[0].length)) {
+      issues.push(`${item} is NOT in Pokemon Champions. Remove it and pick an item from the ALLOWED list.`);
+      // Persist the correction so the next conversation's knowledge context
+      // sees it and reinforces the rule.
+      try {
+        saveFeedback({
+          type: "correction",
+          topic: `${item} not in Champions`,
+          content: `Agent proposed ${item} but it's not in Pokemon Champions Reg M-A (source: Game8 items list). Pick a held item from CHAMPIONS_ITEMS_CONFIRMED instead.`,
+          source: "validate-response node",
+        });
+      } catch {
+        // Non-fatal — feedback persistence is best-effort.
       }
     }
   }
@@ -58,16 +201,38 @@ export async function validateResponseNode(
     }
   }
 
-  // Check for known wrong abilities
+  // Check for known wrong abilities. Tightened to require species +
+  // bad ability to appear in the SAME per-Pokemon section, not
+  // anywhere in the response. Previously a contextual mention like
+  // "this is better than Archaludon" combined with a different
+  // Pokemon's `**Ability**: Levitate` line would false-positive.
   const wrongAbilities: Record<string, string[]> = {
     "Archaludon": ["Levitate"],
     "Incineroar": ["Blaze"],
     "Pelipper": ["Keen Eye", "Rain Dish"],
   };
-  for (const [species, badAbilities] of Object.entries(wrongAbilities)) {
-    for (const bad of badAbilities) {
-      if (content.includes(species) && content.includes(`**Ability**: ${bad}`)) {
-        issues.push(`${species} should NOT use ${bad} in competitive VGC. Use the correct competitive ability.`);
+  // Per-mon section blocks: split on `### Heading` or `1. Heading`
+  // boundaries so a bad ability under one species can't taint
+  // another's mention.
+  const sections = content.split(/(?=^(?:#{1,3}\s+|\d+[.)]\s+))/m);
+  for (const section of sections) {
+    for (const [species, badAbilities] of Object.entries(wrongAbilities)) {
+      // Species must appear in this section's HEADING (start of
+      // section) — passing-mentions in prose don't count.
+      const headingPattern = new RegExp(
+        `^(?:#{1,3}|\\d+[.)])\\s+\\*{0,2}${species.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&",
+        )}\\b`,
+        "i",
+      );
+      if (!headingPattern.test(section.trim())) continue;
+      for (const bad of badAbilities) {
+        if (section.includes(`**Ability**: ${bad}`)) {
+          issues.push(
+            `${species} should NOT use ${bad} in competitive VGC. Use the correct competitive ability.`,
+          );
+        }
       }
     }
   }
@@ -94,12 +259,25 @@ export async function validateResponseNode(
   }
 
   // Check for nature/stat mismatches (e.g., Adamant with max SpA, or special attacker with max Atk)
-  const pokemonSections = content.split(/(?=^### )/m).filter((s) => s.startsWith("### "));
+  // Split into per-Pokemon sections. Accept either "### Species"
+  // headings OR "1. Species" / "1) Species" numbered-list headings so
+  // the move/nature validators below see the same shapes the species
+  // detector above now catches.
+  const pokemonSections = content
+    .split(/(?=^(?:#{1,3}\s+|\d+[.)]\s+))/m)
+    .filter(
+      (s) =>
+        /^#{1,3}\s+\S/.test(s) || /^\d+[.)]\s+\*{0,2}[A-Z]/.test(s),
+    );
   for (const section of pokemonSections) {
     const natureMatch = section.match(/\*\*Nature\*\*:\s*(\w+)/);
     const pointsMatch = section.match(/\*\*Points\*\*:\s*HP\s*(\d+)\s*\/\s*Atk\s*(\d+)\s*\/\s*Def\s*(\d+)\s*\/\s*SpA\s*(\d+)\s*\/\s*SpD\s*(\d+)\s*\/\s*Spe\s*(\d+)/);
     const roleMatch = section.match(/\*\*Role\*\*:\s*(.+)/);
-    const speciesMatch = section.match(/^### (.+)/);
+    // Accept `### Name`, `## Name`, or `1. Name` / `1) Name` (with
+    // optional `**` wrappers) — matches the broader split rule above.
+    const speciesMatch =
+      section.match(/^#{1,3}\s+(.+)/) ??
+      section.match(/^\d+[.)]\s+\*{0,2}(.+?)\*{0,2}\s*$/m);
 
     if (natureMatch && pointsMatch && roleMatch && speciesMatch) {
       const nature = natureMatch[1];
@@ -126,24 +304,73 @@ export async function validateResponseNode(
     if (movesMatch && speciesMatch) {
       const moves = movesMatch[1]
         .split(/\s*\/\s*/)
-        .map((m) => m.split(/[—–\-]/)[0].trim().toLowerCase())
+        .map((m) => m.split(/[—–\-]/)[0].trim())
         .filter(Boolean);
-      const uniqueMoves = new Set(moves);
+      const speciesName = speciesMatch[1].trim();
+      const uniqueMoves = new Set(moves.map((m) => m.toLowerCase()));
       if (moves.length !== uniqueMoves.size) {
-        const dupes = moves.filter((m, i) => moves.indexOf(m) !== i);
-        issues.push(`${speciesMatch[1].trim()}: has duplicate moves (${[...new Set(dupes)].join(", ")}). Each move must be unique. Pick 4 different moves from the Pikalytics data.`);
+        const lower = moves.map((m) => m.toLowerCase());
+        const dupes = lower.filter((m, i) => lower.indexOf(m) !== i);
+        issues.push(`${speciesName}: has duplicate moves (${[...new Set(dupes)].join(", ")}). Each move must be unique. Pick 4 different moves from the Pikalytics data.`);
+      }
+
+      // Champions-specific blocked moves (e.g. Incineroar has no Knock Off).
+      const blocked = moves.filter((m) =>
+        isMoveBlockedForSpecies(speciesName, m),
+      );
+      if (blocked.length > 0) {
+        const allBlocked = getUnavailableMovesFor(speciesName).join(", ");
+        issues.push(
+          `${speciesName} cannot use ${blocked.join(", ")} in Champions Reg M-A (cut from its movepool). Blocked moves for this species: ${allBlocked}. Pick a different move.`,
+        );
+        try {
+          saveFeedback({
+            type: "correction",
+            topic: `${speciesName} missing move ${blocked[0]} in Champions`,
+            content: `Agent proposed ${blocked.join(", ")} on ${speciesName}, but ${speciesName} loses ${allBlocked} in Pokemon Champions Reg M-A. Pick from the species' actual Champions movepool.`,
+            source: "validate-response node",
+          });
+        } catch {
+          // Non-fatal.
+        }
       }
     }
   }
 
-  // Check if fewer than 6 Pokemon were suggested when it looks like a team
-  if (pokemonMentions && pokemonMentions.length < 6) {
-    const isTeamRequest = state.messages.some(m =>
-      typeof m.content === "string" && m.content.toLowerCase().includes("team")
+  // Check if fewer than 6 Pokemon were suggested when the user
+  // ACTUALLY asked for a full team. Both signals must align:
+  //   1. The user's latest message looks like a team-build request
+  //   2. The agent's response also looks team-shaped
+  // Without (1) we get false positives on yes/no questions where the
+  // agent explained an answer using 3-4 Pokemon for context.
+  if (
+    pokemonMentions.length > 0 &&
+    pokemonMentions.length < 6 &&
+    userAskedForFullTeam(latestUserMessage) &&
+    looksLikeFullTeamResponse(content, pokemonMentions.length)
+  ) {
+    issues.push(`Only ${pokemonMentions.length} Pokemon suggested. A VGC team needs exactly 6. Add ${6 - pokemonMentions.length} more.`);
+  }
+
+  if (
+    patchModeActive &&
+    !hasPriorPatchToolCall(state) &&
+    !/<user-question>/i.test(content) &&
+    !isPatchClarificationQuestion(content)
+  ) {
+    issues.push(
+      "Direct edit request detected for the current team, but the response did not stay in patch mode. Use propose_pokemon_patch and confirm only the requested slot change.",
     );
-    if (isTeamRequest) {
-      issues.push(`Only ${pokemonMentions.length} Pokemon suggested. A VGC team needs exactly 6. Add ${6 - pokemonMentions.length} more.`);
-    }
+  }
+
+  if (
+    patchModeActive &&
+    !hasPriorPatchToolCall(state) &&
+    isAssistantConfirmationLoop(content)
+  ) {
+    issues.push(
+      "Do not ask the user to confirm the same edit they already requested. The user already asked for the change. Use propose_pokemon_patch immediately.",
+    );
   }
 
   if (issues.length === 0) {
@@ -170,28 +397,23 @@ export async function validateResponseNode(
     metadata: { passed: false, issues },
   });
 
-  // Issues found — regenerate a corrected response and REPLACE the bad one
-  const correctionPrompt = `VALIDATION FAILED. Fix these issues and regenerate the COMPLETE response:
-
-${issues.map((i, idx) => `${idx + 1}. ${i}`).join("\n")}
-
-Output the corrected FULL response. Do NOT repeat or reference the previous attempt.`;
-
-  const provider = detectProvider();
-  const model = createModel(provider);
-
-  const correctionMessages = [
-    ...state.messages,
-    new SystemMessage(correctionPrompt),
-  ];
-
-  const correctedResponse = await model.invoke(correctionMessages);
-
-  // REMOVE the bad message, then ADD the corrected one
-  // This prevents duplication in the stream
-  const removeMsg = new RemoveMessage({ id: aiMsg.id! });
+  // Final validation is terminal in the graph. Do NOT run an
+  // ungrounded free-form rewrite here — that path lacks the full
+  // system prompt, draft-team context, and tool loop, and can invent
+  // new illegal Pokemon while "fixing" the old ones.
+  const replacement = new AIMessage({
+    id: aiMsg.id,
+    content: [
+      "I need to correct the previous answer before it is safe to use for Pokemon Champions Reg M-A.",
+      "",
+      "Problems still detected:",
+      ...issues.map((issue) => `- ${issue}`),
+      "",
+      "Please retry the request. If you want a single change, ask for the exact slot edit and I'll keep the rest of the roster intact.",
+    ].join("\n"),
+  });
 
   return {
-    messages: [removeMsg, correctedResponse],
+    messages: [replacement],
   };
 }

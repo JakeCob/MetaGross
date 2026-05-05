@@ -15,7 +15,7 @@ export default async function NewTeamPage({ searchParams }: NewTeamPageProps) {
     : undefined;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-8">
+    <div className="mx-auto max-w-[1400px] px-4 py-6 sm:py-8">
       <TeamBuilderWithAgent
         initialSpecies={initialSpecies}
         initialName={name}
