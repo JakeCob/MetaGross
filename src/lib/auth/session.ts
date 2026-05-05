@@ -107,11 +107,21 @@ export async function issueSessionToken(
 
 export async function verifySessionToken(
   token: string | undefined | null,
-  secret: string = requireAuthSecret(),
+  secret?: string,
   now: number = Date.now(),
   ttlMs: number = SESSION_TTL_MS,
 ): Promise<boolean> {
   if (!token || typeof token !== "string") return false;
+  // Read the secret lazily — middleware (Edge runtime) sometimes
+  // doesn't pass it in. If neither the call site supplies one nor
+  // process.env has one, fail closed (return false) instead of
+  // throwing, so middleware can short-circuit to a redirect.
+  const realSecret =
+    secret ??
+    process.env.METAGROSS_AUTH_SECRET ??
+    process.env.AUTH_SECRET ??
+    "";
+  if (!realSecret || realSecret.length < 16) return false;
   const dot = token.indexOf(".");
   if (dot <= 0 || dot === token.length - 1) return false;
   const issuedAt = token.slice(0, dot);
@@ -120,7 +130,7 @@ export async function verifySessionToken(
   if (!Number.isFinite(issuedMs)) return false;
   if (now - issuedMs > ttlMs) return false;
   if (issuedMs - now > 60_000) return false; // anti-replay drift
-  return hmacVerify(secret, issuedAt, sig);
+  return hmacVerify(realSecret, issuedAt, sig);
 }
 
 /**

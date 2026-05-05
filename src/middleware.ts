@@ -4,20 +4,24 @@ import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 /**
  * Single-user passcode middleware.
  *
- * Every request needs a valid HMAC-signed session cookie except:
- *   - `/login` and the auth API
- *   - Next.js internals (_next, static assets, favicon)
- *   - Health-check endpoints we want unauthenticated for monitoring
+ * Runs on the Node.js runtime (not Edge) because Turbopack's Edge
+ * bundler in Next 16 sometimes inlines env values at compile time
+ * and misses `.env` edits made after the dev server started. Node
+ * runtime reads `process.env` lazily on every request — same
+ * behavior as the API routes themselves.
  *
- * The matcher (bottom of file) runs this middleware on every route
- * by default; the early `isPublic` check exits cheaply for the
- * exempted paths.
+ * Public exemptions: /login, /api/auth/*, Next internals, static
+ * assets, and the auth-debug endpoint. Everything else needs a
+ * valid HMAC-signed session cookie.
  */
+
+export const runtime = "nodejs";
 
 const PUBLIC_PATHS = new Set<string>([
   "/login",
   "/api/auth/login",
   "/api/auth/logout",
+  "/api/auth/debug",
   "/favicon.ico",
   "/manifest.webmanifest",
   "/robots.txt",
@@ -28,9 +32,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/_next/")) return true;
   if (pathname.startsWith("/api/auth/")) return true;
   if (pathname === "/api/health") return true;
-  // Static assets in /public are usually small images and icons —
-  // allow extensionless icons fall through, only let real files
-  // through (they have an extension).
+  // Files with extensions (icons, images, fonts) — let them through.
   if (/\.[a-z0-9]{1,5}$/i.test(pathname)) return true;
   return false;
 }
@@ -42,29 +44,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Auth not configured → fail closed with a clear message instead
-  // of letting unauthed traffic through. This is the default state
-  // when METAGROSS_AUTH_SECRET / METAGROSS_PASSCODE haven't been set.
-  const secret =
-    process.env.METAGROSS_AUTH_SECRET ?? process.env.AUTH_SECRET ?? "";
-  if (!secret || secret.length < 16) {
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json(
-        {
-          error:
-            "Auth not configured. Set METAGROSS_AUTH_SECRET (≥16 chars) and METAGROSS_PASSCODE in .env, then restart.",
-        },
-        { status: 503 },
-      );
-    }
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("setup", "1");
-    return NextResponse.redirect(url);
-  }
-
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  const ok = await verifySessionToken(token, secret);
+  // verifySessionToken is fail-closed: if the env secret is missing,
+  // it returns false and the user gets bounced to /login. The login
+  // page then surfaces the setup hint via its own server-side env
+  // check (which is reliably loaded on the Node runtime).
+  const ok = await verifySessionToken(token);
   if (ok) {
     return NextResponse.next();
   }
