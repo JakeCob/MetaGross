@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const result = await generatePostMatchAnalysis(body.input);
 
     if (body.matchId) {
-      updateMatch(body.matchId, {
+      await updateMatch(body.matchId, {
         aiAnalysisJson: result,
         analyzedAt: Date.now(),
       });

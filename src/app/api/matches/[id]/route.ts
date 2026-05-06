@@ -31,7 +31,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const match = getMatchById(id);
+    const match = await getMatchById(id);
 
     if (!match) {
       return Response.json({ error: 'Match not found' }, { status: 404 });
@@ -65,7 +65,7 @@ export async function PUT(
     }
 
     const data = parsed.data;
-    const updated = updateMatch(id, {
+    const updated = await updateMatch(id, {
       format: data.format,
       mode: data.mode,
       result: data.result,
@@ -105,7 +105,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const deleted = deleteMatch(id);
+    const deleted = await deleteMatch(id);
 
     if (!deleted) {
       return Response.json({ error: 'Match not found' }, { status: 404 });

@@ -105,7 +105,7 @@ export async function aggregateFromLimitless(
 
         const seenAt = t.date ? new Date(t.date).getTime() : null;
 
-        upsertMetaTeam({
+        await upsertMetaTeam({
           source: "limitless",
           sourceRef: `${t.id}::${standing.name}::${standing.placement}`,
           sourceUrl: `https://play.limitlesstcg.com/tournament/${t.id}`,

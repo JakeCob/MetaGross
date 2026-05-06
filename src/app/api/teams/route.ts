@@ -5,7 +5,7 @@ const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 export async function GET() {
   try {
-    const teams = getAllTeams(DEFAULT_USER_ID);
+    const teams = await getAllTeams(DEFAULT_USER_ID);
     return Response.json({ teams });
   } catch (error) {
     console.error('GET /api/teams error:', error);
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     const { name, format, pokemon } = validation.data;
 
-    const team = createTeam({
+    const team = await createTeam({
       name,
       format,
       userId: DEFAULT_USER_ID,

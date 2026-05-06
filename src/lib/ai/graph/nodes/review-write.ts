@@ -30,14 +30,14 @@ async function executeWriteAction(
   switch (proposal.actionType) {
     case "update_match_notes": {
       const data = payload as { matchId: string; notes: string };
-      const result = updateMatch(data.matchId, { notes: data.notes });
+      const result = await updateMatch(data.matchId, { notes: data.notes });
       if (!result) return "Failed to update match notes — match not found.";
       return `Match notes updated successfully.`;
     }
 
     case "update_team_notes": {
       const data = payload as { teamId: string; notes: string };
-      const result = updateTeam(data.teamId, { notes: data.notes });
+      const result = await updateTeam(data.teamId, { notes: data.notes });
       if (!result) return "Failed to update team notes — team not found.";
       return `Team notes updated successfully.`;
     }
@@ -62,7 +62,7 @@ async function executeWriteAction(
       if (!currentTeam) return "Failed to patch team — team not found.";
 
       const nextPokemon = applyPokemonPatchToTeam(currentTeam.pokemon, data);
-      const result = updateTeam(data.teamId, { pokemon: nextPokemon });
+      const result = await updateTeam(data.teamId, { pokemon: nextPokemon });
       if (!result) return "Failed to patch team — team not found.";
       return `Team pokemon updated successfully.`;
     }

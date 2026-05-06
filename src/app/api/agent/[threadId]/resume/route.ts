@@ -33,7 +33,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    const thread = getThread(threadId);
+    const thread = await getThread(threadId);
     if (!thread) {
       return NextResponse.json(
         { error: `Thread not found: ${threadId}` },

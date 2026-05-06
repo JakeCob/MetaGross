@@ -351,7 +351,7 @@ export async function aggregateFromVgcPastes(
         (s) => s && s.trim().length > 0 && s.trim() !== "-",
       );
 
-      upsertMetaTeam({
+      await upsertMetaTeam({
         source: "vgcpastes",
         sourceRef: parsed.teamId,
         sourceUrl: parsed.sourceLink || parsed.pokepasteUrl,

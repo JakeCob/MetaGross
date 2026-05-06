@@ -30,9 +30,9 @@ export interface AggregateCreatorsResult {
   errors: Array<{ teamId: string; error: string }>;
 }
 
-export function aggregateFromCreators(
+export async function aggregateFromCreators(
   opts: AggregateCreatorsOptions = {},
-): AggregateCreatorsResult {
+): Promise<AggregateCreatorsResult> {
   const format = opts.format ?? "champions-reg-m-a";
   const eligible = CREATOR_TEAMS.filter((t) => t.format === format);
 
@@ -56,7 +56,7 @@ export function aggregateFromCreators(
       // Detect insert vs update heuristically by seenAt — cheap and
       // good enough for the summary.
       const beforeTime = Date.now();
-      upsertMetaTeam({
+      await upsertMetaTeam({
         source: "creator",
         sourceRef: `${t.creatorHandle}::${t.id}`,
         sourceUrl: t.videoUrl ?? t.creatorUrl ?? null,

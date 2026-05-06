@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const output: Record<string, unknown> = {};
 
     if (source === "creators" || source === "all") {
-      output.creators = aggregateFromCreators({
+      output.creators = await aggregateFromCreators({
         format: internalFormat,
       });
     }

@@ -58,7 +58,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
 export async function DELETE(_request: Request, { params }: RouteParams) {
   const { id } = await params;
-  const ok = deleteMemory(id);
+  const ok = await deleteMemory(id);
   if (!ok) {
     return NextResponse.json({ error: "Memory not found" }, { status: 404 });
   }

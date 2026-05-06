@@ -31,7 +31,7 @@ export async function POST(request: Request) {
         ? Math.min(50, Math.floor(body.limit))
         : 10;
 
-    const matches = matchMetaTeams({ species, format, minOverlap, limit });
+    const matches = await matchMetaTeams({ species, format, minOverlap, limit });
     return Response.json({ matches });
   } catch (err) {
     console.error("POST /api/meta-teams/match error:", err);

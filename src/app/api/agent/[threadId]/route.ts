@@ -19,7 +19,7 @@ interface RouteParams {
 export async function GET(_request: Request, { params }: RouteParams) {
   const { threadId } = await params;
 
-  const thread = getThread(threadId);
+  const thread = await getThread(threadId);
   if (!thread) {
     return NextResponse.json(
       { error: `Thread not found: ${threadId}` },
@@ -83,7 +83,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
   const { title, persona } = body as { title?: string; persona?: string };
-  const updated = updateThread(threadId, {
+  const updated = await updateThread(threadId, {
     ...(typeof title === "string" ? { title } : {}),
     ...(typeof persona === "string" ? { persona } : {}),
   });
@@ -102,7 +102,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
  */
 export async function DELETE(_request: Request, { params }: RouteParams) {
   const { threadId } = await params;
-  const ok = deleteThread(threadId);
+  const ok = await deleteThread(threadId);
   if (!ok) {
     return NextResponse.json({ error: "Thread not found" }, { status: 404 });
   }

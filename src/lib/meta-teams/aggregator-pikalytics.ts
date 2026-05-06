@@ -126,7 +126,7 @@ export async function aggregateFromPikalytics(
             ]
           : [];
 
-        upsertMetaTeam({
+        await upsertMetaTeam({
           source: "pikalytics",
           sourceRef: `${spName}::${featured.player}::${featured.record}`,
           sourceUrl: `https://www.pikalytics.com/pokedex/${format}/${encodeURIComponent(spName)}`,

@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     }
     const input = parse.data;
 
-    const team = upsertMetaTeam({
+    const team = await upsertMetaTeam({
       source: "user",
       sourceRef: input.author ? `user::${input.author}::${Date.now()}` : null,
       sourceUrl: input.sourceUrl ?? null,

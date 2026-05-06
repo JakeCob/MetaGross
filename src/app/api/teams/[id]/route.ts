@@ -15,7 +15,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const team = getTeamById(id);
+    const team = await getTeamById(id);
 
     if (!team) {
       return Response.json({ error: 'Team not found' }, { status: 404 });
@@ -65,7 +65,7 @@ export async function PUT(
       }
     }
 
-    const updated = updateTeam(id, {
+    const updated = await updateTeam(id, {
       name: body.name,
       format: body.format,
       pokepaste: body.pokepaste,
@@ -94,7 +94,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const deleted = deleteTeam(id);
+    const deleted = await deleteTeam(id);
 
     if (!deleted) {
       return Response.json({ error: 'Team not found' }, { status: 404 });
@@ -121,7 +121,7 @@ export async function PATCH(
     // Toggle is_active: if body has is_active === true, set this team active
     // (deactivating all others). If is_active === false, just deactivate it.
     if (body.isActive === true || body.is_active === true) {
-      const team = setActiveTeam(DEFAULT_USER_ID, id);
+      const team = await setActiveTeam(DEFAULT_USER_ID, id);
 
       if (!team) {
         return Response.json({ error: 'Team not found' }, { status: 404 });
@@ -132,7 +132,7 @@ export async function PATCH(
 
     // Deactivate this team specifically
     if (body.isActive === false || body.is_active === false) {
-      const updated = updateTeam(id, { isActive: 0 });
+      const updated = await updateTeam(id, { isActive: 0 });
 
       if (!updated) {
         return Response.json({ error: 'Team not found' }, { status: 404 });

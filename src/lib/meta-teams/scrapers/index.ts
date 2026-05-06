@@ -69,7 +69,7 @@ export async function runAllScrapers(
 
     for (const t of result.teams) {
       try {
-        upsertMetaTeam({
+        await upsertMetaTeam({
           source: t.source,
           sourceRef: t.sourceRef,
           sourceUrl: t.sourceUrl,

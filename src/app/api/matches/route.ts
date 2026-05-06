@@ -4,7 +4,7 @@ const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 export async function GET() {
   try {
-    const matches = getAllMatches(DEFAULT_USER_ID);
+    const matches = await getAllMatches(DEFAULT_USER_ID);
     return Response.json({ matches });
   } catch (error) {
     console.error('GET /api/matches error:', error);
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const match = createMatch({
+    const match = await createMatch({
       format: body.format,
       mode: body.mode,
       result: body.result,

@@ -2,7 +2,7 @@ import { getUsageSummary } from "@/lib/ai/rate-limiter";
 
 export async function GET() {
   try {
-    const summary = getUsageSummary();
+    const summary = await getUsageSummary();
     return Response.json(summary);
   } catch (error) {
     console.error("Usage summary error:", error);

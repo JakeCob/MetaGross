@@ -74,7 +74,7 @@ export async function searchBing(
   }));
 
   // Record usage (personal key, but still track for visibility)
-  recordSearchUsage("bing", query);
+  await recordSearchUsage("bing", query);
 
   console.log(`[Bing] Got ${results.length} results for "${query}"`);
 
