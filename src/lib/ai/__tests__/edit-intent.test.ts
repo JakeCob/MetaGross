@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isAssistantConfirmationLoop,
   isPatchClarificationQuestion,
+  hasResearchIntent,
   hasTeamContextForPatch,
   isDirectTeamEditRequest,
   isTentativeTeamEditSuggestion,
@@ -126,5 +127,39 @@ describe("edit intent detection", () => {
         draftTeam: { pokemon: [{ species: "Milotic" }] },
       }),
     ).toBe(true);
+  });
+
+  describe("hasResearchIntent", () => {
+    it("flags 'let's discuss / gather more info' phrasing", () => {
+      expect(
+        hasResearchIntent(
+          "no brainer it should be aurora veil, talonflame should be dual wingbeat, we could discuss about this. Maybe gather more info on team in limitless",
+        ),
+      ).toBe(true);
+      expect(hasResearchIntent("let's discuss this first")).toBe(true);
+      expect(hasResearchIntent("let's think about it more")).toBe(true);
+      expect(hasResearchIntent("can we discuss the tradeoffs?")).toBe(true);
+    });
+
+    it("flags 'check / look on Limitless' phrasing", () => {
+      expect(hasResearchIntent("look on limitless first")).toBe(true);
+      expect(hasResearchIntent("check the meta before applying")).toBe(true);
+      expect(hasResearchIntent("search pikalytics for this")).toBe(true);
+    });
+
+    it("flags 'not sure yet / before applying' hedges", () => {
+      expect(hasResearchIntent("I'm not fully sure yet, gather more info"))
+        .toBe(true);
+      expect(hasResearchIntent("before applying, do more research"))
+        .toBe(true);
+    });
+
+    it("does NOT flag plain edit requests with no research signals", () => {
+      expect(hasResearchIntent("change Talonflame to Charizard"))
+        .toBe(false);
+      expect(hasResearchIntent("update Milotic's moves to Recover"))
+        .toBe(false);
+      expect(hasResearchIntent("swap Sneasler for Garchomp")).toBe(false);
+    });
   });
 });

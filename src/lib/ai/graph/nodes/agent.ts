@@ -9,6 +9,7 @@ import { logAgentEvent } from "@/lib/ai/logger";
 import { loadKnowledgeContext } from "@/lib/ai/knowledge";
 import {
   getLatestUserMessageText,
+  hasResearchIntent,
   hasTeamContextForPatch,
   isDirectTeamEditRequest,
   isTentativeTeamEditSuggestion,
@@ -439,13 +440,21 @@ They are approving the plan you just outlined — STOP re-listing the plan. STAR
 function buildSystemPrompt(state: AgentStateType): string {
   const parts: string[] = [BASE_SYSTEM_PROMPT];
   const latestUserMessage = getLatestUserMessageText(state.messages);
+  // Research intent ("let's discuss", "gather more info on Limitless",
+  // "not sure yet") OUTRANKS edit phrasing. Without this override, a
+  // message like "X should be Y, we could discuss this, gather info on
+  // Limitless" routes to the patch tool because of the "should be"
+  // pattern — the user explicitly wanted deliberation.
+  const researchIntentActive = hasResearchIntent(latestUserMessage);
   const patchModeActive =
+    !researchIntentActive &&
     isDirectTeamEditRequest(latestUserMessage) &&
     hasTeamContextForPatch({
       loadedContext: state.loadedContext,
       draftTeam: state.draftTeam,
     });
   const analysisFirstEditSuggestion =
+    !researchIntentActive &&
     isTentativeTeamEditSuggestion(latestUserMessage) &&
     hasTeamContextForPatch({
       loadedContext: state.loadedContext,
@@ -580,6 +589,25 @@ Rules for this turn:
 - Do NOT open an approval card yet.
 - Answer the analysis first: explain whether the proposed change helps, what problem it solves, and what tradeoff it creates.
 - If the user later says to apply the change, THEN use propose_pokemon_patch on the next turn.`);
+  }
+
+  if (researchIntentActive) {
+    parts.push(`\n\nRESEARCH MODE IS ACTIVE FOR THIS TURN.
+The user signalled they want deliberation BEFORE any change is applied — phrases like "let's discuss", "gather more info on Limitless", "not sure yet", "look at the meta first". Even if their message includes edit-style phrasing ("X should be Y", "I think it should be Z"), they have NOT yet authorised a patch.
+
+Rules for this turn:
+- Do NOT call propose_pokemon_patch.
+- Do NOT open an approval card.
+- DO call research tools BEFORE you reply, in this order:
+  1. search_meta_teams for each Pokemon they mentioned by name (mode=match species=["X"], format="champions-reg-m-a"). This is our verified Limitless + VGCPastes + creator pool — exactly what they asked you to "gather more info on".
+  2. get_pokemon_competitive_sets for any move/item that feels off against the meta.
+  3. get_smogon_analysis if you need usage statistics for that move on that species.
+  4. Only fall through to search_web + fetch_url if our pool returns nothing.
+- VALIDATE every claim the user made against what came back. If they propose a move/item/ability that does NOT appear in our verified reference sets, push back EXPLICITLY:
+    "Volt Switch on Rotom-Wash isn't showing up in our Limitless top-cut data for Champions Reg M-A — the standard fourth move is Will-O-Wisp. Are you sure?"
+  Don't rubber-stamp. Don't say "great suggestion" without checking. The user explicitly asked you to verify, so verify.
+- Reply in plain text with: (a) what each suggestion does well, (b) what evidence from the meta supports or contradicts it, (c) tradeoffs, (d) your honest recommendation. End with: "want me to apply [specific summary]?". The user will reply with "yes apply" / "go ahead" before any patch happens.
+- If the user explicitly asks to apply on the NEXT turn, that's the trigger to call propose_pokemon_patch.`);
   }
 
   return parts.join("\n");

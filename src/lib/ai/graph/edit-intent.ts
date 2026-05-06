@@ -73,6 +73,46 @@ const PATCH_CLARIFICATION_PATTERNS: RegExp[] = [
   /^\s*when you say\b/i,
 ];
 
+/**
+ * Phrases that signal "deliberate first, don't patch yet". When these
+ * appear in a message that ALSO has direct-edit phrasing, the agent
+ * should suppress patch mode and use research tools (search_meta_teams,
+ * get_smogon_analysis, search_web) to validate the user's claims
+ * against tournament data before proposing any change.
+ *
+ * Why this matters: Karpathy's verifiability lens — applying a patch
+ * is verifiable, holding a deliberative discussion isn't, so without
+ * an explicit signal the router defaults to the verifiable path. These
+ * patterns are that explicit signal.
+ */
+const RESEARCH_INTENT_PATTERNS: RegExp[] = [
+  /\blet'?s\s+(?:discuss|talk|think|chat)\b/i,
+  /\bwe\s+(?:could|should|can)\s+discuss\b/i,
+  /\bcould\s+(?:we\s+)?discuss\b/i,
+  /\bdiscuss\s+(?:about|this|first)\b/i,
+  /\bgather\s+(?:more\s+)?info\b/i,
+  /\bdo\s+(?:more\s+)?research\b/i,
+  /\b(?:more|further)\s+research\b/i,
+  /\blook\s+(?:on|at|in|into)\s+(?:limitless|smogon|pikalytics|the\s+meta|tournament)/i,
+  /\bcheck\s+(?:on|the|with)\s+(?:limitless|smogon|pikalytics|the\s+meta|tournament|reference)/i,
+  /\bsearch\s+(?:limitless|smogon|pikalytics|the\s+web|the\s+meta)/i,
+  /\bnot\s+(?:fully\s+)?sure\s+(?:yet|about)/i,
+  /\bbefore\s+(?:applying|changing|patching|updating)/i,
+  /\bcan\s+we\s+(?:think|discuss|talk)\b/i,
+  /\bthink\s+(?:about|this|it)\s+(?:through|over|more)\b/i,
+];
+
+/**
+ * The user wants deliberation/research before a patch is applied,
+ * even if they also used edit verbs ("X should be Y"). Agent should
+ * call read tools first and discuss tradeoffs in plain text.
+ */
+export function hasResearchIntent(message: string): boolean {
+  const text = message.trim();
+  if (!text) return false;
+  return RESEARCH_INTENT_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 export function getLatestUserMessageText(messages: BaseMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
