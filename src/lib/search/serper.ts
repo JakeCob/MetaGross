@@ -39,7 +39,7 @@ export async function searchGoogle(
   }
 
   // Check rate limit before calling
-  const limit = checkRateLimit("search", "serper");
+  const limit = await checkRateLimit("search", "serper");
   if (!limit.allowed) {
     throw new Error(
       `Serper daily limit reached (${limit.used}/${limit.limit}). Try again tomorrow.`,
@@ -76,7 +76,7 @@ export async function searchGoogle(
   }));
 
   // Record usage after successful call
-  recordSearchUsage("serper", query);
+  await recordSearchUsage("serper", query);
 
   console.log(`[Serper] Got ${results.length} results for "${query}"`);
 

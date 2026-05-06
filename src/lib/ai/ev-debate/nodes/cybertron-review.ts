@@ -59,7 +59,7 @@ export async function cybertronReviewNode(
 
   const systemPrompt = `${persona.systemPromptAddition} You are reviewing the WHOLE set — Ability, Item, Moves, Nature, and ${isChampions ? "stat points" : "EVs"} — not just the numbers. Keep it to 3-5 sentences. Focus on survival benchmarks${isChampions ? " against Champions Reg M-A threats (Sneasler, Archaludon, Kingambit, Garchomp, Dragonite-Mega, Tyranitar-Mega, Charizard-Mega-Y)" : ""}, defensive calcs, and fundamental consistency. Flag Nature/moveset mismatches and weak item/ability choices explicitly.`;
 
-  const referenceSets = getReferenceSetsForSpecies(pokemon.species, format, 6);
+  const referenceSets = await getReferenceSetsForSpecies(pokemon.species, format, 6);
   const referenceBlock = formatReferenceSetsBlock(referenceSets);
 
   const userPrompt = `Review this full set for ${pokemon.species}:

@@ -71,8 +71,10 @@ function rowToMemory(row: typeof agentMemories.$inferSelect): AgentMemoryRow {
   };
 }
 
-export function createMemory(data: CreateMemoryInput): AgentMemoryRow {
-  const row = db
+export async function createMemory(
+  data: CreateMemoryInput,
+): Promise<AgentMemoryRow> {
+  const row = await db
     .insert(agentMemories)
     .values({
       scope: data.scope,
@@ -91,11 +93,11 @@ export function createMemory(data: CreateMemoryInput): AgentMemoryRow {
   return rowToMemory(row);
 }
 
-export function getMemoriesByScope(
+export async function getMemoriesByScope(
   scope: string,
   scopeRef?: string | null,
-): AgentMemoryRow[] {
-  const rows = scopeRef
+): Promise<AgentMemoryRow[]> {
+  const rows = await (scopeRef
     ? db
         .select()
         .from(agentMemories)
@@ -103,39 +105,44 @@ export function getMemoriesByScope(
           and(eq(agentMemories.scope, scope), eq(agentMemories.scopeRef, scopeRef)),
         )
         .all()
-    : db.select().from(agentMemories).where(eq(agentMemories.scope, scope)).all();
+    : db
+        .select()
+        .from(agentMemories)
+        .where(eq(agentMemories.scope, scope))
+        .all());
   return rows.map(rowToMemory);
 }
 
-export function listMemories(opts?: {
+export async function listMemories(opts?: {
   scope?: string;
   kind?: string;
   limit?: number;
-}): AgentMemoryRow[] {
+}): Promise<AgentMemoryRow[]> {
   const conditions = [];
   if (opts?.scope) conditions.push(eq(agentMemories.scope, opts.scope));
   if (opts?.kind) conditions.push(eq(agentMemories.kind, opts.kind));
   const whereClause = conditions.length === 0 ? undefined : and(...conditions);
   const query = db.select().from(agentMemories);
-  const rows = (whereClause ? query.where(whereClause) : query)
+  const rows = await (whereClause ? query.where(whereClause) : query)
     .orderBy(desc(agentMemories.updatedAt))
     .limit(opts?.limit ?? 200)
     .all();
   return rows.map(rowToMemory);
 }
 
-export function deleteMemory(id: string): boolean {
-  const result = db
+export async function deleteMemory(id: string): Promise<boolean> {
+  const result = await db
     .delete(agentMemories)
     .where(eq(agentMemories.id, id))
     .run();
-  return result.changes > 0;
+  const r = result as unknown as { rowsAffected?: number; changes?: number };
+  return (r.rowsAffected ?? r.changes ?? 0) > 0;
 }
 
-export function updateMemory(
+export async function updateMemory(
   id: string,
   input: Partial<CreateMemoryInput>,
-): AgentMemoryRow | null {
+): Promise<AgentMemoryRow | null> {
   const now = Date.now();
   const updateFields: Record<string, unknown> = { updatedAt: now };
   if (input.scope) updateFields.scope = input.scope;
@@ -150,12 +157,13 @@ export function updateMemory(
   if (input.embeddingModel !== undefined)
     updateFields.embeddingModel = input.embeddingModel;
 
-  db.update(agentMemories)
+  await db
+    .update(agentMemories)
     .set(updateFields)
     .where(eq(agentMemories.id, id))
     .run();
 
-  const row = db
+  const row = await db
     .select()
     .from(agentMemories)
     .where(eq(agentMemories.id, id))
@@ -168,14 +176,14 @@ export function updateMemory(
  * by the extractor for dedupe — don't add a 5th "user prefers rain"
  * memory when one already exists.
  */
-export function findSimilarMemories(opts: {
+export async function findSimilarMemories(opts: {
   content: string;
   embedding: number[] | null;
   scope?: string;
   threshold?: number;
   limit?: number;
-}): Array<{ memory: AgentMemoryRow; score: number }> {
-  const pool = listMemories({ scope: opts.scope, limit: 500 });
+}): Promise<Array<{ memory: AgentMemoryRow; score: number }>> {
+  const pool = await listMemories({ scope: opts.scope, limit: 500 });
   const threshold = opts.threshold ?? 0.85;
   const scored: Array<{ memory: AgentMemoryRow; score: number }> = [];
   for (const m of pool) {
@@ -199,17 +207,16 @@ export function findSimilarMemories(opts: {
 
 /**
  * Semantic search for memories relevant to a user message. Returns the
- * top-K rows ranked by similarity. Uses embeddings when available, else
- * keyword scoring so retrieval still works without an OpenAI key.
+ * top-K rows ranked by similarity.
  */
-export function searchRelevantMemories(opts: {
+export async function searchRelevantMemories(opts: {
   query: string;
   queryEmbedding?: number[] | null;
   scope?: string;
   limit?: number;
   minScore?: number;
-}): Array<{ memory: AgentMemoryRow; score: number }> {
-  const pool = listMemories({ scope: opts.scope, limit: 500 });
+}): Promise<Array<{ memory: AgentMemoryRow; score: number }>> {
+  const pool = await listMemories({ scope: opts.scope, limit: 500 });
   if (pool.length === 0) return [];
 
   const useEmbeddings = Boolean(opts.queryEmbedding);
@@ -227,8 +234,6 @@ export function searchRelevantMemories(opts: {
     } else if (m.content) {
       score = keywordScore(opts.query, m.content);
     }
-    // Weight by confidence so low-certainty memories don't crowd out
-    // high-certainty ones.
     const weighted = score * (0.7 + 0.3 * (m.confidence ?? 0.5));
     if (weighted >= minScore) {
       scored.push({ memory: m, score: weighted });
@@ -242,18 +247,18 @@ export function searchRelevantMemories(opts: {
  * Legacy shim kept for backwards compatibility with earlier code paths
  * that filter by kind only.
  */
-export function searchMemories(
+export async function searchMemories(
   kind: string,
   scope?: string,
-): AgentMemoryRow[] {
+): Promise<AgentMemoryRow[]> {
   return listMemories({ kind, scope, limit: 200 });
 }
 
-export function countMemories(): {
+export async function countMemories(): Promise<{
   total: number;
   byScope: Record<string, number>;
-} {
-  const rows = db
+}> {
+  const rows = await db
     .select({
       scope: agentMemories.scope,
       count: sql<number>`count(*)`.as("count"),

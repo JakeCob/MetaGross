@@ -179,7 +179,7 @@ export async function extractMemoryNode(
     }> = [];
     for (const m of extracted) {
       const vec = await embed(`${m.summary}\n${m.content}`);
-      const dupes = findSimilarMemories({
+      const dupes = await findSimilarMemories({
         content: m.content,
         embedding: vec?.vector ?? null,
         scope: "global",

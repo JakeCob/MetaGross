@@ -58,7 +58,7 @@ async function executeWriteAction(
         return `Draft team patch approved.`;
       }
 
-      const currentTeam = getTeamById(data.teamId);
+      const currentTeam = await getTeamById(data.teamId);
       if (!currentTeam) return "Failed to patch team — team not found.";
 
       const nextPokemon = applyPokemonPatchToTeam(currentTeam.pokemon, data);

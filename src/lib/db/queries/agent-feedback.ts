@@ -26,7 +26,9 @@ export interface CreateFeedbackInput {
   payloadJson?: unknown;
 }
 
-export function createFeedback(data: CreateFeedbackInput): AgentFeedbackRow {
+export async function createFeedback(
+  data: CreateFeedbackInput,
+): Promise<AgentFeedbackRow> {
   const now = Date.now();
 
   return db
@@ -46,7 +48,9 @@ export function createFeedback(data: CreateFeedbackInput): AgentFeedbackRow {
 // ---------------------------------------------------------------------------
 // getFeedbackForThread
 // ---------------------------------------------------------------------------
-export function getFeedbackForThread(threadId: string): AgentFeedbackRow[] {
+export async function getFeedbackForThread(
+  threadId: string,
+): Promise<AgentFeedbackRow[]> {
   return db
     .select()
     .from(agentFeedbackEvents)

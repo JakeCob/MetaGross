@@ -45,7 +45,7 @@ export async function retrieveMemoryNode(
   if (userText.trim()) {
     const vec = await embed(userText).catch(() => null);
     // Global scope — user-level preferences/corrections apply everywhere.
-    const globalHits = searchRelevantMemories({
+    const globalHits = await searchRelevantMemories({
       query: userText,
       queryEmbedding: vec?.vector ?? null,
       scope: "global",
@@ -66,7 +66,7 @@ export async function retrieveMemoryNode(
       contextId
     ) {
       const scopeKey = contextType === "team" ? "team" : "matchup";
-      const scopedHits = searchRelevantMemories({
+      const scopedHits = await searchRelevantMemories({
         query: userText,
         queryEmbedding: vec?.vector ?? null,
         scope: scopeKey,
@@ -85,27 +85,27 @@ export async function retrieveMemoryNode(
   // 2. Backwards-compatible scope sweeps — always include the N most
   // recent entries so the agent sees them even if semantic search
   // missed.
-  const global = getMemoriesByScope("global").slice(0, 5);
+  const global = (await getMemoriesByScope("global")).slice(0, 5);
   for (const m of global) {
     if (m.summary) pushHit(`[memory/global] ${m.summary}`);
   }
 
   if (threadId) {
-    const threadMems = getMemoriesByScope("thread", threadId).slice(0, 5);
+    const threadMems = (await getMemoriesByScope("thread", threadId)).slice(0, 5);
     for (const m of threadMems) {
       if (m.summary) pushHit(`[memory/thread] ${m.summary}`);
     }
   }
 
   if (contextType === "team" && contextId) {
-    const teamMems = getMemoriesByScope("team", contextId).slice(0, 5);
+    const teamMems = (await getMemoriesByScope("team", contextId)).slice(0, 5);
     for (const m of teamMems) {
       if (m.summary) pushHit(`[memory/team] ${m.summary}`);
     }
   }
 
   if (contextType === "match" && contextId) {
-    const matchMems = getMemoriesByScope("matchup", contextId).slice(0, 5);
+    const matchMems = (await getMemoriesByScope("matchup", contextId)).slice(0, 5);
     for (const m of matchMems) {
       if (m.summary) pushHit(`[memory/matchup] ${m.summary}`);
     }

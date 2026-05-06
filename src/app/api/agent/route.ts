@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const thread = getThread(parsed.data.threadId);
+      const thread = await getThread(parsed.data.threadId);
       if (!thread) {
         return NextResponse.json(
           { error: `Thread not found: ${parsed.data.threadId}` },
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
           ? body.modelName.trim()
           : getModelName(provider);
 
-      const thread = createThread({
+      const thread = await createThread({
         // Derive a cleaner title from the first user message: strip markdown,
         // collapse whitespace, word-boundary truncation. Falls back to raw
         // slice for defensive safety.

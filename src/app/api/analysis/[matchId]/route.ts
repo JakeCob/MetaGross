@@ -10,7 +10,7 @@ import type { MatchAnalysis, AIMatchAnalysis } from "@/lib/types/analysis";
  * Convert DB match row to the BattleMatch type expected by the analysis engine.
  */
 function toBattleMatch(
-  match: NonNullable<ReturnType<typeof getMatchById>>,
+  match: NonNullable<Awaited<ReturnType<typeof getMatchById>>>,
 ): BattleMatch {
   const myTeam = (Array.isArray(match.myTeam) ? match.myTeam : []) as TeamPokemon[];
   const opponentTeam = (Array.isArray(match.opponentTeam) ? match.opponentTeam : []) as Partial<TeamPokemon>[];
@@ -78,7 +78,7 @@ export async function POST(
   const { matchId } = await params;
 
   try {
-    const match = getMatchById(matchId);
+    const match = await getMatchById(matchId);
 
     if (!match) {
       return Response.json(
@@ -106,7 +106,7 @@ export async function POST(
     } else {
       ruleAnalysis = analyzeMatch(battleMatch);
       // Save rule analysis to database
-      updateMatch(matchId, {
+      await updateMatch(matchId, {
         ruleAnalysisJson: ruleAnalysis as unknown,
         analyzedAt: Date.now(),
       });
@@ -121,7 +121,7 @@ export async function POST(
       try {
         aiAnalysis = await generateAIMatchAnalysis(battleMatch, ruleAnalysis);
         // Cache the AI analysis
-        updateMatch(matchId, {
+        await updateMatch(matchId, {
           aiAnalysisJson: aiAnalysis as unknown,
         });
       } catch (aiError) {

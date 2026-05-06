@@ -5,9 +5,6 @@ import type { Turn } from '@/lib/types/battle';
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 
-// ---------------------------------------------------------------------------
-// Row shapes returned to the API layer
-// ---------------------------------------------------------------------------
 export interface MatchRow {
   id: string;
   userId: string | null;
@@ -93,7 +90,9 @@ export interface MatchWithTurns extends MatchRow {
 // ---------------------------------------------------------------------------
 // getAllMatches
 // ---------------------------------------------------------------------------
-export function getAllMatches(userId: string = DEFAULT_USER_ID): MatchListItem[] {
+export async function getAllMatches(
+  userId: string = DEFAULT_USER_ID,
+): Promise<MatchListItem[]> {
   return db
     .select({
       id: matches.id,
@@ -117,8 +116,10 @@ export function getAllMatches(userId: string = DEFAULT_USER_ID): MatchListItem[]
 // ---------------------------------------------------------------------------
 // getMatchById
 // ---------------------------------------------------------------------------
-export function getMatchById(id: string): MatchWithTurns | null {
-  const match = db
+export async function getMatchById(
+  id: string,
+): Promise<MatchWithTurns | null> {
+  const match = await db
     .select()
     .from(matches)
     .where(eq(matches.id, id))
@@ -126,7 +127,7 @@ export function getMatchById(id: string): MatchWithTurns | null {
 
   if (!match) return null;
 
-  const turnRows = db
+  const turnRows = await db
     .select()
     .from(matchTurns)
     .where(eq(matchTurns.matchId, id))
@@ -136,13 +137,12 @@ export function getMatchById(id: string): MatchWithTurns | null {
   if (turnRows.length === 0) return { ...match, turns: [] };
 
   const turnIds = turnRows.map((t) => t.id);
-  const allActions = db
+  const allActions = await db
     .select()
     .from(matchTurnActions)
     .where(inArray(matchTurnActions.turnId, turnIds))
     .all();
 
-  // Group actions by turn_id
   const actionsByTurn = new Map<string, MatchTurnActionRow[]>();
   for (const action of allActions) {
     const tid = action.turnId ?? '';
@@ -176,19 +176,16 @@ export interface CreateMatchInput {
   teamId?: string | null;
   userId?: string;
   turns?: Turn[];
-  /** Opponent scouting result from the battle-logger store. */
   opponentScoutingJson?: unknown;
-  /** Win conditions the user ran the match with. */
   winConditionsJson?: unknown;
 }
 
-export function createMatch(data: CreateMatchInput): MatchRow {
+export async function createMatch(data: CreateMatchInput): Promise<MatchRow> {
   const userId = data.userId ?? DEFAULT_USER_ID;
   const now = Date.now();
 
-  return db.transaction((tx) => {
-    // Insert the match
-    const match = tx
+  return db.transaction(async (tx) => {
+    const match = await tx
       .insert(matches)
       .values({
         userId,
@@ -215,10 +212,9 @@ export function createMatch(data: CreateMatchInput): MatchRow {
       .returning()
       .get();
 
-    // Insert turns and their actions if provided
     if (data.turns && data.turns.length > 0) {
       for (const turn of data.turns) {
-        const turnRow = tx
+        const turnRow = await tx
           .insert(matchTurns)
           .values({
             matchId: match.id,
@@ -234,7 +230,8 @@ export function createMatch(data: CreateMatchInput): MatchRow {
           .get();
 
         for (const action of turn.actions) {
-          tx.insert(matchTurnActions)
+          await tx
+            .insert(matchTurnActions)
             .values({
               turnId: turnRow.id,
               side: action.side,
@@ -285,8 +282,15 @@ export interface UpdateMatchInput {
   winConditionsJson?: unknown;
 }
 
-export function updateMatch(id: string, data: UpdateMatchInput): MatchRow | null {
-  const existing = db.select().from(matches).where(eq(matches.id, id)).get();
+export async function updateMatch(
+  id: string,
+  data: UpdateMatchInput,
+): Promise<MatchRow | null> {
+  const existing = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, id))
+    .get();
   if (!existing) return null;
 
   const now = Date.now();
@@ -314,37 +318,39 @@ export function updateMatch(id: string, data: UpdateMatchInput): MatchRow | null
   if (data.winConditionsJson !== undefined)
     updateFields.winConditionsJson = data.winConditionsJson;
 
-  db.update(matches).set(updateFields).where(eq(matches.id, id)).run();
+  await db.update(matches).set(updateFields).where(eq(matches.id, id)).run();
 
-  return db.select().from(matches).where(eq(matches.id, id)).get()!;
+  return (await db.select().from(matches).where(eq(matches.id, id)).get()) ?? null;
 }
 
 // ---------------------------------------------------------------------------
 // deleteMatch
 // ---------------------------------------------------------------------------
-export function deleteMatch(id: string): boolean {
-  const existing = db.select().from(matches).where(eq(matches.id, id)).get();
+export async function deleteMatch(id: string): Promise<boolean> {
+  const existing = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, id))
+    .get();
   if (!existing) return false;
 
-  db.transaction((tx) => {
-    // Get all turn IDs for this match
-    const turnRows = tx
+  await db.transaction(async (tx) => {
+    const turnRows = await tx
       .select({ id: matchTurns.id })
       .from(matchTurns)
       .where(eq(matchTurns.matchId, id))
       .all();
 
-    // Delete actions for all turns in one query
     if (turnRows.length > 0) {
       const turnIds = turnRows.map((t) => t.id);
-      tx.delete(matchTurnActions).where(inArray(matchTurnActions.turnId, turnIds)).run();
+      await tx
+        .delete(matchTurnActions)
+        .where(inArray(matchTurnActions.turnId, turnIds))
+        .run();
     }
 
-    // Delete turns
-    tx.delete(matchTurns).where(eq(matchTurns.matchId, id)).run();
-
-    // Delete the match itself
-    tx.delete(matches).where(eq(matches.id, id)).run();
+    await tx.delete(matchTurns).where(eq(matchTurns.matchId, id)).run();
+    await tx.delete(matches).where(eq(matches.id, id)).run();
   });
 
   return true;

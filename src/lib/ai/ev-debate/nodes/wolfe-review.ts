@@ -58,7 +58,7 @@ export async function wolfeReviewNode(
 
   const systemPrompt = `${persona.systemPromptAddition} You are reviewing the WHOLE set — Ability, Item, Moves, Nature, and ${isChampions ? "stat points" : "EVs"} — not just the numbers. Keep it to 3-5 sentences. Focus on speed tiers, offensive benchmarks${isChampions ? " against Champions Reg M-A threats" : ""}, role coherence (the Nature must match move categories), teammate synergy, and creative adjustments. If an ability, item, or move choice is wrong for the role, say so explicitly.`;
 
-  const referenceSets = getReferenceSetsForSpecies(pokemon.species, format, 6);
+  const referenceSets = await getReferenceSetsForSpecies(pokemon.species, format, 6);
   const referenceBlock = formatReferenceSetsBlock(referenceSets);
 
   const userPrompt = `Review this full set for ${pokemon.species}:

@@ -90,7 +90,7 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
       }
       // Over-fetch without filters, then do an in-memory substring
       // match on author. Our pool is small (<1k rows) so this is cheap.
-      const rows = listMetaTeams(fmt, 200);
+      const rows = await listMetaTeams(fmt, 200);
       const hits = rows.filter((row: MetaTeam) =>
         (row.author ?? "").toLowerCase().includes(needle),
       );
@@ -124,7 +124,7 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
     }
 
     if (mode === "count") {
-      const stats = countMetaTeams(fmt);
+      const stats = await countMetaTeams(fmt);
       return JSON.stringify({
         format: fmt,
         total: stats.total,
@@ -143,7 +143,7 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
           error: "mode=match requires at least one species",
         });
       }
-      const matches = matchMetaTeams({
+      const matches = await matchMetaTeams({
         species: list,
         format: fmt,
         minOverlap: Math.min(2, list.length),
@@ -178,7 +178,7 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
     // Over-fetch aggressively so the per-tournament cap has room to
     // bring in entries from older events. The DB is small so this is
     // still cheap.
-    const rows = listMetaTeams(fmt, Math.max(cap * 10, 80));
+    const rows = await listMetaTeams(fmt, Math.max(cap * 10, 80));
     const filtered = rows.filter((row) => {
       if (source && row.source !== source) return false;
       if (archetype) {

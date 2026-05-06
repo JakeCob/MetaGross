@@ -34,7 +34,7 @@ export async function getEnrichedMetaSpreads(
   // Check enrichment cache first
   const cacheKey = `enriched-spreads:${species}:${format}`;
   try {
-    const cached = db
+    const cached = await db
       .select()
       .from(analysisCache)
       .where(

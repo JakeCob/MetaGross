@@ -29,7 +29,9 @@ export interface CreateThreadInput {
   persona?: string | null;
 }
 
-export function createThread(data: CreateThreadInput): AgentThreadRow {
+export async function createThread(
+  data: CreateThreadInput,
+): Promise<AgentThreadRow> {
   const now = Date.now();
 
   return db
@@ -51,20 +53,22 @@ export function createThread(data: CreateThreadInput): AgentThreadRow {
 // ---------------------------------------------------------------------------
 // getThread
 // ---------------------------------------------------------------------------
-export function getThread(id: string): AgentThreadRow | null {
+export async function getThread(id: string): Promise<AgentThreadRow | null> {
   return (
-    db
+    (await db
       .select()
       .from(agentThreads)
       .where(eq(agentThreads.id, id))
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
 // ---------------------------------------------------------------------------
 // listThreads
 // ---------------------------------------------------------------------------
-export function listThreads(contextType?: string): AgentThreadRow[] {
+export async function listThreads(
+  contextType?: string,
+): Promise<AgentThreadRow[]> {
   if (contextType) {
     return db
       .select()
@@ -89,8 +93,15 @@ export interface UpdateThreadInput {
   persona?: string | null;
 }
 
-export function updateThread(id: string, data: UpdateThreadInput): AgentThreadRow | null {
-  const existing = db.select().from(agentThreads).where(eq(agentThreads.id, id)).get();
+export async function updateThread(
+  id: string,
+  data: UpdateThreadInput,
+): Promise<AgentThreadRow | null> {
+  const existing = await db
+    .select()
+    .from(agentThreads)
+    .where(eq(agentThreads.id, id))
+    .get();
   if (!existing) return null;
 
   const now = Date.now();
@@ -98,33 +109,36 @@ export function updateThread(id: string, data: UpdateThreadInput): AgentThreadRo
   if (data.title !== undefined) updateFields.title = data.title;
   if (data.persona !== undefined) updateFields.persona = data.persona;
 
-  db.update(agentThreads).set(updateFields).where(eq(agentThreads.id, id)).run();
+  await db.update(agentThreads).set(updateFields).where(eq(agentThreads.id, id)).run();
 
-  return db.select().from(agentThreads).where(eq(agentThreads.id, id)).get() ?? null;
+  return (
+    (await db.select().from(agentThreads).where(eq(agentThreads.id, id)).get()) ??
+    null
+  );
 }
 
 // ---------------------------------------------------------------------------
 // deleteThread
 // ---------------------------------------------------------------------------
-export function deleteThread(id: string): boolean {
-  const result = db.delete(agentThreads).where(eq(agentThreads.id, id)).run();
-  return result.changes > 0;
+export async function deleteThread(id: string): Promise<boolean> {
+  const result = await db
+    .delete(agentThreads)
+    .where(eq(agentThreads.id, id))
+    .run();
+  // libSQL exposes `rowsAffected`; better-sqlite3 used `changes`. Cover both.
+  const r = result as unknown as { rowsAffected?: number; changes?: number };
+  return (r.rowsAffected ?? r.changes ?? 0) > 0;
 }
 
 // ---------------------------------------------------------------------------
 // Thread titling — derive a short title from the first user message.
-// Keeps it deterministic and free (no extra LLM call) for v1. We can
-// upgrade to an LLM summariser later if titles feel terse.
 // ---------------------------------------------------------------------------
 export function deriveThreadTitle(userMessage: string): string {
   const cleaned = userMessage
-    // Strip markdown headings/bullets/emphasis so the title reads like prose.
     .replace(/[#*_`>]/g, "")
-    // Collapse whitespace.
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned) return "Untitled chat";
-  // Cut at 60 chars on a word boundary when possible.
   if (cleaned.length <= 60) return cleaned;
   const truncated = cleaned.slice(0, 60);
   const lastSpace = truncated.lastIndexOf(" ");

@@ -73,7 +73,7 @@ export default async function TeamDetailPage({
     );
   }
 
-  const team = getTeamById(id);
+  const team = await getTeamById(id);
 
   if (!team) {
     notFound();

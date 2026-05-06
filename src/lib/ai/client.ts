@@ -76,7 +76,7 @@ export async function aiComplete(
   }
 
   // Check rate limit for company keys
-  const limit = checkRateLimit(usageType, provider);
+  const limit = await checkRateLimit(usageType, provider);
   if (!limit.allowed) {
     throw new Error(
       `Daily limit reached for ${provider} (${limit.used}/${limit.limit}). Try again tomorrow or use your personal OpenAI key.`,
@@ -93,7 +93,7 @@ export async function aiComplete(
   }
 
   // Record usage for tracking
-  recordUsage(usageType, {
+  await recordUsage(usageType, {
     provider: response.provider,
     model: response.model,
     inputTokens: response.inputTokens,

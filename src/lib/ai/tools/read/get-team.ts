@@ -10,7 +10,7 @@ export const getTeamTool = new DynamicStructuredTool({
     teamId: z.string().describe("The team UUID to look up"),
   }),
   func: async ({ teamId }) => {
-    const team = getTeamById(teamId);
+    const team = await getTeamById(teamId);
 
     if (!team) {
       return JSON.stringify({ error: `Team not found: ${teamId}` });

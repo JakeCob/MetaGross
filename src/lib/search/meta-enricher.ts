@@ -42,9 +42,9 @@ export interface TeamReport {
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-function getCached<T>(cacheKey: string): T | null {
+async function getCached<T>(cacheKey: string): Promise<T | null> {
   try {
-    const rows = db
+    const rows = await db
       .select()
       .from(analysisCache)
       .where(
@@ -96,7 +96,7 @@ export async function searchTournamentResults(
   format: string,
 ): Promise<TournamentResult[]> {
   const cacheKey = `tournament:${format}`;
-  const cached = getCached<TournamentResult[]>(cacheKey);
+  const cached = await getCached<TournamentResult[]>(cacheKey);
   if (cached) return cached;
 
   try {
@@ -125,7 +125,7 @@ export async function searchPokemonUsage(
   format: string,
 ): Promise<UsageInfo | null> {
   const cacheKey = `usage:${species}:${format}`;
-  const cached = getCached<UsageInfo>(cacheKey);
+  const cached = await getCached<UsageInfo>(cacheKey);
   if (cached) return cached;
 
   try {
@@ -160,7 +160,7 @@ export async function searchTeamReports(
   format: string,
 ): Promise<TeamReport[]> {
   const cacheKey = `teamreports:${format}`;
-  const cached = getCached<TeamReport[]>(cacheKey);
+  const cached = await getCached<TeamReport[]>(cacheKey);
   if (cached) return cached;
 
   try {

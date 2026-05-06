@@ -3,7 +3,6 @@ import { analysisCache } from "@/lib/db/schema";
 import { eq, and, gte } from "drizzle-orm";
 
 // Daily limits — only for borrowed/company keys
-// OpenAI is personal (unlimited), company keys get capped
 const DAILY_LIMITS = {
   ai_analysis: 10,
   pre_match: 10,
@@ -19,20 +18,15 @@ function getTodayStart(): number {
   return now.getTime();
 }
 
-/**
- * Check if a usage type has remaining quota for today.
- * Only enforced for non-OpenAI providers (company keys).
- */
-export function checkRateLimit(
+export async function checkRateLimit(
   type: UsageType,
   provider: string,
-): {
+): Promise<{
   allowed: boolean;
   used: number;
   limit: number;
   remaining: number;
-} {
-  // No rate limit on personal keys (OpenAI, Bing)
+}> {
   if (provider === "openai" || provider === "bing") {
     return { allowed: true, used: 0, limit: Infinity, remaining: Infinity };
   }
@@ -40,7 +34,7 @@ export function checkRateLimit(
   const todayStart = getTodayStart();
   const limit = DAILY_LIMITS[type];
 
-  const rows = db
+  const rows = await db
     .select()
     .from(analysisCache)
     .where(
@@ -57,10 +51,7 @@ export function checkRateLimit(
   return { allowed: used < limit, used, limit, remaining };
 }
 
-/**
- * Record a usage event. Call AFTER a successful API call.
- */
-export function recordUsage(
+export async function recordUsage(
   type: UsageType,
   details: {
     provider: string;
@@ -69,7 +60,7 @@ export function recordUsage(
     outputTokens: number;
     cacheKey?: string;
   },
-): void {
+): Promise<void> {
   const costPerInputToken =
     details.provider === "openai" ? 2.5 / 1_000_000 : 3.0 / 1_000_000;
   const costPerOutputToken =
@@ -78,7 +69,8 @@ export function recordUsage(
     details.inputTokens * costPerInputToken +
     details.outputTokens * costPerOutputToken;
 
-  db.insert(analysisCache)
+  await db
+    .insert(analysisCache)
     .values({
       cacheKey: details.cacheKey ?? `${type}:${Date.now()}`,
       cacheType: `${type}:${details.provider}`,
@@ -96,18 +88,14 @@ export function recordUsage(
     .run();
 }
 
-/**
- * Record a search API usage event.
- * Search calls don't use tokens — fixed cost per call.
- * Bing: ~$0.003/search, Serper: ~$0.001/search, Exa: ~$0.001/search
- */
-export function recordSearchUsage(
+export async function recordSearchUsage(
   provider: "bing" | "serper" | "exa",
   query: string,
-): void {
+): Promise<void> {
   const costPerSearch = provider === "bing" ? 0.003 : 0.001;
 
-  db.insert(analysisCache)
+  await db
+    .insert(analysisCache)
     .values({
       cacheKey: `search:${provider}:${Date.now()}`,
       cacheType: `search:${provider}`,
@@ -124,10 +112,7 @@ export function recordSearchUsage(
     .run();
 }
 
-/**
- * Get usage summary for today and all time.
- */
-export function getUsageSummary(): {
+export async function getUsageSummary(): Promise<{
   today: Record<string, { used: number; limit: number | null }>;
   allTime: {
     totalCalls: number;
@@ -135,11 +120,10 @@ export function getUsageSummary(): {
     totalOutputTokens: number;
     totalCostUsd: number;
   };
-} {
+}> {
   const todayStart = getTodayStart();
 
-  // Count today's usage per type
-  const todayRows = db
+  const todayRows = await db
     .select()
     .from(analysisCache)
     .where(gte(analysisCache.createdAt, todayStart))
@@ -156,8 +140,7 @@ export function getUsageSummary(): {
     today[key] = { used: count, limit: isOpenAI ? null : 10 };
   }
 
-  // All time totals
-  const allRows = db.select().from(analysisCache).all();
+  const allRows = await db.select().from(analysisCache).all();
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
   let totalCostUsd = 0;

@@ -68,7 +68,7 @@ describe("loadContextNode", () => {
   it("loads match context when contextType is match", async () => {
     const { loadContextNode } = await import("../graph/nodes/load-context");
 
-    vi.mocked(getMatchById).mockReturnValue({
+    vi.mocked(getMatchById).mockResolvedValue({
       id: "match-1",
       format: "gen9vgc2024regh",
       mode: "bo1",
@@ -102,7 +102,7 @@ describe("loadContextNode", () => {
   it("loads team context when contextType is team", async () => {
     const { loadContextNode } = await import("../graph/nodes/load-context");
 
-    vi.mocked(getTeamById).mockReturnValue({
+    vi.mocked(getTeamById).mockResolvedValue({
       id: "team-1",
       userId: "user-1",
       name: "Sun Team",
@@ -130,7 +130,7 @@ describe("loadContextNode", () => {
   it("returns error context when match not found", async () => {
     const { loadContextNode } = await import("../graph/nodes/load-context");
 
-    vi.mocked(getMatchById).mockReturnValue(null);
+    vi.mocked(getMatchById).mockResolvedValue(null);
 
     const state = createMockState({ contextType: "match", contextId: "bad-id" });
     const result = await loadContextNode(state);
@@ -148,7 +148,7 @@ describe("retrieveMemoryNode", () => {
   it("returns empty array when no memories exist", async () => {
     const { retrieveMemoryNode } = await import("../graph/nodes/retrieve-memory");
 
-    vi.mocked(getMemoriesByScope).mockReturnValue([]);
+    vi.mocked(getMemoriesByScope).mockResolvedValue([]);
 
     const state = createMockState();
     const result = await retrieveMemoryNode(state);
@@ -160,7 +160,7 @@ describe("retrieveMemoryNode", () => {
   it("fetches global and thread memories", async () => {
     const { retrieveMemoryNode } = await import("../graph/nodes/retrieve-memory");
 
-    vi.mocked(getMemoriesByScope).mockImplementation((scope, scopeRef) => {
+    vi.mocked(getMemoriesByScope).mockImplementation(async (scope, scopeRef) => {
       if (scope === "global") {
         return [
           { id: "m1", scope: "global", scopeRef: null, kind: "preference", summary: "Prefers aggressive play", content: "", confidence: 0.8, sourceFeedbackId: null, sourceThreadId: null, embedding: null, embeddingModel: null, createdAt: 0, updatedAt: 0 },
@@ -186,7 +186,7 @@ describe("retrieveMemoryNode", () => {
   it("fetches team memories when context is team", async () => {
     const { retrieveMemoryNode } = await import("../graph/nodes/retrieve-memory");
 
-    vi.mocked(getMemoriesByScope).mockImplementation((scope, scopeRef) => {
+    vi.mocked(getMemoriesByScope).mockImplementation(async (scope, scopeRef) => {
       if (scope === "team" && scopeRef === "team-1") {
         return [
           { id: "m3", scope: "team", scopeRef: "team-1", kind: "team_style", summary: "This team is weak to Trick Room", content: "", confidence: 0.7, sourceFeedbackId: null, sourceThreadId: null, embedding: null, embeddingModel: null, createdAt: 0, updatedAt: 0 },

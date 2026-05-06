@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     const cacheKey = `pre-match:${format}:${mySpecies}:${oppSpecies}`;
 
     // Check cache
-    const cached = db
+    const cached = await db
       .select()
       .from(analysisCache)
       .where(eq(analysisCache.cacheKey, cacheKey))
@@ -54,8 +54,8 @@ export async function POST(request: Request) {
     const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
 
     if (cached) {
-      // Update existing cache entry
-      db.update(analysisCache)
+      await db
+        .update(analysisCache)
         .set({
           resultJson: strategy as unknown as Record<string, unknown>,
           expiresAt,
@@ -64,7 +64,8 @@ export async function POST(request: Request) {
         .where(eq(analysisCache.cacheKey, cacheKey))
         .run();
     } else {
-      db.insert(analysisCache)
+      await db
+        .insert(analysisCache)
         .values({
           cacheKey,
           cacheType: "pre-match-strategy",

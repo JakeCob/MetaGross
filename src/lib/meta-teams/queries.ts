@@ -1,9 +1,5 @@
 /**
  * Meta-teams DB access — insert, lookup, match.
- *
- * SQLite is small enough that we always load all teams for a format
- * when matching (there will be at most a few thousand). Indexes on
- * fingerprint and format make this cheap.
  */
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -14,10 +10,6 @@ import {
   normalizeSpeciesForFingerprint,
 } from "./fingerprint";
 import type { MetaTeam, MetaTeamMatch, MetaTeamSource } from "./types";
-
-// ---------------------------------------------------------------------------
-// Insert / upsert
-// ---------------------------------------------------------------------------
 
 export interface UpsertMetaTeamInput {
   source: MetaTeamSource;
@@ -36,22 +28,16 @@ export interface UpsertMetaTeamInput {
     nature?: string;
     moves?: string[];
     teraType?: string;
-    /** Raw EV string from the source paste ("252 HP / 4 Def / 252 SpA").
-     *  Optional — pokepastes occasionally omit it. */
     evs?: string;
-    /** Raw IV string ("0 Atk"). Optional. */
     ivs?: string;
   }>;
   trust?: number;
   seenAt?: number | null;
 }
 
-/**
- * Insert a new meta-team, OR update the existing row with the same
- * (fingerprint, source) tuple. Keeps the highest trust seen and the
- * most-recent seenAt.
- */
-export function upsertMetaTeam(input: UpsertMetaTeamInput): MetaTeam {
+export async function upsertMetaTeam(
+  input: UpsertMetaTeamInput,
+): Promise<MetaTeam> {
   const fingerprint = buildFingerprint(input.species);
   if (!fingerprint) {
     throw new Error("Cannot upsert meta team with empty species list");
@@ -60,7 +46,7 @@ export function upsertMetaTeam(input: UpsertMetaTeamInput): MetaTeam {
   const format = input.format ?? "champions-reg-m-a";
   const now = Date.now();
 
-  const existing = db
+  const existing = await db
     .select()
     .from(metaTeams)
     .where(
@@ -78,7 +64,7 @@ export function upsertMetaTeam(input: UpsertMetaTeamInput): MetaTeam {
     const nextTrust = Math.max(prevTrust, input.trust ?? 0.5);
     const nextSeenAt = Math.max(prev.seenAt ?? 0, input.seenAt ?? 0) || null;
 
-    const updated = db
+    const updated = await db
       .update(metaTeams)
       .set({
         sourceRef: input.sourceRef ?? prev.sourceRef,
@@ -99,7 +85,7 @@ export function upsertMetaTeam(input: UpsertMetaTeamInput): MetaTeam {
     return rowToMetaTeam(updated[0]);
   }
 
-  const inserted = db
+  const inserted = await db
     .insert(metaTeams)
     .values({
       source: input.source,
@@ -122,26 +108,16 @@ export function upsertMetaTeam(input: UpsertMetaTeamInput): MetaTeam {
   return rowToMetaTeam(inserted[0]);
 }
 
-// ---------------------------------------------------------------------------
-// Matching
-// ---------------------------------------------------------------------------
-
 export interface MatchOptions {
-  /** Species the user has entered so far. Partial is fine. */
   species: string[];
-  /** Format filter — defaults to champions-reg-m-a. */
   format?: string;
-  /** Minimum overlap to return a match. Default 2. */
   minOverlap?: number;
-  /** Max rows to return. Default 10. */
   limit?: number;
 }
 
-/**
- * Match a partial species list against stored meta teams.
- * Returns rows ranked by a combined overlap × trust × recency score.
- */
-export function matchMetaTeams(opts: MatchOptions): MetaTeamMatch[] {
+export async function matchMetaTeams(
+  opts: MatchOptions,
+): Promise<MetaTeamMatch[]> {
   if (opts.species.length === 0) return [];
   const format = opts.format ?? "champions-reg-m-a";
   const minOverlap = opts.minOverlap ?? 2;
@@ -150,7 +126,7 @@ export function matchMetaTeams(opts: MatchOptions): MetaTeamMatch[] {
   const normalizedQuery = opts.species.map(normalizeSpeciesForFingerprint);
   const querySet = new Set(normalizedQuery.filter(Boolean));
 
-  const all = db
+  const all = await db
     .select()
     .from(metaTeams)
     .where(eq(metaTeams.format, format))
@@ -164,12 +140,10 @@ export function matchMetaTeams(opts: MatchOptions): MetaTeamMatch[] {
     if (overlap < minOverlap) continue;
 
     const trust = candidate.trust;
-    // Recency: 1.0 if seen in last 30 days, decays to 0.5 after a year.
     const age =
       candidate.seenAt != null ? (now - candidate.seenAt) / 86400000 : 365;
     const recency = age < 30 ? 1.0 : Math.max(0.5, 1.0 - (age - 30) / 335);
 
-    // Overlap weight is dominant — a 4/6 match is much stronger than a 2/6.
     const overlapWeight = overlap / Math.max(candidate.species.length, 6);
     const score = overlapWeight * 0.6 + trust * 0.3 + recency * 0.1;
 
@@ -184,15 +158,11 @@ export function matchMetaTeams(opts: MatchOptions): MetaTeamMatch[] {
   return matches.slice(0, limit);
 }
 
-// ---------------------------------------------------------------------------
-// Listing + counts
-// ---------------------------------------------------------------------------
-
-export function listMetaTeams(
+export async function listMetaTeams(
   format: string = "champions-reg-m-a",
   limit = 50,
-): MetaTeam[] {
-  const rows = db
+): Promise<MetaTeam[]> {
+  const rows = await db
     .select()
     .from(metaTeams)
     .where(eq(metaTeams.format, format))
@@ -202,10 +172,10 @@ export function listMetaTeams(
   return rows.map(rowToMetaTeam);
 }
 
-export function countMetaTeams(
+export async function countMetaTeams(
   format: string = "champions-reg-m-a",
-): { total: number; bySource: Record<string, number> } {
-  const rows = db
+): Promise<{ total: number; bySource: Record<string, number> }> {
+  const rows = await db
     .select({
       source: metaTeams.source,
       count: sql<number>`count(*)`.as("count"),
@@ -223,10 +193,6 @@ export function countMetaTeams(
   }
   return { total, bySource };
 }
-
-// ---------------------------------------------------------------------------
-// Row → domain mapping
-// ---------------------------------------------------------------------------
 
 type MetaTeamRow = typeof metaTeams.$inferSelect;
 

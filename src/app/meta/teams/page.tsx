@@ -12,10 +12,12 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function MetaTeamsPage() {
+export default async function MetaTeamsPage() {
   const format = "champions-reg-m-a";
-  const teams = listMetaTeams(format, 60);
-  const counts = countMetaTeams(format);
+  const [teams, counts] = await Promise.all([
+    listMetaTeams(format, 60),
+    countMetaTeams(format),
+  ]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8 flex flex-col gap-6">

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const contextType = url.searchParams.get("contextType") ?? undefined;
   const contextId = url.searchParams.get("contextId") ?? undefined;
 
-  let threads = listThreads(contextType);
+  let threads = await listThreads(contextType);
 
   // listThreads filters on contextType; contextId is applied in-memory
   // because the row count is small.

@@ -1,56 +1,66 @@
 /**
- * Drizzle DB client (better-sqlite3) with lazy initialization.
+ * Drizzle DB client over libSQL.
  *
- * Module evaluation must NOT open the SQLite file because Vercel's
- * "collect page data" build step imports server modules without a
- * `data/db/` directory present. We expose `db` as a Proxy that
- * triggers the real connection on first property access, and create
- * the parent directory if it doesn't exist.
+ * One driver, two URL shapes:
+ *   - Local dev:  file:./data/db/metagross.db   (libSQL local mode)
+ *   - Production: libsql://<host>.turso.io      (Turso, async over HTTP)
  *
- * Note on deployment: better-sqlite3 needs a persistent disk.
- * Vercel serverless has read-only fs at runtime, so this works for
- * BUILD but writes will fail at request time. For production deploys
- * use Fly.io / Railway / Render (persistent volumes) or migrate to
- * Turso (libSQL) — see TODO at the bottom.
+ * Pick the URL via TURSO_DATABASE_URL. If unset we default to the
+ * local file path so existing dev workflows keep working without
+ * any env changes.
+ *
+ * All queries are async (`.get()`, `.all()`, `.run()` return
+ * Promises) — that's the libSQL contract. Every call site in this
+ * project awaits accordingly.
  */
+import { drizzle } from "drizzle-orm/libsql";
+import { createClient } from "@libsql/client";
 import * as schema from "./schema";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import { dirname } from "path";
+import { mkdirSync, existsSync } from "fs";
 
-type AppDb = BetterSQLite3Database<typeof schema>;
+type AppDb = ReturnType<typeof buildDb>;
 
 let _db: AppDb | null = null;
 
-function buildDb(): AppDb {
-  // Required dynamically so the build's "collect page data" step
-  // doesn't pull the native module in before .next/ exists.
-  const {
-    drizzle,
-  } = require("drizzle-orm/better-sqlite3") as typeof import("drizzle-orm/better-sqlite3");
-  const Database = require("better-sqlite3");
-  const { dirname } = require("path") as typeof import("path");
-  const { mkdirSync, existsSync } = require("fs") as typeof import("fs");
+function resolveUrl(): string {
+  const raw = process.env.TURSO_DATABASE_URL ?? "";
+  if (raw.trim().length > 0) return raw.trim();
 
-  const path =
-    process.env.METAGROSS_SQLITE_PATH ?? "./data/db/metagross.db";
-  // Auto-create the parent dir so a fresh deploy / clone with no
-  // data/ folder doesn't crash on first DB access. On a read-only
-  // filesystem this throws — we let better-sqlite3 surface a
-  // clearer error than silently swallowing here.
+  // Default — local dev. `file:` prefix puts libSQL in embedded mode
+  // with the same file better-sqlite3 used to use, so existing data
+  // / migrations stay valid.
+  const path = process.env.METAGROSS_SQLITE_PATH ?? "./data/db/metagross.db";
+  return `file:${path}`;
+}
+
+function ensureLocalDir(url: string): void {
+  if (!url.startsWith("file:")) return;
+  const path = url.slice("file:".length);
   const dir = dirname(path);
-  if (dir && !existsSync(dir)) {
-    try {
-      mkdirSync(dir, { recursive: true });
-    } catch {
-      // ignore — better-sqlite3 will fail with a more useful message
-    }
+  if (!dir || existsSync(dir)) return;
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch {
+    // Read-only filesystem (Vercel serverless) — let libSQL surface
+    // a clearer error than swallowing here.
   }
-  return drizzle(new Database(path), { schema });
+}
+
+function buildDb() {
+  const url = resolveUrl();
+  ensureLocalDir(url);
+  const client = createClient({
+    url,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+  return drizzle(client, { schema });
 }
 
 /**
- * Proxy that triggers the real connection on first property access.
- * Drizzle's surface area is wide (select/insert/update/delete/from
- * ...), so a Proxy is cleaner than re-exporting every method.
+ * Lazy proxy. Module evaluation must NOT open the connection because
+ * Vercel's "collect page data" build step imports server modules
+ * before any TURSO_DATABASE_URL env is available.
  */
 export const db: AppDb = new Proxy({} as AppDb, {
   get(_target, prop) {
@@ -62,7 +72,3 @@ export const db: AppDb = new Proxy({} as AppDb, {
     return value;
   },
 }) as AppDb;
-
-// TODO(turso): when ready, swap to drizzle-orm/libsql + @libsql/client
-// for serverless-compatible HTTP access. Requires async-ifying every
-// .get()/.all()/.run() call site (~25 query files).

@@ -155,7 +155,7 @@ ${isChampions ? `- ${label}: total must equal exactly ${totalMax}, max ${perStat
   // meta_teams (Limitless top-cut + VGCPastes + creator entries).
   // Anchoring the proposer in real tournament data is what stops it
   // from inventing nonsense moves like "Knock Off on Incineroar".
-  const referenceSets = getReferenceSetsForSpecies(pokemon.species, format, 6);
+  const referenceSets = await getReferenceSetsForSpecies(pokemon.species, format, 6);
   const referenceBlock = formatReferenceSetsBlock(referenceSets);
 
   const userPrompt = `Pokemon: ${pokemon.species}

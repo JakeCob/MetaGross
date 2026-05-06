@@ -11,7 +11,7 @@ export default async function MatchAnalysisPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const match = getMatchById(id);
+  const match = await getMatchById(id);
 
   if (!match) {
     notFound();

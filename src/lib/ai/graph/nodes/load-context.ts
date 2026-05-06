@@ -16,7 +16,7 @@ export async function loadContextNode(
   }
 
   if (contextType === "match") {
-    const match = getMatchById(contextId);
+    const match = await getMatchById(contextId);
     if (!match) {
       return { loadedContext: { error: `Match not found: ${contextId}` } };
     }
@@ -47,7 +47,7 @@ export async function loadContextNode(
   }
 
   if (contextType === "team") {
-    const team = getTeamById(contextId);
+    const team = await getTeamById(contextId);
     if (!team) {
       return { loadedContext: { error: `Team not found: ${contextId}` } };
     }

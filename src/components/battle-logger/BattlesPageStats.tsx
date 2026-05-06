@@ -10,8 +10,8 @@ import { getAllMatches } from "@/lib/db/queries/matches";
  * parse URL from /api/matches" during the server-render pass because
  * relative URLs aren't resolvable on the server.
  */
-export function BattlesPageStats() {
-  const matches = getAllMatches()
+export async function BattlesPageStats() {
+  const matches = (await getAllMatches())
     .filter((m): m is typeof m & { result: string } => typeof m.result === "string")
     .map((m) => ({ result: m.result as string }));
 

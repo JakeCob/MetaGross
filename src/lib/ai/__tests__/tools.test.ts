@@ -97,7 +97,7 @@ describe("read tools", () => {
     it("returns error when match not found", async () => {
       const { getMatchContextTool } = await import("../tools/read/get-match-context");
 
-      vi.mocked(getMatchById).mockReturnValue(null);
+      vi.mocked(getMatchById).mockResolvedValue(null);
 
       const result = await getMatchContextTool.invoke({ matchId: "nonexistent" });
       const parsed = JSON.parse(result);
@@ -154,7 +154,7 @@ describe("read tools", () => {
     it("returns error when team not found", async () => {
       const { getTeamTool } = await import("../tools/read/get-team");
 
-      vi.mocked(getTeamById).mockReturnValue(null);
+      vi.mocked(getTeamById).mockResolvedValue(null);
 
       const result = await getTeamTool.invoke({ teamId: "nonexistent" });
       const parsed = JSON.parse(result);

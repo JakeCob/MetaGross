@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const insertedIds: string[] = [];
 
     for (const draft of parsed.data.drafts) {
-      const inserted = db
+      const inserted = await db
         .insert(teams)
         .values({
           userId,
@@ -69,10 +69,9 @@ export async function POST(request: Request) {
       if (!teamRow) continue;
       insertedIds.push(teamRow.id);
 
-      // Slot each species — ability/item/moves left empty for the user
-      // to fill when reviewing the draft.
       for (let i = 0; i < draft.species.length; i++) {
-        db.insert(teamPokemon)
+        await db
+          .insert(teamPokemon)
           .values({
             teamId: teamRow.id,
             slot: i + 1,

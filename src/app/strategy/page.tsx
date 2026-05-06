@@ -4,17 +4,18 @@ import { teams, teamPokemon } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 
-function getTeamsWithPokemon() {
-  const allTeams = db.select().from(teams).all();
+async function getTeamsWithPokemon() {
+  const allTeams = await db.select().from(teams).all();
 
-  return allTeams.map((team) => {
-    const pokemon = db
-      .select()
-      .from(teamPokemon)
-      .where(eq(teamPokemon.teamId, team.id))
-      .all();
+  const results = await Promise.all(
+    allTeams.map(async (team) => {
+      const pokemon = await db
+        .select()
+        .from(teamPokemon)
+        .where(eq(teamPokemon.teamId, team.id))
+        .all();
 
-    return {
+      return {
       id: team.id,
       name: team.name,
       pokemon: pokemon.map((p) => ({
@@ -30,11 +31,13 @@ function getTeamsWithPokemon() {
         ivs: (p.ivs as TeamPokemon["ivs"]) ?? { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
       })) as TeamPokemon[],
     };
-  });
+  }),
+  );
+  return results;
 }
 
-export default function StrategyPage() {
-  const savedTeams = getTeamsWithPokemon();
+export default async function StrategyPage() {
+  const savedTeams = await getTeamsWithPokemon();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">

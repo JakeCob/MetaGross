@@ -41,7 +41,7 @@ export async function searchExa(
   }
 
   // Check rate limit before calling
-  const limit = checkRateLimit("search", "exa");
+  const limit = await checkRateLimit("search", "exa");
   if (!limit.allowed) {
     throw new Error(
       `Exa daily limit reached (${limit.used}/${limit.limit}). Try again tomorrow.`,
@@ -83,7 +83,7 @@ export async function searchExa(
   }));
 
   // Record usage after successful call
-  recordSearchUsage("exa", query);
+  await recordSearchUsage("exa", query);
 
   console.log(`[Exa] Got ${results.length} results for "${query}"`);
 

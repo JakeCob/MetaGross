@@ -10,7 +10,7 @@ export const getMatchContextTool = new DynamicStructuredTool({
     matchId: z.string().describe("The match UUID to look up"),
   }),
   func: async ({ matchId }) => {
-    const match = getMatchById(matchId);
+    const match = await getMatchById(matchId);
 
     if (!match) {
       return JSON.stringify({ error: `Match not found: ${matchId}` });

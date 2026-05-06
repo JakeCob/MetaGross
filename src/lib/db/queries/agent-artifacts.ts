@@ -24,7 +24,9 @@ export interface CreateArtifactInput {
   contentJson?: unknown;
 }
 
-export function createArtifact(data: CreateArtifactInput): AgentArtifactRow {
+export async function createArtifact(
+  data: CreateArtifactInput,
+): Promise<AgentArtifactRow> {
   const now = Date.now();
 
   return db
@@ -43,7 +45,9 @@ export function createArtifact(data: CreateArtifactInput): AgentArtifactRow {
 // ---------------------------------------------------------------------------
 // getArtifactsForThread
 // ---------------------------------------------------------------------------
-export function getArtifactsForThread(threadId: string): AgentArtifactRow[] {
+export async function getArtifactsForThread(
+  threadId: string,
+): Promise<AgentArtifactRow[]> {
   return db
     .select()
     .from(agentArtifacts)

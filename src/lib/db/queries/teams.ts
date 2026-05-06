@@ -15,7 +15,6 @@ export interface TeamRow {
   format: string | null;
   isActive: number | null;
   pokepaste: string | null;
-  /** Short strategy summary written by the user. */
   description: string | null;
   notes: string | null;
   createdAt: number | null;
@@ -46,8 +45,10 @@ export interface TeamWithPokemon extends TeamRow {
 // ---------------------------------------------------------------------------
 // getAllTeams
 // ---------------------------------------------------------------------------
-export function getAllTeams(userId: string = DEFAULT_USER_ID): TeamWithPokemon[] {
-  const teamRows = db
+export async function getAllTeams(
+  userId: string = DEFAULT_USER_ID,
+): Promise<TeamWithPokemon[]> {
+  const teamRows = await db
     .select()
     .from(teams)
     .where(eq(teams.userId, userId))
@@ -56,14 +57,13 @@ export function getAllTeams(userId: string = DEFAULT_USER_ID): TeamWithPokemon[]
   if (teamRows.length === 0) return [];
 
   const teamIds = teamRows.map((t) => t.id);
-  const allPokemon = db
+  const allPokemon = await db
     .select()
     .from(teamPokemon)
     .where(inArray(teamPokemon.teamId, teamIds))
     .orderBy(teamPokemon.slot)
     .all();
 
-  // Group pokemon by team_id
   const pokemonByTeam = new Map<string, TeamPokemonRow[]>();
   for (const mon of allPokemon) {
     const tid = mon.teamId ?? '';
@@ -80,8 +80,10 @@ export function getAllTeams(userId: string = DEFAULT_USER_ID): TeamWithPokemon[]
 // ---------------------------------------------------------------------------
 // getTeamById
 // ---------------------------------------------------------------------------
-export function getTeamById(id: string): TeamWithPokemon | null {
-  const team = db
+export async function getTeamById(
+  id: string,
+): Promise<TeamWithPokemon | null> {
+  const team = await db
     .select()
     .from(teams)
     .where(eq(teams.id, id))
@@ -89,7 +91,7 @@ export function getTeamById(id: string): TeamWithPokemon | null {
 
   if (!team) return null;
 
-  const pokemon = db
+  const pokemon = await db
     .select()
     .from(teamPokemon)
     .where(eq(teamPokemon.teamId, id))
@@ -112,12 +114,14 @@ export interface CreateTeamInput {
   pokemon: TeamPokemonInput[];
 }
 
-export function createTeam(data: CreateTeamInput): TeamWithPokemon {
+export async function createTeam(
+  data: CreateTeamInput,
+): Promise<TeamWithPokemon> {
   const userId = data.userId ?? DEFAULT_USER_ID;
   const now = Date.now();
 
-  return db.transaction((tx) => {
-    const insertedTeam = tx
+  return db.transaction(async (tx) => {
+    const insertedTeam = await tx
       .insert(teams)
       .values({
         userId,
@@ -137,7 +141,7 @@ export function createTeam(data: CreateTeamInput): TeamWithPokemon {
 
     for (let i = 0; i < data.pokemon.length; i++) {
       const mon = data.pokemon[i];
-      const inserted = tx
+      const inserted = await tx
         .insert(teamPokemon)
         .values({
           teamId: insertedTeam.id,
@@ -177,14 +181,16 @@ export interface UpdateTeamInput {
   pokemon?: TeamPokemonInput[];
 }
 
-export function updateTeam(id: string, data: UpdateTeamInput): TeamWithPokemon | null {
-  const existing = getTeamById(id);
+export async function updateTeam(
+  id: string,
+  data: UpdateTeamInput,
+): Promise<TeamWithPokemon | null> {
+  const existing = await getTeamById(id);
   if (!existing) return null;
 
   const now = Date.now();
 
-  return db.transaction((tx) => {
-    // Build the set of fields to update on the teams table
+  return db.transaction(async (tx) => {
     const teamUpdate: Record<string, unknown> = { updatedAt: now };
     if (data.name !== undefined) teamUpdate.name = data.name;
     if (data.format !== undefined) teamUpdate.format = data.format;
@@ -193,15 +199,15 @@ export function updateTeam(id: string, data: UpdateTeamInput): TeamWithPokemon |
     if (data.notes !== undefined) teamUpdate.notes = data.notes;
     if (data.isActive !== undefined) teamUpdate.isActive = data.isActive;
 
-    tx.update(teams).set(teamUpdate).where(eq(teams.id, id)).run();
+    await tx.update(teams).set(teamUpdate).where(eq(teams.id, id)).run();
 
-    // If pokemon array is provided, replace all pokemon
     if (data.pokemon !== undefined) {
-      tx.delete(teamPokemon).where(eq(teamPokemon.teamId, id)).run();
+      await tx.delete(teamPokemon).where(eq(teamPokemon.teamId, id)).run();
 
       for (let i = 0; i < data.pokemon.length; i++) {
         const mon = data.pokemon[i];
-        tx.insert(teamPokemon)
+        await tx
+          .insert(teamPokemon)
           .values({
             teamId: id,
             slot: i + 1,
@@ -221,9 +227,12 @@ export function updateTeam(id: string, data: UpdateTeamInput): TeamWithPokemon |
       }
     }
 
-    // Re-fetch and return the complete updated team
-    const updated = tx.select().from(teams).where(eq(teams.id, id)).get()!;
-    const pokemon = tx
+    const updated = (await tx
+      .select()
+      .from(teams)
+      .where(eq(teams.id, id))
+      .get())!;
+    const pokemon = await tx
       .select()
       .from(teamPokemon)
       .where(eq(teamPokemon.teamId, id))
@@ -237,13 +246,17 @@ export function updateTeam(id: string, data: UpdateTeamInput): TeamWithPokemon |
 // ---------------------------------------------------------------------------
 // deleteTeam
 // ---------------------------------------------------------------------------
-export function deleteTeam(id: string): boolean {
-  const existing = db.select().from(teams).where(eq(teams.id, id)).get();
+export async function deleteTeam(id: string): Promise<boolean> {
+  const existing = await db
+    .select()
+    .from(teams)
+    .where(eq(teams.id, id))
+    .get();
   if (!existing) return false;
 
-  db.transaction((tx) => {
-    tx.delete(teamPokemon).where(eq(teamPokemon.teamId, id)).run();
-    tx.delete(teams).where(eq(teams.id, id)).run();
+  await db.transaction(async (tx) => {
+    await tx.delete(teamPokemon).where(eq(teamPokemon.teamId, id)).run();
+    await tx.delete(teams).where(eq(teams.id, id)).run();
   });
 
   return true;
@@ -252,11 +265,11 @@ export function deleteTeam(id: string): boolean {
 // ---------------------------------------------------------------------------
 // setActiveTeam
 // ---------------------------------------------------------------------------
-export function setActiveTeam(
+export async function setActiveTeam(
   userId: string = DEFAULT_USER_ID,
   teamId: string,
-): TeamWithPokemon | null {
-  const team = db
+): Promise<TeamWithPokemon | null> {
+  const team = await db
     .select()
     .from(teams)
     .where(and(eq(teams.id, teamId), eq(teams.userId, userId)))
@@ -264,15 +277,15 @@ export function setActiveTeam(
 
   if (!team) return null;
 
-  db.transaction((tx) => {
-    // Deactivate all teams for this user
-    tx.update(teams)
+  await db.transaction(async (tx) => {
+    await tx
+      .update(teams)
       .set({ isActive: 0, updatedAt: Date.now() })
       .where(eq(teams.userId, userId))
       .run();
 
-    // Activate the target team
-    tx.update(teams)
+    await tx
+      .update(teams)
       .set({ isActive: 1, updatedAt: Date.now() })
       .where(eq(teams.id, teamId))
       .run();

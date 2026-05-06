@@ -44,12 +44,12 @@ function speciesEquals(a: string, b: string): boolean {
  * @param format   Format id, default "champions-reg-m-a".
  * @param limit    Max number of sets to return. Default 6.
  */
-export function getReferenceSetsForSpecies(
+export async function getReferenceSetsForSpecies(
   species: string,
   format: string = "champions-reg-m-a",
   limit: number = 6,
-): ReferenceSet[] {
-  const teams = listMetaTeams(format, 500);
+): Promise<ReferenceSet[]> {
+  const teams = await listMetaTeams(format, 500);
   const out: ReferenceSet[] = [];
   for (const team of teams) {
     if (!Array.isArray(team.pokemon) || team.pokemon.length === 0) continue;

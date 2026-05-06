@@ -39,7 +39,9 @@ describe("session token", () => {
   it("rejects tampered signatures", async () => {
     const token = await issueSessionToken(SECRET);
     const [issuedAt, sig] = token.split(".");
-    const tampered = `${issuedAt}.${sig.slice(0, -1)}A`;
+    const last = sig.slice(-1);
+    const flipped = last === "A" ? "B" : "A";
+    const tampered = `${issuedAt}.${sig.slice(0, -1)}${flipped}`;
     expect(await verifySessionToken(tampered, SECRET)).toBe(false);
   });
 
