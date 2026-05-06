@@ -1,16 +1,19 @@
-import { MemorySaver } from "@langchain/langgraph";
+import { LibsqlCheckpointSaver } from "./checkpoint-libsql";
 
 /**
- * Create an in-process checkpoint store for LangGraph agent threads.
+ * LangGraph thread checkpoint store, libSQL-backed.
  *
- * Why MemorySaver and not SqliteSaver: better-sqlite3 needs a writable
- * filesystem and the Vercel serverless runtime doesn't have one. The
- * Turso/libSQL migration covers the main app DB but LangGraph doesn't
- * ship a libSQL-backed checkpoint saver, so we fall back to in-memory
- * state. Threads survive within a single warm invocation but reset on
- * cold-starts — acceptable for the single-user MVP. Swap to a custom
- * libSQL saver here when persistent threads matter.
+ * Same conn-string contract as the main DB: file:./… for local dev,
+ * libsql://… for Turso. The saver creates its own `checkpoints` and
+ * `writes` tables on first use, so no separate migration is needed.
+ *
+ * Threads persist across cold-starts and across redeploys — clicking
+ * an old thread in /teams/new replays its full message history.
  */
-export function createCheckpointSaver(): MemorySaver {
-  return new MemorySaver();
+export function createCheckpointSaver(): LibsqlCheckpointSaver {
+  const url =
+    process.env.TURSO_DATABASE_URL?.trim() ||
+    `file:${process.env.METAGROSS_SQLITE_PATH ?? "./data/db/metagross.db"}`;
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+  return LibsqlCheckpointSaver.fromConnString(url, authToken);
 }
