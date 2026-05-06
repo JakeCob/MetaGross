@@ -44,7 +44,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const content = parsed.data.content ?? "";
     embedding = await embed(`${summary}\n${content}`);
   }
-  const updated = updateMemory(id, {
+  const updated = await updateMemory(id, {
     ...parsed.data,
     ...(embedding
       ? { embedding: embedding.vector, embeddingModel: embedding.model }

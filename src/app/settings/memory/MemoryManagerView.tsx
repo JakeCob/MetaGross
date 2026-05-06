@@ -49,8 +49,11 @@ export function MemoryManagerView() {
       const res = await fetch("/api/memories?limit=200");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { memories: Memory[]; counts: Counts };
-      setMemories(data.memories);
-      setCounts(data.counts);
+      setMemories(Array.isArray(data.memories) ? data.memories : []);
+      setCounts({
+        total: data.counts?.total ?? 0,
+        byScope: data.counts?.byScope ?? {},
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load memories");
     } finally {

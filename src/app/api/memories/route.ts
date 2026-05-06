@@ -18,8 +18,10 @@ export async function GET(request: Request) {
     500,
     Math.max(1, parseInt(url.searchParams.get("limit") ?? "100", 10) || 100),
   );
-  const memories = listMemories({ scope, kind, limit });
-  const counts = countMemories();
+  const [memories, counts] = await Promise.all([
+    listMemories({ scope, kind, limit }),
+    countMemories(),
+  ]);
   return NextResponse.json({ memories, counts });
 }
 
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
   }
   const { scope, scopeRef, kind, summary, content, confidence } = parsed.data;
   const vec = await embed(`${summary}\n${content}`);
-  const memory = createMemory({
+  const memory = await createMemory({
     scope,
     scopeRef: scopeRef ?? null,
     kind,

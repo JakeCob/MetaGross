@@ -190,7 +190,7 @@ export async function extractMemoryNode(
         // Bump confidence on the existing row instead of inserting a
         // second copy. Raise toward the newly asserted confidence.
         const prev = dupes[0].memory.confidence ?? 0.5;
-        updateMemory(dupes[0].memory.id, {
+        await updateMemory(dupes[0].memory.id, {
           confidence: Math.max(prev, m.confidence),
           // Refresh content if the new version is longer/more
           // specific — helps when we later asked a clarifying
@@ -208,7 +208,7 @@ export async function extractMemoryNode(
         });
         continue;
       }
-      createMemory({
+      await createMemory({
         scope: "global",
         kind: m.kind,
         summary: m.summary,
