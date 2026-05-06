@@ -2,11 +2,26 @@ import { existsSync, mkdirSync, appendFileSync } from "fs";
 import { join } from "path";
 
 const LOG_DIR = join(process.cwd(), "data", "logs", "agents");
+// Vercel and other read-only serverless filesystems can't host a logs
+// directory. Detect once on cold-start and skip filesystem writes
+// entirely there — Vercel captures console.log to its own log
+// aggregator, so we lose nothing useful.
+const FILE_LOGGING_DISABLED =
+  process.env.VERCEL === "1" || process.env.NEXT_RUNTIME === "edge";
+let fileLoggingBroken = FILE_LOGGING_DISABLED;
 
-// Ensure log directory exists
-function ensureLogDir() {
-  if (!existsSync(LOG_DIR)) {
-    mkdirSync(LOG_DIR, { recursive: true });
+function ensureLogDir(): boolean {
+  if (fileLoggingBroken) return false;
+  try {
+    if (!existsSync(LOG_DIR)) {
+      mkdirSync(LOG_DIR, { recursive: true });
+    }
+    return true;
+  } catch {
+    // Read-only FS or permission error. Stop trying for the rest of
+    // the process lifetime so we don't spam the console.
+    fileLoggingBroken = true;
+    return false;
   }
 }
 
@@ -37,10 +52,11 @@ function formatCost(tokens: { input?: number; output?: number }, provider: strin
 }
 
 /**
- * Get today's log file path.
+ * Get today's log file path, or null when file logging is unavailable
+ * (read-only FS / serverless).
  */
-function getLogFilePath(): string {
-  ensureLogDir();
+function getLogFilePath(): string | null {
+  if (!ensureLogDir()) return null;
   const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
   return join(LOG_DIR, `${date}.jsonl`);
 }
@@ -61,10 +77,13 @@ export function logAgentEvent(entry: Omit<AgentLogEntry, "timestamp">) {
   const logFile = getLogFilePath();
   const line = JSON.stringify(full) + "\n";
 
-  try {
-    appendFileSync(logFile, line, "utf-8");
-  } catch (err) {
-    console.error("[AgentLogger] Failed to write log:", err);
+  if (logFile) {
+    try {
+      appendFileSync(logFile, line, "utf-8");
+    } catch {
+      // Stop trying after the first failure — typically read-only FS.
+      fileLoggingBroken = true;
+    }
   }
 
   // Also log to console in dev

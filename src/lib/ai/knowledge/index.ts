@@ -13,9 +13,24 @@ export interface FeedbackEntry {
   source?: string;
 }
 
-function ensureDir() {
-  if (!existsSync(KNOWLEDGE_DIR)) {
-    mkdirSync(KNOWLEDGE_DIR, { recursive: true });
+// Reading from docs/agent-knowledge works on Vercel (the dir is in the
+// deployment bundle), but writing doesn't — the serverless FS is
+// read-only outside /tmp. ensureDir() is best-effort: it creates the
+// dir locally and silently no-ops on serverless. saveFeedback /
+// appendToKnowledge then become no-ops on Vercel — feedback that
+// matters is also mirrored into agent_memories which IS persistent.
+let writesDisabled = process.env.VERCEL === "1";
+
+function ensureDir(): boolean {
+  if (writesDisabled) return false;
+  try {
+    if (!existsSync(KNOWLEDGE_DIR)) {
+      mkdirSync(KNOWLEDGE_DIR, { recursive: true });
+    }
+    return true;
+  } catch {
+    writesDisabled = true;
+    return false;
   }
 }
 
@@ -23,8 +38,10 @@ function ensureDir() {
  * Load ALL knowledge files and concatenate them as RAG context for the agent.
  */
 export function loadKnowledgeContext(): string {
-  ensureDir();
+  // Reads from the bundled dir — no need to mkdir.
   const parts: string[] = ["# Agent Knowledge Base\n"];
+
+  if (!existsSync(KNOWLEDGE_DIR)) return parts.join("");
 
   try {
     const files = readdirSync(KNOWLEDGE_DIR).filter(
@@ -63,15 +80,16 @@ export function loadKnowledgeContext(): string {
  * Save a feedback entry to the persistent log.
  */
 export function saveFeedback(entry: Omit<FeedbackEntry, "timestamp">): void {
-  ensureDir();
+  if (!ensureDir()) return; // serverless / read-only FS — feedback already
+                            // captured in agent_memories (Turso).
   const full: FeedbackEntry = {
     ...entry,
     timestamp: new Date().toISOString(),
   };
   try {
     appendFileSync(FEEDBACK_LOG, JSON.stringify(full) + "\n", "utf-8");
-  } catch (err) {
-    console.error("[knowledge] Failed to save feedback:", err);
+  } catch {
+    writesDisabled = true;
   }
 }
 
@@ -79,14 +97,16 @@ export function saveFeedback(entry: Omit<FeedbackEntry, "timestamp">): void {
  * Append a new section to a named knowledge file (or create it).
  */
 export function appendToKnowledge(fileName: string, content: string): void {
-  ensureDir();
+  if (!ensureDir()) return;
   const path = join(KNOWLEDGE_DIR, fileName.endsWith(".md") ? fileName : `${fileName}.md`);
   const separator = existsSync(path) ? "\n---\n\n" : "";
   try {
     appendFileSync(path, separator + content + "\n", "utf-8");
-  } catch (err) {
-    console.error("[knowledge] Failed to append:", err);
-    // Fallback: write new file
-    writeFileSync(path, content, "utf-8");
+  } catch {
+    try {
+      writeFileSync(path, content, "utf-8");
+    } catch {
+      writesDisabled = true;
+    }
   }
 }
