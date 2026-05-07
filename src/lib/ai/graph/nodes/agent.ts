@@ -22,6 +22,7 @@ import {
   CHAMPIONS_ITEMS_UNCERTAIN,
   CHAMPIONS_ITEMS_BANNED,
 } from "@/lib/data/champions";
+import { sanitizeMessagesForModel } from "../message-history";
 
 /**
  * Top-of-prompt roster block — answers "is this Pokemon legal?"
@@ -635,7 +636,7 @@ export async function agentNode(
   // Build messages array: system + conversation history
   const allMessages: BaseMessage[] = [
     new SystemMessage(systemPrompt),
-    ...state.messages,
+    ...sanitizeMessagesForModel(state.messages),
   ];
 
   const startTime = Date.now();

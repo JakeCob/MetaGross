@@ -258,6 +258,8 @@ export function AgentComposer({
           }
           size="icon"
           className="shrink-0"
+          aria-label="Send message"
+          title="Send message"
         >
           <SendIcon className="size-4" />
         </Button>

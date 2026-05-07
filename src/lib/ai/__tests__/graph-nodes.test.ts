@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import type { AgentStateType } from "../graph/state";
 
 // Server-only modules and the embeddings util must be mocked so the
@@ -234,6 +234,33 @@ describe("checkForWrite", () => {
     expect(checkForWrite(state)).toBe("tool_executor");
   });
 
+  it("routes unresolved tool calls before pending write approval", async () => {
+    const { checkForWrite } = await import("../graph/nodes/check-for-write");
+
+    const aiMsg = new AIMessage({
+      content: "",
+      tool_calls: [
+        {
+          name: "propose_pokemon_patch",
+          args: { species: "Milotic" },
+          id: "tc1",
+          type: "tool_call",
+        },
+      ],
+    });
+
+    const state = createMockState({
+      pendingAction: {
+        actionType: "patch_team_pokemon",
+        description: "Patch Milotic",
+        payload: { slot: 0, patch: { species: "Milotic" } },
+      },
+      messages: [new HumanMessage("change the slot"), aiMsg],
+    });
+
+    expect(checkForWrite(state)).toBe("tool_executor");
+  });
+
   it("routes to verify_response when AI message has no tool calls", async () => {
     const { checkForWrite } = await import("../graph/nodes/check-for-write");
 
@@ -256,5 +283,86 @@ describe("checkForWrite", () => {
     });
 
     expect(checkForWrite(state)).toBe("verify_response");
+  });
+});
+
+describe("checkAfterToolExecution", () => {
+  it("routes write tool results directly to approval", async () => {
+    const { checkAfterToolExecution } = await import(
+      "../graph/nodes/check-for-write"
+    );
+
+    const state = createMockState({
+      pendingAction: {
+        actionType: "patch_team_pokemon",
+        description: "Patch Milotic",
+        payload: { slot: 0, patch: { species: "Milotic" } },
+      },
+    });
+
+    expect(checkAfterToolExecution(state)).toBe("review_write");
+  });
+
+  it("continues the agent loop after read-only tools", async () => {
+    const { checkAfterToolExecution } = await import(
+      "../graph/nodes/check-for-write"
+    );
+
+    expect(checkAfterToolExecution(createMockState())).toBe("agent");
+  });
+});
+
+describe("sanitizeMessagesForModel", () => {
+  it("keeps complete tool-call blocks", async () => {
+    const { sanitizeMessagesForModel } = await import(
+      "../graph/message-history"
+    );
+    const aiMsg = new AIMessage({
+      content: "",
+      tool_calls: [
+        { name: "lookup", args: {}, id: "tc1", type: "tool_call" },
+      ],
+    });
+    const toolMsg = new ToolMessage({
+      content: "ok",
+      name: "lookup",
+      tool_call_id: "tc1",
+    });
+    const next = new HumanMessage("continue");
+
+    expect(sanitizeMessagesForModel([aiMsg, toolMsg, next])).toEqual([
+      aiMsg,
+      toolMsg,
+      next,
+    ]);
+  });
+
+  it("drops incomplete tool-call blocks and orphaned tool messages", async () => {
+    const { sanitizeMessagesForModel } = await import(
+      "../graph/message-history"
+    );
+    const before = new HumanMessage("start");
+    const aiMsg = new AIMessage({
+      content: "",
+      tool_calls: [
+        { name: "lookup_a", args: {}, id: "tc1", type: "tool_call" },
+        { name: "lookup_b", args: {}, id: "tc2", type: "tool_call" },
+      ],
+    });
+    const partialToolMsg = new ToolMessage({
+      content: "ok",
+      name: "lookup_a",
+      tool_call_id: "tc1",
+    });
+    const orphan = new ToolMessage({
+      content: "orphan",
+      name: "lookup_b",
+      tool_call_id: "tc2",
+    });
+    const after = new HumanMessage("continue");
+
+    expect(
+      sanitizeMessagesForModel([before, aiMsg, partialToolMsg, after, orphan]),
+    ).toEqual([before, after]);
   });
 });

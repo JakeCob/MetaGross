@@ -5,7 +5,11 @@ import { loadContextNode } from "./nodes/load-context";
 import { retrieveMemoryNode } from "./nodes/retrieve-memory";
 import { agentNode } from "./nodes/agent";
 import { toolExecutorNode } from "./nodes/tool-executor";
-import { checkForWrite, checkAfterVerify } from "./nodes/check-for-write";
+import {
+  checkAfterToolExecution,
+  checkAfterVerify,
+  checkForWrite,
+} from "./nodes/check-for-write";
 import { reviewWriteNode } from "./nodes/review-write";
 import { verifyResponseNode } from "./nodes/verify-response";
 import { validateResponseNode } from "./nodes/validate-response";
@@ -19,7 +23,7 @@ import { shouldCacheCompiledGraph } from "./runtime";
  *
  * Graph flow:
  *   START -> load_context -> retrieve_memory -> agent -> (conditional)
- *     - if tool_calls      -> tool_executor -> agent (loop)
+ *     - if tool_calls      -> tool_executor -> agent/review_write
  *     - if pendingAction   -> review_write -> agent (loop)
  *     - else (final answer) -> verify_response -> (conditional)
  *        - if violations     -> agent (one retry)
@@ -45,8 +49,12 @@ function buildGraph(checkpointer = getCheckpointer()) {
       "review_write",
       "verify_response",
     ])
-    // After tool execution: ALWAYS go back to agent
-    .addEdge("tool_executor", "agent")
+    // After tool execution: write tools pause for approval before any
+    // further model call; read tools continue the agent loop.
+    .addConditionalEdges("tool_executor", checkAfterToolExecution, [
+      "agent",
+      "review_write",
+    ])
     // After write review: go back to agent
     .addEdge("review_write", "agent")
     // After response verification: retry agent on violations, else validate

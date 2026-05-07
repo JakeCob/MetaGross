@@ -9,6 +9,7 @@ import type {
 } from "@/components/agent/PokemonCardRenderer";
 import type { StarterSuggestion } from "@/components/agent/AgentMessageList";
 import { Button } from "@/components/ui/button";
+import { BotIcon, XIcon } from "lucide-react";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
 import type { MetaTeamPokemon } from "@/lib/meta-teams/types";
@@ -509,23 +510,21 @@ export function TeamBuilderWithAgent({
           desktop column is hidden, so AgentPanel only mounts here
           when the viewport is below the md breakpoint. */}
       <div className="md:hidden">
-        <div
-          className="fixed right-4 z-50"
-          style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
-        >
-          <Button
-            onClick={() => setAgentOpen((o) => !o)}
-            aria-label={agentOpen ? "Close AI assistant" : "Open AI assistant"}
-            className="gap-2 rounded-full px-4 py-3 shadow-lg shadow-primary/30"
+        {!agentOpen && (
+          <div
+            className="fixed right-4 z-50"
+            style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
           >
-            <span aria-hidden className="text-base leading-none">
-              {agentOpen ? "✕" : "🤖"}
-            </span>
-            <span className="text-sm font-medium">
-              {agentOpen ? "Close" : "Ask AI"}
-            </span>
-          </Button>
-        </div>
+            <Button
+              onClick={() => setAgentOpen(true)}
+              aria-label="Open AI assistant"
+              className="gap-2 rounded-full px-4 py-3 shadow-lg shadow-primary/30"
+            >
+              <BotIcon className="size-4" />
+              <span className="text-sm font-medium">Ask AI</span>
+            </Button>
+          </div>
+        )}
 
         {agentOpen && (
           <div
@@ -535,40 +534,57 @@ export function TeamBuilderWithAgent({
             // our composer below the screen edge on iPhone SE. Using
             // 92dvh + small inner padding gives breathing room above
             // the home-indicator without burying the composer.
-            className="fixed inset-x-0 bottom-0 z-40 h-[92dvh] bg-background border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300"
+            className="fixed inset-x-0 bottom-0 z-50 h-[92dvh] bg-background border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
           >
-            <div className="h-full p-2 sm:p-3">
-              <AgentPanel
-                contextType="team"
-                contextId={teamId}
-                starterSuggestions={TEAM_STARTER_SUGGESTIONS}
-                cardActions={cardActions}
-                onApplyDraftPatch={handleApplyDraftPatch}
-                getDraftTeam={() => {
-                  const snap = currentTeamGetterRef.current
-                    ? currentTeamGetterRef.current()
-                    : null;
-                  if (!snap) return null;
-                  return {
-                    name: snap.name,
-                    format: snap.format,
-                    pokemon: snap.pokemon.map((p) => ({
-                      species: p.species,
-                      ability: p.ability,
-                      item: p.item,
-                      nature: p.nature,
-                      moves: Array.isArray(p.moves)
-                        ? (p.moves as string[]).filter(Boolean)
-                        : undefined,
-                      evs: p.evs as Record<string, number> | undefined,
-                      ivs: p.ivs as Record<string, number> | undefined,
-                      level: p.level,
-                      teraType: p.teraType,
-                    })),
-                  };
-                }}
-              />
+            <div className="flex h-full min-h-0 flex-col gap-2 p-2 sm:p-3">
+              <div className="flex h-9 shrink-0 items-center justify-between px-1">
+                <span className="text-sm font-medium text-foreground">
+                  AI team chat
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setAgentOpen(false)}
+                  aria-label="Close AI assistant"
+                  title="Close AI assistant"
+                >
+                  <XIcon className="size-4" />
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1">
+                <AgentPanel
+                  contextType="team"
+                  contextId={teamId}
+                  starterSuggestions={TEAM_STARTER_SUGGESTIONS}
+                  cardActions={cardActions}
+                  onApplyDraftPatch={handleApplyDraftPatch}
+                  getDraftTeam={() => {
+                    const snap = currentTeamGetterRef.current
+                      ? currentTeamGetterRef.current()
+                      : null;
+                    if (!snap) return null;
+                    return {
+                      name: snap.name,
+                      format: snap.format,
+                      pokemon: snap.pokemon.map((p) => ({
+                        species: p.species,
+                        ability: p.ability,
+                        item: p.item,
+                        nature: p.nature,
+                        moves: Array.isArray(p.moves)
+                          ? (p.moves as string[]).filter(Boolean)
+                          : undefined,
+                        evs: p.evs as Record<string, number> | undefined,
+                        ivs: p.ivs as Record<string, number> | undefined,
+                        level: p.level,
+                        teraType: p.teraType,
+                      })),
+                    };
+                  }}
+                />
+              </div>
             </div>
           </div>
         )}
