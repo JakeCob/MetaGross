@@ -381,20 +381,80 @@ export function TeamBuilderWithAgent({
       if (species.length === 0) return false;
       if (!replaceTeamRef.current && !addToTeamRef.current) return false;
 
-      const bareFallback = (): Partial<TeamPokemon>[] =>
-        species.map((sp) => ({
-          species: sp
-            .replace(/^Mega\s+/, "")
-            .replace(/\s*\(Mega\)/, "")
-            .trim(),
-          ability: "",
-          item: "",
-          nature: "Hardy",
-          level: 50,
-          moves: ["", "", "", ""],
-          evs: { ...DEFAULT_EVS },
-          ivs: { ...DEFAULT_IVS },
-        }));
+      const normaliseSpecies = (sp: string) =>
+        sp.replace(/^Mega\s+/, "").replace(/\s*\(Mega\)/, "").trim();
+
+      const bareEntry = (sp: string): Partial<TeamPokemon> => ({
+        species: normaliseSpecies(sp),
+        ability: "",
+        item: "",
+        nature: "Hardy",
+        level: 50,
+        moves: ["", "", "", ""],
+        evs: { ...DEFAULT_EVS },
+        ivs: { ...DEFAULT_IVS },
+      });
+
+      // Per-species canonical-set fallback. When no full meta-team
+      // matches the species list (typical for ad-hoc agent-suggested
+      // teams), we still need ability + moves + nature populated or
+      // the validator rejects on save. The /api/pokemon/canonical-set
+      // route returns the highest-trust verified set per species from
+      // our meta_teams pool.
+      const fetchCanonicalSets = async (
+        list: string[],
+      ): Promise<Partial<TeamPokemon>[]> => {
+        try {
+          const res = await fetch("/api/pokemon/canonical-set", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ species: list }),
+          });
+          if (!res.ok) return list.map(bareEntry);
+          const payload = (await res.json()) as {
+            sets?: Record<
+              string,
+              {
+                ability: string;
+                item: string;
+                nature: string;
+                moves: string[];
+                teraType: string | null;
+                evs: {
+                  hp: number;
+                  atk: number;
+                  def: number;
+                  spa: number;
+                  spd: number;
+                  spe: number;
+                } | null;
+              } | null
+            >;
+          };
+          const sets = payload.sets ?? {};
+          return list.map((sp) => {
+            const found = sets[sp];
+            if (!found) return bareEntry(sp);
+            const moves: [string, string, string, string] = ["", "", "", ""];
+            for (let i = 0; i < Math.min(4, found.moves.length); i++) {
+              moves[i] = found.moves[i] ?? "";
+            }
+            return {
+              species: normaliseSpecies(sp),
+              ability: found.ability || "",
+              item: found.item || "",
+              nature: found.nature || "Hardy",
+              level: 50,
+              teraType: found.teraType ?? undefined,
+              moves,
+              evs: found.evs ?? { ...DEFAULT_EVS },
+              ivs: { ...DEFAULT_IVS },
+            };
+          });
+        } catch {
+          return list.map(bareEntry);
+        }
+      };
 
       try {
         const res = await fetch("/api/meta-teams/match", {
@@ -416,7 +476,7 @@ export function TeamBuilderWithAgent({
         const full = payload.matches?.[0]?.pokemon ?? [];
         const team: Partial<TeamPokemon>[] =
           full.length === 0
-            ? bareFallback()
+            ? await fetchCanonicalSets(species)
             : full.map(metaTeamPokemonToTeamPokemon);
 
         if (replaceTeamRef.current) {
@@ -427,7 +487,19 @@ export function TeamBuilderWithAgent({
         return true;
       } catch (err) {
         console.error("[TeamBuilderWithAgent] apply research team failed", err);
-        return false;
+        // Last-ditch: try the per-species canonical lookup directly so
+        // a meta-teams match failure doesn't strand the user with an
+        // unsavable team. Still better than bare species.
+        try {
+          const team = await fetchCanonicalSets(species);
+          if (replaceTeamRef.current) replaceTeamRef.current(team);
+          else if (addToTeamRef.current) {
+            for (const mon of team) addToTeamRef.current(mon);
+          }
+          return true;
+        } catch {
+          return false;
+        }
       }
     },
     [],
