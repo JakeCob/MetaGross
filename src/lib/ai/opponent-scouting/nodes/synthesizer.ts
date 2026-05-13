@@ -23,7 +23,7 @@
  * with a visible ⚠ warning appended to the gamePlan.
  */
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { createModel, detectProvider } from "@/lib/ai/graph/model";
+import { createModel, resolveProvider } from "@/lib/ai/graph/model";
 import type { ScoutingStateType, ScoutingStateUpdate } from "../state";
 import type {
   SuggestedLead,
@@ -115,10 +115,20 @@ export async function synthesizerNode(
   state: ScoutingStateType,
 ): Promise<Partial<ScoutingStateUpdate>> {
   const userPrompt = buildUserPrompt(state);
-  const provider =
-    (state.providerOverride as "openai" | "openrouter" | "anthropic" | null) ||
-    detectProvider();
-  const model = createModel(provider, state.modelOverride ?? undefined);
+  // Drop stale provider overrides whose env key isn't set on this
+  // deployment (e.g. browser-cached "openai" after the key was rotated
+  // out). If the override survives, keep its model id too.
+  const requestedProvider = state.providerOverride as
+    | "openai"
+    | "openrouter"
+    | "anthropic"
+    | null;
+  const provider = resolveProvider(requestedProvider);
+  const modelOverride =
+    requestedProvider && provider === requestedProvider
+      ? state.modelOverride ?? undefined
+      : undefined;
+  const model = createModel(provider, modelOverride);
 
   const response = await model.invoke([
     new SystemMessage(SYSTEM_PROMPT),

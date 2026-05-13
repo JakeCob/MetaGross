@@ -2,7 +2,12 @@ import type { AgentStateType, AgentStateUpdate } from "../state";
 import type { AgentPersona } from "@/lib/types/agent";
 import { AGENT_PERSONAS } from "@/lib/types/agent";
 import { allTools } from "@/lib/ai/tools";
-import { createModel, detectProvider, getModelName } from "../model";
+import {
+  createModel,
+  detectProvider,
+  getModelName,
+  resolveProvider,
+} from "../model";
 import type { BaseMessage } from "@langchain/core/messages";
 import { SystemMessage } from "@langchain/core/messages";
 import { logAgentEvent } from "@/lib/ai/logger";
@@ -621,12 +626,23 @@ Rules for this turn:
 export async function agentNode(
   state: AgentStateType,
 ): Promise<Partial<AgentStateUpdate>> {
-  // Honour user-selected provider/model when present; fall back to
-  // env-based auto-detection otherwise.
-  const provider =
-    (state.providerOverride as "openai" | "openrouter" | "anthropic" | null) ||
-    detectProvider();
-  const model = createModel(provider, state.modelOverride ?? undefined);
+  // Honour user-selected provider when present AND its env key is set.
+  // Without the env-key guard a stale browser-cached "openai" preference
+  // would 401 even after the OPENAI_API_KEY was rotated out. The model
+  // override only applies when the override provider survives — if we
+  // fell through to a different provider, the saved model id (e.g.
+  // "gpt-5.1") would be wrong for it (e.g. Anthropic).
+  const requestedProvider = state.providerOverride as
+    | "openai"
+    | "openrouter"
+    | "anthropic"
+    | null;
+  const provider = resolveProvider(requestedProvider);
+  const modelOverride =
+    requestedProvider && provider === requestedProvider
+      ? state.modelOverride ?? undefined
+      : undefined;
+  const model = createModel(provider, modelOverride);
 
   const systemPrompt = buildSystemPrompt(state);
 
@@ -649,7 +665,7 @@ export async function agentNode(
     sessionId: state.threadId || "unknown",
     agent: "metagross-main",
     node: "agent",
-    model: getModelName(provider),
+    model: getModelName(provider, modelOverride),
     provider,
     action: "llm_call",
     inputTokens: tokenUsage?.input_tokens ?? 0,

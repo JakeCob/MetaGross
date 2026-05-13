@@ -83,6 +83,36 @@ export function detectProvider(): AgentProvider {
 }
 
 /**
+ * Whether a provider has the credentials it needs to actually work.
+ * Lets routes drop a stale provider override (e.g. a localStorage
+ * cached "openai" preference after the OPENAI key was rotated out)
+ * before it hits the LLM and 401s.
+ */
+export function providerHasCredentials(provider: AgentProvider): boolean {
+  switch (provider) {
+    case "openai":
+      return !!process.env.OPENAI_API_KEY;
+    case "openrouter":
+      return !!process.env.OPENROUTER_API_KEY;
+    case "anthropic":
+      return !!process.env.ANTHROPIC_API_KEY;
+  }
+}
+
+/**
+ * Pick the right provider: honour an explicit caller override IF the
+ * env for that provider is present; otherwise fall through to
+ * detectProvider(). Eliminates the failure mode where the browser
+ * sends provider="openai" with a model the server can't authenticate.
+ */
+export function resolveProvider(
+  override: AgentProvider | null | undefined,
+): AgentProvider {
+  if (override && providerHasCredentials(override)) return override;
+  return detectProvider();
+}
+
+/**
  * Get the model name for display/storage. Honours the modelName
  * override when supplied.
  */
