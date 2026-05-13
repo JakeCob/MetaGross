@@ -182,12 +182,72 @@ function pokemonBlockToTeamPokemon(block: PokemonBlock): Partial<TeamPokemon> {
   };
 }
 
+// ResearchTeamBlock → draft payload, with all the sanitisation the
+// server expects: empty/whitespace species dropped, name capped at
+// 120 chars, sourceUrl set to null unless it's a real URL.
+function buildDraftPayload(block: ResearchTeamBlock): {
+  name: string;
+  archetype: string | null;
+  description: string | null;
+  sourceUrl: string | null;
+  species: string[];
+} | null {
+  const species = (block.team ?? [])
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .slice(0, 6); // server caps at 6
+  if (species.length === 0) return null;
+
+  const rawName = block.subtitle
+    ? `[Draft] ${block.name} — ${block.subtitle}`
+    : `[Draft] ${block.name}`;
+  const name = rawName.trim().slice(0, 120) || "[Draft]";
+
+  let sourceUrl: string | null = null;
+  const candidate = (block.url ?? "").trim();
+  if (candidate) {
+    try {
+      const parsed = new URL(candidate);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        sourceUrl = parsed.toString();
+      }
+    } catch {
+      // not a URL — leave sourceUrl null. The server's Zod schema
+      // would 400 the whole batch on a non-URL string.
+    }
+  }
+
+  return {
+    name,
+    archetype: block.subtitle?.trim() ? block.subtitle.trim() : null,
+    description: block.coreTech?.trim() ? block.coreTech.trim() : null,
+    sourceUrl,
+    species,
+  };
+}
+
 export function TeamBuilderWithAgent({
   teamId,
   initialSpecies,
   initialName,
 }: TeamBuilderWithAgentProps) {
   const [agentOpen, setAgentOpen] = useState(false);
+  // Lightweight banner so success/failure of background actions like
+  // "Use first, save rest as drafts" isn't invisible — the old
+  // implementation only console.error'd, so the user just saw nothing
+  // happen and assumed the button was broken.
+  const [actionNotice, setActionNotice] = useState<{
+    kind: "info" | "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const flashNotice = useCallback(
+    (kind: "info" | "success" | "error", message: string) => {
+      setActionNotice({ kind, message });
+      window.setTimeout(() => setActionNotice(null), 6000);
+    },
+    [],
+  );
   // Ref for TeamBuilder's add function — set via callback
   const addToTeamRef = useRef<((pokemon: Partial<TeamPokemon>) => void) | null>(null);
   // Ref for TeamBuilder's bulk-replace function. "+ Add All N to Team"
@@ -259,40 +319,34 @@ export function TeamBuilderWithAgent({
 
   const handleSaveResearchTeamAsDraft = useCallback(
     async (data: ResearchTeamBlock) => {
-      const species = data.team ?? [];
-      if (species.length === 0) return;
+      const draft = buildDraftPayload(data);
+      if (!draft) {
+        flashNotice("error", `Couldn't save "${data.name}" — no species found.`);
+        return;
+      }
       try {
         const res = await fetch("/api/teams/draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            drafts: [
-              {
-                name: data.subtitle
-                  ? `[Draft] ${data.name} — ${data.subtitle}`
-                  : `[Draft] ${data.name}`,
-                archetype: data.subtitle ?? null,
-                description: data.coreTech ?? null,
-                sourceUrl: data.url ?? null,
-                species,
-              },
-            ],
-          }),
+          body: JSON.stringify({ drafts: [draft] }),
         });
         if (!res.ok) {
-          console.error(
-            "[TeamBuilderWithAgent] draft save HTTP",
-            res.status,
+          const body = await res.text().catch(() => "");
+          flashNotice(
+            "error",
+            `Couldn't save draft: HTTP ${res.status}${body ? ` — ${body.slice(0, 160)}` : ""}`,
           );
+          return;
         }
+        flashNotice("success", `Saved "${data.name}" as a draft.`);
       } catch (err) {
-        console.error(
-          "[TeamBuilderWithAgent] draft save failed",
-          err,
+        flashNotice(
+          "error",
+          `Couldn't save draft: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     },
-    [],
+    [flashNotice],
   );
 
   const handleOpenResearchTeamInNewTab = useCallback(
@@ -399,35 +453,69 @@ export function TeamBuilderWithAgent({
     async (teams: ResearchTeamBlock[]) => {
       if (teams.length === 0) return;
       const [first, ...rest] = teams;
-      const ok = await applyResearchTeamToBuilder(first);
-      if (!ok) return;
 
-      if (rest.length === 0) return;
-      // Save the rest as draft teams.
-      try {
-        const res = await fetch("/api/teams/draft", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            drafts: rest.map((d) => ({
-              name: d.subtitle
-                ? `[Draft] ${d.name} — ${d.subtitle}`
-                : `[Draft] ${d.name}`,
-              archetype: d.subtitle ?? null,
-              description: d.coreTech ?? null,
-              sourceUrl: d.url ?? null,
-              species: d.team ?? [],
-            })),
-          }),
-        });
-        if (!res.ok) {
-          console.error("[TeamBuilderWithAgent] draft save HTTP", res.status);
-        }
-      } catch (err) {
-        console.error("[TeamBuilderWithAgent] draft save failed", err);
+      // Apply the first AND save the rest in parallel — they're
+      // independent operations, so don't gate one on the other. The
+      // old code returned early when the apply failed, swallowing the
+      // user's "save these for later" intent silently.
+      const drafts = rest
+        .map(buildDraftPayload)
+        .filter((d): d is NonNullable<typeof d> => d !== null);
+      const skipped = rest.length - drafts.length;
+
+      const [applyOk, draftResult] = await Promise.all([
+        applyResearchTeamToBuilder(first),
+        drafts.length === 0
+          ? Promise.resolve<{ ok: true; count: 0 } | { ok: false; err: string }>(
+              { ok: true, count: 0 },
+            )
+          : (async () => {
+              try {
+                const res = await fetch("/api/teams/draft", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ drafts }),
+                });
+                if (!res.ok) {
+                  const body = await res.text().catch(() => "");
+                  return {
+                    ok: false as const,
+                    err: `HTTP ${res.status}${body ? ` — ${body.slice(0, 200)}` : ""}`,
+                  };
+                }
+                const payload = (await res.json().catch(() => null)) as
+                  | { count?: number }
+                  | null;
+                return { ok: true as const, count: payload?.count ?? drafts.length };
+              } catch (err) {
+                return {
+                  ok: false as const,
+                  err: err instanceof Error ? err.message : String(err),
+                };
+              }
+            })(),
+      ]);
+
+      const draftCount = draftResult.ok ? draftResult.count : 0;
+      const parts: string[] = [];
+      if (applyOk) parts.push(`Loaded "${first.name}" into the builder`);
+      else parts.push(`Couldn't load "${first.name}" into the builder`);
+      if (draftCount > 0) parts.push(`saved ${draftCount} as drafts`);
+      if (skipped > 0) parts.push(`skipped ${skipped} (no species)`);
+      if (!draftResult.ok)
+        parts.push(`draft save failed: ${draftResult.err}`);
+
+      const kind = applyOk && draftResult.ok ? "success" : "error";
+      flashNotice(kind, parts.join(" · "));
+
+      if (!draftResult.ok) {
+        console.error(
+          "[TeamBuilderWithAgent] draft save failed",
+          draftResult.err,
+        );
       }
     },
-    [applyResearchTeamToBuilder],
+    [applyResearchTeamToBuilder, flashNotice],
   );
 
   const cardActions = {
@@ -449,6 +537,21 @@ export function TeamBuilderWithAgent({
   // button look broken.
   return (
     <>
+      {actionNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`mb-3 rounded-md border px-3 py-2 text-sm ${
+            actionNotice.kind === "success"
+              ? "border-emerald-700 bg-emerald-950/40 text-emerald-100"
+              : actionNotice.kind === "error"
+                ? "border-destructive/60 bg-destructive/10 text-destructive-foreground"
+                : "border-border bg-card text-muted-foreground"
+          }`}
+        >
+          {actionNotice.message}
+        </div>
+      )}
       {/* Responsive grid — 1 column on small screens, 2fr|1fr on lg+. */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[2fr_1fr]">
         <TeamBuilder
