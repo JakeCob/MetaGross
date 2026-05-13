@@ -123,3 +123,108 @@ export function getModelName(
   if (modelName && modelName.trim().length > 0) return modelName.trim();
   return PROVIDER_DEFAULT_MODEL[provider];
 }
+
+// ---------------------------------------------------------------------------
+// Runtime auth-failure fallback
+//
+// Even when a provider's env key is set, it may be dead at runtime — keys get
+// rotated, projects get archived, accounts run out of credit. Without
+// recovery, every chat 401s until a redeploy. We mark broken providers in a
+// process-scope set and skip them on subsequent picks; the set resets on
+// cold-start so a re-issued key recovers without code changes.
+// ---------------------------------------------------------------------------
+
+const PROVIDER_ORDER: AgentProvider[] = ["openai", "openrouter", "anthropic"];
+
+const brokenProviders = new Set<AgentProvider>();
+
+/**
+ * Mark a provider as broken for the rest of the process. Subsequent
+ * resolveProvider / pickFallbackProvider calls will skip it.
+ */
+export function markProviderBroken(provider: AgentProvider, reason?: string): void {
+  if (brokenProviders.has(provider)) return;
+  brokenProviders.add(provider);
+  console.warn(
+    `[model] Marking provider "${provider}" broken for the rest of this process${reason ? `: ${reason}` : ""}`,
+  );
+}
+
+/**
+ * Heuristic for "this error means the credentials are dead, not a transient
+ * network blip." We check status codes first (most reliable across SDKs),
+ * then fall back to message inspection for SDKs that wrap the response.
+ */
+export function isAuthError(err: unknown): boolean {
+  if (!err) return false;
+  const anyErr = err as {
+    status?: number;
+    statusCode?: number;
+    code?: string;
+    response?: { status?: number };
+    cause?: { status?: number };
+    message?: string;
+  };
+  const status =
+    anyErr.status ?? anyErr.statusCode ?? anyErr.response?.status ?? anyErr.cause?.status;
+  if (status === 401 || status === 403) return true;
+  const msg = (anyErr.message ?? "").toLowerCase();
+  if (!msg) return false;
+  return (
+    msg.includes("401") ||
+    msg.includes("invalid api key") ||
+    msg.includes("invalid_api_key") ||
+    msg.includes("incorrect api key") ||
+    msg.includes("authentication") ||
+    msg.includes("unauthorized") ||
+    msg.includes("has been archived") ||
+    msg.includes("not_authorized_invalid_project")
+  );
+}
+
+/**
+ * Pick the next provider to try after `current` failed. Walks
+ * PROVIDER_ORDER, skips broken providers, requires env credentials.
+ * Returns null when nothing is left to try.
+ */
+export function pickFallbackProvider(
+  current: AgentProvider,
+): AgentProvider | null {
+  for (const candidate of PROVIDER_ORDER) {
+    if (candidate === current) continue;
+    if (brokenProviders.has(candidate)) continue;
+    if (!providerHasCredentials(candidate)) continue;
+    return candidate;
+  }
+  return null;
+}
+
+// Override resolveProvider + detectProvider so they also skip broken
+// providers. We re-implement them here instead of mutating the exported
+// functions above so the lower-level helpers stay simple/testable.
+const _detectProviderRaw = detectProvider;
+const _resolveProviderRaw = resolveProvider;
+
+export function detectProviderHealthy(): AgentProvider {
+  for (const candidate of PROVIDER_ORDER) {
+    if (brokenProviders.has(candidate)) continue;
+    if (providerHasCredentials(candidate)) return candidate;
+  }
+  // Nothing healthy — fall back to the raw default and let the
+  // caller surface a clean "no AI provider" error.
+  return _detectProviderRaw();
+}
+
+export function resolveProviderHealthy(
+  override: AgentProvider | null | undefined,
+): AgentProvider {
+  if (override && !brokenProviders.has(override) && providerHasCredentials(override)) {
+    return override;
+  }
+  return detectProviderHealthy();
+}
+
+// Quiet "unused" warnings — these are kept for explicit raw access if
+// a future caller wants pre-broken-filter behaviour (e.g. status pages).
+void _detectProviderRaw;
+void _resolveProviderRaw;

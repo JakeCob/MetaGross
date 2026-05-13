@@ -4,9 +4,11 @@ import { AGENT_PERSONAS } from "@/lib/types/agent";
 import { allTools } from "@/lib/ai/tools";
 import {
   createModel,
-  detectProvider,
   getModelName,
-  resolveProvider,
+  isAuthError,
+  markProviderBroken,
+  pickFallbackProvider,
+  resolveProviderHealthy,
 } from "../model";
 import type { BaseMessage } from "@langchain/core/messages";
 import { SystemMessage } from "@langchain/core/messages";
@@ -626,7 +628,8 @@ Rules for this turn:
 export async function agentNode(
   state: AgentStateType,
 ): Promise<Partial<AgentStateUpdate>> {
-  // Honour user-selected provider when present AND its env key is set.
+  // Honour user-selected provider when present AND its env key is set
+  // AND that provider hasn't already been marked broken in this process.
   // Without the env-key guard a stale browser-cached "openai" preference
   // would 401 even after the OPENAI_API_KEY was rotated out. The model
   // override only applies when the override provider survives — if we
@@ -637,26 +640,47 @@ export async function agentNode(
     | "openrouter"
     | "anthropic"
     | null;
-  const provider = resolveProvider(requestedProvider);
-  const modelOverride =
+  let provider = resolveProviderHealthy(requestedProvider);
+  let modelOverride =
     requestedProvider && provider === requestedProvider
       ? state.modelOverride ?? undefined
       : undefined;
-  const model = createModel(provider, modelOverride);
 
   const systemPrompt = buildSystemPrompt(state);
-
-  // Bind all tools (read + write) to the model
-  const modelWithTools = model.bindTools(allTools);
-
   // Build messages array: system + conversation history
   const allMessages: BaseMessage[] = [
     new SystemMessage(systemPrompt),
     ...sanitizeMessagesForModel(state.messages),
   ];
 
+  // Invoke with runtime auth-failure fallback. If a provider returns a
+  // 401/403 (e.g. archived OpenAI project, rotated key, blown budget),
+  // mark it broken for the rest of this process and retry on the next
+  // healthy provider. Up to 3 attempts so we don't loop forever when
+  // every provider is dead.
   const startTime = Date.now();
-  const response = await modelWithTools.invoke(allMessages);
+  let response: Awaited<ReturnType<ReturnType<ReturnType<typeof createModel>["bindTools"]>["invoke"]>>;
+  for (let attempt = 1; ; attempt++) {
+    const model = createModel(provider, modelOverride);
+    const modelWithTools = model.bindTools(allTools);
+    try {
+      response = await modelWithTools.invoke(allMessages);
+      break;
+    } catch (err) {
+      if (!isAuthError(err) || attempt >= 3) throw err;
+      const next = pickFallbackProvider(provider);
+      markProviderBroken(provider, (err as Error)?.message?.slice(0, 120));
+      if (!next) throw err;
+      console.warn(
+        `[agent] Provider "${provider}" auth-failed; retrying on "${next}".`,
+      );
+      provider = next;
+      // Saved model id is provider-specific (gpt-5.5 won't run on
+      // Anthropic) — drop it so createModel falls back to the new
+      // provider's default.
+      modelOverride = undefined;
+    }
+  }
   const durationMs = Date.now() - startTime;
 
   // Log the LLM call

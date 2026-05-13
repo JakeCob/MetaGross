@@ -23,7 +23,13 @@
  * with a visible ⚠ warning appended to the gamePlan.
  */
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { createModel, resolveProvider } from "@/lib/ai/graph/model";
+import {
+  createModel,
+  isAuthError,
+  markProviderBroken,
+  pickFallbackProvider,
+  resolveProviderHealthy,
+} from "@/lib/ai/graph/model";
 import type { ScoutingStateType, ScoutingStateUpdate } from "../state";
 import type {
   SuggestedLead,
@@ -123,17 +129,35 @@ export async function synthesizerNode(
     | "openrouter"
     | "anthropic"
     | null;
-  const provider = resolveProvider(requestedProvider);
-  const modelOverride =
+  let provider = resolveProviderHealthy(requestedProvider);
+  let modelOverride =
     requestedProvider && provider === requestedProvider
       ? state.modelOverride ?? undefined
       : undefined;
-  const model = createModel(provider, modelOverride);
 
-  const response = await model.invoke([
-    new SystemMessage(SYSTEM_PROMPT),
-    new HumanMessage(userPrompt),
-  ]);
+  // Same runtime auth-failure fallback as the main agent node — see
+  // src/lib/ai/graph/nodes/agent.ts for the full rationale.
+  let response: Awaited<ReturnType<ReturnType<typeof createModel>["invoke"]>>;
+  for (let attempt = 1; ; attempt++) {
+    const model = createModel(provider, modelOverride);
+    try {
+      response = await model.invoke([
+        new SystemMessage(SYSTEM_PROMPT),
+        new HumanMessage(userPrompt),
+      ]);
+      break;
+    } catch (err) {
+      if (!isAuthError(err) || attempt >= 3) throw err;
+      const next = pickFallbackProvider(provider);
+      markProviderBroken(provider, (err as Error)?.message?.slice(0, 120));
+      if (!next) throw err;
+      console.warn(
+        `[scouting] Provider "${provider}" auth-failed; retrying on "${next}".`,
+      );
+      provider = next;
+      modelOverride = undefined;
+    }
+  }
 
   const text = flattenContent(response.content);
   const parsed = parseJsonLoose(text);
