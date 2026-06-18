@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { getSmogonAnalysis } from "@/lib/pokemon/smogon-analysis";
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 /**
  * get_smogon_analysis
@@ -20,7 +21,7 @@ import { getSmogonAnalysis } from "@/lib/pokemon/smogon-analysis";
 export const getSmogonAnalysisTool = new DynamicStructuredTool({
   name: "get_smogon_analysis",
   description:
-    "Fetch a Pokemon's Smogon competitive analysis — role overview, teambuilding notes, example sets with EVs, counters, and full learnset. Use this when the user asks about a Pokemon's competitive niche, role, synergies, or counters in depth (things Pikalytics usage % can't tell you). Smogon doesn't have Champions Reg M-A writeups, so the tool auto-selects the closest VGC strategy — cite the strategyFormat it returns so the user knows which reg the analysis is from.",
+    `Fetch a Pokemon's Smogon competitive analysis — role overview, teambuilding notes, example sets with EVs, counters, and full learnset. Use this when the user asks about a Pokemon's competitive niche, role, synergies, or counters in depth (things Pikalytics usage % can't tell you). Smogon doesn't have ${ACTIVE_REGULATION_LABEL} writeups, so the tool auto-selects the closest VGC strategy — cite the strategyFormat it returns so the user knows which reg the analysis is from.`,
   schema: z.object({
     species: z
       .string()
@@ -67,7 +68,7 @@ export const getSmogonAnalysisTool = new DynamicStructuredTool({
       })),
       learnsetSample: analysis.learnset.slice(0, 60),
       nextStep:
-        "Smogon strategies are NOT written for Champions Reg M-A specifically — the analysis above is from " +
+        `Smogon strategies are NOT written for ${ACTIVE_REGULATION_LABEL} specifically — the analysis above is from ` +
         analysis.strategyFormat +
         ". Cite sourceUrl when you quote specific matchups or counters so the user can verify.",
     });

@@ -16,6 +16,7 @@ import "server-only";
 
 import { CREATOR_TEAMS } from "@/lib/data/creator-teams";
 import { upsertMetaTeam } from "./queries";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export interface AggregateCreatorsOptions {
   /** Limit to a specific format. Default: "champions-reg-m-a". */
@@ -33,7 +34,7 @@ export interface AggregateCreatorsResult {
 export async function aggregateFromCreators(
   opts: AggregateCreatorsOptions = {},
 ): Promise<AggregateCreatorsResult> {
-  const format = opts.format ?? "champions-reg-m-a";
+  const format = opts.format ?? ACTIVE_REGULATION_FORMAT_ID;
   const eligible = CREATOR_TEAMS.filter((t) => t.format === format);
 
   const result: AggregateCreatorsResult = {

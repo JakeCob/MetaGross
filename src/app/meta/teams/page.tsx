@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { listMetaTeams, countMetaTeams } from "@/lib/meta-teams/queries";
 import { MetaTeamCard } from "@/components/meta-teams/MetaTeamCard";
 import { SubmitMetaTeamForm } from "@/components/meta-teams/SubmitMetaTeamForm";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export const metadata = {
   title: "Meta Teams — MetaGross",
@@ -13,7 +14,7 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function MetaTeamsPage() {
-  const format = "champions-reg-m-a";
+  const format = ACTIVE_REGULATION_FORMAT_ID;
   const [teams, counts] = await Promise.all([
     listMetaTeams(format, 60),
     countMetaTeams(format),

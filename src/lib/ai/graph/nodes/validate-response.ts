@@ -6,6 +6,7 @@ import {
   getUnavailableMovesFor,
   CHAMPIONS_ITEMS_UNCERTAIN,
   CHAMPIONS_ITEMS_BANNED,
+  ACTIVE_REGULATION_LABEL,
 } from "@/lib/data/champions";
 import { AIMessage } from "@langchain/core/messages";
 import { detectProvider, getModelName } from "../model";
@@ -141,15 +142,15 @@ export async function validateResponseNode(
     // species is on the known-blocked list.
     const isKnownBad = isConfirmedNotInChampions(species);
     const msg = isKnownBad
-      ? `${species} is NOT available in Champions Reg M-A. Remove it and suggest an alternative.`
-      : `${species} is not on the Champions Reg M-A roster (${CHAMPIONS_POKEMON.length} allowed species). Replace with a confirmed legal pick.`;
+      ? `${species} is NOT available in ${ACTIVE_REGULATION_LABEL}. Remove it and suggest an alternative.`
+      : `${species} is not on the ${ACTIVE_REGULATION_LABEL} roster (${CHAMPIONS_POKEMON.length} allowed species). Replace with a confirmed legal pick.`;
     issues.push(msg);
     try {
       saveFeedback({
         type: "correction",
         topic: `${species} not in Champions`,
         content: isKnownBad
-          ? `Agent proposed ${species} in a response, but ${species} is confirmed NOT in Pokemon Champions Reg M-A. Do not include it in any team or recommendation.`
+          ? `Agent proposed ${species} in a response, but ${species} is confirmed NOT in Pokemon ${ACTIVE_REGULATION_LABEL}. Do not include it in any team or recommendation.`
           : `Agent proposed ${species} but it is not on the authoritative CHAMPIONS_POKEMON allowlist. If you think it IS in the game, add it to src/lib/data/champions.ts; otherwise pick a confirmed legal alternative.`,
         source: "validate-response node",
       });
@@ -185,7 +186,7 @@ export async function validateResponseNode(
         saveFeedback({
           type: "correction",
           topic: `${item} not in Champions`,
-          content: `Agent proposed ${item} but it's not in Pokemon Champions Reg M-A (source: Game8 items list). Pick a held item from CHAMPIONS_ITEMS_CONFIRMED instead.`,
+          content: `Agent proposed ${item} but it's not in Pokemon ${ACTIVE_REGULATION_LABEL} (source: Game8 items list). Pick a held item from CHAMPIONS_ITEMS_CONFIRMED instead.`,
           source: "validate-response node",
         });
       } catch {
@@ -321,13 +322,13 @@ export async function validateResponseNode(
       if (blocked.length > 0) {
         const allBlocked = getUnavailableMovesFor(speciesName).join(", ");
         issues.push(
-          `${speciesName} cannot use ${blocked.join(", ")} in Champions Reg M-A (cut from its movepool). Blocked moves for this species: ${allBlocked}. Pick a different move.`,
+          `${speciesName} cannot use ${blocked.join(", ")} in ${ACTIVE_REGULATION_LABEL} (cut from its movepool). Blocked moves for this species: ${allBlocked}. Pick a different move.`,
         );
         try {
           saveFeedback({
             type: "correction",
             topic: `${speciesName} missing move ${blocked[0]} in Champions`,
-            content: `Agent proposed ${blocked.join(", ")} on ${speciesName}, but ${speciesName} loses ${allBlocked} in Pokemon Champions Reg M-A. Pick from the species' actual Champions movepool.`,
+            content: `Agent proposed ${blocked.join(", ")} on ${speciesName}, but ${speciesName} loses ${allBlocked} in Pokemon ${ACTIVE_REGULATION_LABEL}. Pick from the species' actual Champions movepool.`,
             source: "validate-response node",
           });
         } catch {
@@ -404,7 +405,7 @@ export async function validateResponseNode(
   const replacement = new AIMessage({
     id: aiMsg.id,
     content: [
-      "I need to correct the previous answer before it is safe to use for Pokemon Champions Reg M-A.",
+      `I need to correct the previous answer before it is safe to use for Pokemon ${ACTIVE_REGULATION_LABEL}.`,
       "",
       "Problems still detected:",
       ...issues.map((issue) => `- ${issue}`),

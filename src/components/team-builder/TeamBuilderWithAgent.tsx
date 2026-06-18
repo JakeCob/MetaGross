@@ -17,6 +17,7 @@ import {
   applyPokemonPatchToTeam,
   type PokemonPatchPayload,
 } from "@/lib/ai/graph/team-patch";
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 /**
  * Discovery chips for the team-builder agent empty state.
@@ -29,7 +30,7 @@ const TEAM_STARTER_SUGGESTIONS: StarterSuggestion[] = [
   {
     label: "🎯 Build me a meta-counter team",
     prompt:
-      "I want a team specifically built to counter the current Champions Reg M-A meta. Pull the latest Pikalytics + Limitless usage, show me the top 5 threats, then propose 2-3 distinct counter archetypes I can pick from.",
+      `I want a team specifically built to counter the current ${ACTIVE_REGULATION_LABEL} meta. Pull the latest Pikalytics + Limitless usage, show me the top 5 threats, then propose 2-3 distinct counter archetypes I can pick from.`,
   },
   {
     label: "🧪 Propose 3 archetypes for my playstyle",
@@ -39,12 +40,12 @@ const TEAM_STARTER_SUGGESTIONS: StarterSuggestion[] = [
   {
     label: "🏆 Show me recent tournament-winning teams",
     prompt:
-      "What teams are winning Champions Reg M-A tournaments right now? List 5 teams with player, placement, and the 6-Pokemon roster. Pick whichever research tools give the most grounded answer — prefer our meta-team pool for speed.",
+      `What teams are winning ${ACTIVE_REGULATION_LABEL} tournaments right now? List 5 teams with player, placement, and the 6-Pokemon roster. Pick whichever research tools give the most grounded answer — prefer our meta-team pool for speed.`,
   },
   {
     label: "⭐ What is Wolfe Glick / other top players running?",
     prompt:
-      "Research what Wolfe Glick and other top-ranked Reg M-A players are currently running. For each player, cite the team with source (tournament placement or verified team reveal) and summarise the core tech that makes it work. Pick whichever research tools give the most grounded answer.",
+      `Research what Wolfe Glick and other top-ranked ${ACTIVE_REGULATION_LABEL} players are currently running. For each player, cite the team with source (tournament placement or verified team reveal) and summarise the core tech that makes it work. Pick whichever research tools give the most grounded answer.`,
   },
   {
     label: "🔁 Build my own version of a tournament team",

@@ -6,6 +6,7 @@ import {
   countMetaTeams,
 } from "@/lib/meta-teams/queries";
 import type { MetaTeam } from "@/lib/meta-teams/types";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 /**
  * search_meta_teams
@@ -46,8 +47,8 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
     format: z
       .string()
       .optional()
-      .default("champions-reg-m-a")
-      .describe("Format id. Defaults to champions-reg-m-a."),
+      .default(ACTIVE_REGULATION_FORMAT_ID)
+      .describe(`Format id. Defaults to ${ACTIVE_REGULATION_FORMAT_ID}.`),
     limit: z
       .number()
       .int()
@@ -77,7 +78,7 @@ export const searchMetaTeamsTool = new DynamicStructuredTool({
     limit,
     maxPerTournament,
   }) => {
-    const fmt = format ?? "champions-reg-m-a";
+    const fmt = format ?? ACTIVE_REGULATION_FORMAT_ID;
     const cap = limit ?? 8;
     const perTournamentCap = maxPerTournament ?? 2;
 

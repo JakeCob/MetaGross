@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { PokemonSprite } from "@/components/pokemon-sprite";
 import type { CreatorTeam } from "@/lib/data/creator-teams";
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -430,7 +431,7 @@ function TournamentWinnersTab() {
           Tournament Winners
         </h2>
         <p className="text-sm text-muted-foreground">
-          Real teams from Limitless Champions Reg M-A tournaments. Click a
+          Real teams from Limitless {ACTIVE_REGULATION_LABEL} tournaments. Click a
           tournament for the top 8 standings and full team lists.
         </p>
       </div>
@@ -550,7 +551,7 @@ function MetaTemplatesTab() {
           Meta Templates
         </h2>
         <p className="text-sm text-muted-foreground">
-          Curated archetype cores for Champions Reg M-A. Pick one to pre-fill
+          Curated archetype cores for {ACTIVE_REGULATION_LABEL}. Pick one to pre-fill
           a new team with the key Pokemon.
         </p>
       </div>

@@ -23,6 +23,8 @@ AI-powered Pokemon VGC competitive intelligence platform. Battle logging, match 
 3. **Dynamic params are Promises** — In Next.js 16, `params` must be `await`ed in page/route components.
 4. **Drizzle JSON columns** — `moves`, `evs`, `ivs`, team snapshots use `text({ mode: 'json' })`. Values may need parsing when read.
 5. **Claude API is optional** — Always check `process.env.ANTHROPIC_API_KEY` before calling. Graceful fallback to rule-based analysis.
+6. **Shared UI lives in one place** — Domain atoms (TypeBadge, MoveTag, PokemonChip, StatBar) live in `src/components/common/`. Check there before building one. shadcn primitives stay in `ui/`. Rule of three: extract on the third recurrence, not the first. Prefer composition over flag-laden props.
+7. **Keep the repo root clean** — No scratch artifacts in the project root: screenshots, one-off probe/debug scripts, and ad-hoc output must go to `/tmp` or a gitignored dir (`.playwright-mcp/`), never committed. Browser-tool screenshots in particular must not be saved to the root. Source/config files belong in their proper folders (`src/`, `docs/`, etc.). The `.gitignore` "Scratch artifacts" block enforces common cases.
 
 ## Key Commands
 ```bash

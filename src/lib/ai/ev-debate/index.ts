@@ -9,6 +9,7 @@ import { finalizeNode } from "./nodes/finalize";
 import type { TeamPokemon, EVSpread } from "@/lib/types/pokemon";
 import { createSessionLogger } from "@/lib/ai/logger";
 import { detectProvider, getModelName } from "@/lib/ai/graph/model";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 // ---------------------------------------------------------------------------
 // Conditional edge: after finalize, loop back or end
@@ -91,7 +92,7 @@ export interface EVDebateResult {
 export async function optimizeEVSpread(
   pokemon: TeamPokemon,
   team: TeamPokemon[],
-  format: string = "champions-reg-m-a",
+  format: string = ACTIVE_REGULATION_FORMAT_ID,
 ): Promise<EVDebateResult> {
   const provider = detectProvider();
   const logger = createSessionLogger("ev-debate", provider, getModelName(provider));
@@ -149,7 +150,7 @@ export async function optimizeEVSpread(
 export async function* streamEVDebate(
   pokemon: TeamPokemon,
   team: TeamPokemon[],
-  format: string = "champions-reg-m-a",
+  format: string = ACTIVE_REGULATION_FORMAT_ID,
 ): AsyncGenerator<{ node: string; state: EVDebateStateType }> {
   const graph = getDebateGraph();
 

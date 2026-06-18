@@ -7,7 +7,7 @@ import {
 } from "@/lib/meta-teams/species-sets";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import type { EVSpread } from "@/lib/types/pokemon";
-import { CHAMPIONS_POINTS } from "@/lib/data/champions";
+import { CHAMPIONS_POINTS, ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 interface ParsedSet {
   spread: EVSpread;
@@ -139,7 +139,7 @@ User's current set (starting point — refine, don't throw away unless clearly w
     feedbackSection += `\nAdjust the set to address the above.`;
   }
 
-  const systemPrompt = `You are the Spread Specialist, an expert at building full VGC doubles sets${isChampions ? " for Pokemon Champions Regulation M-A" : ""}.
+  const systemPrompt = `You are the Spread Specialist, an expert at building full VGC doubles sets${isChampions ? ` for Pokemon ${ACTIVE_REGULATION_LABEL}` : ""}.
 
 Your job: propose a complete, optimized set — Ability, Item, Moves (exactly 4, unique), Nature, and ${label}.
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { MetaTeamMatch } from "@/lib/meta-teams/types";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 /**
  * Debounced fetch of meta-team matches for a partial species list.
@@ -11,7 +12,7 @@ import type { MetaTeamMatch } from "@/lib/meta-teams/types";
  */
 export function useMetaTeamMatch(
   species: string[],
-  format = "champions-reg-m-a",
+  format = ACTIVE_REGULATION_FORMAT_ID,
 ): {
   matches: MetaTeamMatch[];
   status: "idle" | "loading" | "done" | "error";

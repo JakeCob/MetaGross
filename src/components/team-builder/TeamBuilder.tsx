@@ -28,6 +28,7 @@ import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
 
 const FORMATS = [
+  "Champions Reg M-B",
   "Champions Reg M-A",
   "VGC 2026 Reg I",
   "VGC 2026 Reg F",
@@ -38,7 +39,7 @@ const FORMATS = [
   "Other",
 ];
 
-// Team archetype presets for Champions Reg M-A
+// Team archetype presets for Champions (valid across M-A / M-B)
 const TEAM_PRESETS = [
   {
     name: "Rain",
@@ -353,6 +354,14 @@ export function TeamBuilder({
   const filledSpecies = pokemon
     .filter((p) => p.species?.trim())
     .map((p) => p.species!.trim());
+  // Richer details so the AI suggester can reason about items/abilities/megas.
+  const filledDetails = pokemon
+    .filter((p) => p.species?.trim())
+    .map((p) => ({
+      species: p.species!.trim(),
+      item: p.item?.trim() || undefined,
+      ability: p.ability?.trim() || undefined,
+    }));
   const hasEmptySlots = pokemon.some((p) => !p.species?.trim());
 
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
@@ -651,8 +660,8 @@ export function TeamBuilder({
         </CardContent>
       </Card>
 
-      {/* Team Archetype Presets */}
-      {!isEditing && format === "Champions Reg M-A" && (
+      {/* Team Archetype Presets — shown for any Champions regulation (M-A/M-B). */}
+      {!isEditing && format.startsWith("Champions Reg") && (
         <div>
           <p className="mb-2 text-xs font-medium text-muted-foreground">
             Quick Start — pick an archetype to pre-fill core Pokemon
@@ -698,6 +707,7 @@ export function TeamBuilder({
               setEditingSlot((prev) => (prev === i ? null : i))
             }
             onRemove={() => removeSlot(i)}
+            format={format}
           />
         ))}
       </div>
@@ -706,6 +716,7 @@ export function TeamBuilder({
       {filledSpecies.length >= 1 && hasEmptySlots && (
         <AITeamSuggestions
           pokemon={filledSpecies}
+          teamDetails={filledDetails}
           format={format}
           onAdd={handleSuggestionAdd}
           hasEmptySlots={hasEmptySlots}

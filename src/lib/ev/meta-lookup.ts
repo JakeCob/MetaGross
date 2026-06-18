@@ -8,6 +8,7 @@
 import type { MetaSpread } from "@/lib/types/ev";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_IVS, DEFAULT_EVS } from "@/lib/types/pokemon";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 // ---------------------------------------------------------------------------
 // MetaThreat interface (used by benchmark engine)
@@ -533,7 +534,7 @@ const LEGACY_THREATS: MetaThreat[] = [
  */
 export function getMetaSpreads(
   species: string,
-  _format: string = "champions-reg-m-a",
+  _format: string = ACTIVE_REGULATION_FORMAT_ID,
 ): MetaSpread[] {
   return META_SPREADS[species] ?? [];
 }
@@ -544,7 +545,7 @@ export function getMetaSpreads(
  * back to the legacy set.
  */
 export function getMetaThreats(
-  format: string = "champions-reg-m-a",
+  format: string = ACTIVE_REGULATION_FORMAT_ID,
 ): MetaThreat[] {
   const normalized = format.toLowerCase();
   if (normalized.includes("champion")) return CHAMPIONS_THREATS;

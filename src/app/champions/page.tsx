@@ -1,9 +1,9 @@
 import { ChampionsRoster } from "@/components/champions/ChampionsRoster";
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 export const metadata = {
   title: "Champions Roster — MetaGross",
-  description:
-    "Complete Pokemon Champions Regulation M-A roster: every Pokemon, Mega Evolution, and confirmed item.",
+  description: `Complete ${ACTIVE_REGULATION_LABEL} roster: every Pokemon, Mega Evolution, and confirmed item.`,
 };
 
 export default function ChampionsPage() {

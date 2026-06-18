@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
+import { isCronPath, isCronRequest } from "@/lib/auth/cron";
 
 /**
  * Single-user passcode middleware.
@@ -41,6 +42,12 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Cron/scheduler access: a valid `Authorization: Bearer <CRON_SECRET>` may
+  // reach the meta-team refresh endpoints without a passcode session.
+  if (isCronPath(pathname) && isCronRequest(request.headers)) {
     return NextResponse.next();
   }
 

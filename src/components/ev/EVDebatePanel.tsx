@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { TeamPokemon, EVSpread } from "@/lib/types/pokemon";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 // ---------------------------------------------------------------------------
 // Types for the debate steps displayed in the UI
@@ -103,7 +104,7 @@ function SetRow({
 export function EVDebatePanel({
   pokemon,
   team,
-  format = "champions-reg-m-a",
+  format = ACTIVE_REGULATION_FORMAT_ID,
   onComplete,
 }: EVDebatePanelProps) {
   const [isRunning, setIsRunning] = useState(false);

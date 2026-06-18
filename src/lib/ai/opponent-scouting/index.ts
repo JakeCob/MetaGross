@@ -33,6 +33,7 @@ import {
 } from "./cache";
 import { createSessionLogger } from "@/lib/ai/logger";
 import { detectProvider, getModelName } from "@/lib/ai/graph/model";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 // ---------------------------------------------------------------------------
 // Build + singleton
@@ -96,7 +97,7 @@ export interface ScoutingInput {
 export async function scoutOpponent(
   input: ScoutingInput,
 ): Promise<ScoutingResult> {
-  const format = input.format ?? "champions-reg-m-a";
+  const format = input.format ?? ACTIVE_REGULATION_FORMAT_ID;
   const hash = hashOpponentSnapshot(input.opponentTeam, format);
 
   if (!input.forceRefresh) {
@@ -144,7 +145,7 @@ export async function scoutOpponent(
 export async function* streamScouting(
   input: ScoutingInput,
 ): AsyncGenerator<{ node: string; state: ScoutingStateType }> {
-  const format = input.format ?? "champions-reg-m-a";
+  const format = input.format ?? ACTIVE_REGULATION_FORMAT_ID;
   const hash = hashOpponentSnapshot(input.opponentTeam, format);
 
   const graph = getScoutingGraph();

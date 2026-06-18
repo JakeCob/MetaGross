@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PokemonSprite } from "@/components/pokemon-sprite";
 import type { SpeciesData } from "@/lib/pokemon/species";
-import { CHAMPIONS_POKEMON } from "@/lib/data/champions";
+import { CHAMPIONS_POKEMON, ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 const TYPE_COLORS: Record<string, string> = {
   Normal: "bg-gray-500 text-white",
@@ -266,7 +266,7 @@ export function SpeciesSearch({
       {!showingSearchResults && (
         <>
           <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border-b border-border">
-            Popular in Champions Reg M-A
+            Popular in {ACTIVE_REGULATION_LABEL}
           </div>
           <div className="px-3 pt-2 pb-1 border-b border-border/50">
             <div className="text-[10px] text-muted-foreground mb-1">

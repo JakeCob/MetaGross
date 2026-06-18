@@ -65,7 +65,8 @@ describe("export_pokepaste", () => {
       ],
     });
     expect(out.teamSize).toBe(2);
-    expect(out.pokepaste).toMatch(/=== \[Champions Reg M-A\] Wolfe — Burn Wall ===/);
+    // No explicit format passed → defaults to the active regulation label (M-B).
+    expect(out.pokepaste).toMatch(/=== \[Champions Reg M-B\] Wolfe — Burn Wall ===/);
     // Blocks separated by exactly one blank line
     expect(out.pokepaste.split(/\n\n/).length).toBeGreaterThanOrEqual(3);
   });

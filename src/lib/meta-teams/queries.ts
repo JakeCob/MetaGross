@@ -9,6 +9,7 @@ import {
   countOverlap,
   normalizeSpeciesForFingerprint,
 } from "./fingerprint";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 import type { MetaTeam, MetaTeamMatch, MetaTeamSource } from "./types";
 
 export interface UpsertMetaTeamInput {
@@ -43,7 +44,7 @@ export async function upsertMetaTeam(
     throw new Error("Cannot upsert meta team with empty species list");
   }
 
-  const format = input.format ?? "champions-reg-m-a";
+  const format = input.format ?? ACTIVE_REGULATION_FORMAT_ID;
   const now = Date.now();
 
   const existing = await db
@@ -119,7 +120,7 @@ export async function matchMetaTeams(
   opts: MatchOptions,
 ): Promise<MetaTeamMatch[]> {
   if (opts.species.length === 0) return [];
-  const format = opts.format ?? "champions-reg-m-a";
+  const format = opts.format ?? ACTIVE_REGULATION_FORMAT_ID;
   const minOverlap = opts.minOverlap ?? 2;
   const limit = opts.limit ?? 10;
 
@@ -159,7 +160,7 @@ export async function matchMetaTeams(
 }
 
 export async function listMetaTeams(
-  format: string = "champions-reg-m-a",
+  format: string = ACTIVE_REGULATION_FORMAT_ID,
   limit = 50,
 ): Promise<MetaTeam[]> {
   const rows = await db
@@ -173,7 +174,7 @@ export async function listMetaTeams(
 }
 
 export async function countMetaTeams(
-  format: string = "champions-reg-m-a",
+  format: string = ACTIVE_REGULATION_FORMAT_ID,
 ): Promise<{ total: number; bySource: Record<string, number> }> {
   const rows = await db
     .select({
@@ -202,7 +203,7 @@ function rowToMetaTeam(row: MetaTeamRow): MetaTeam {
     source: row.source as MetaTeamSource,
     sourceRef: row.sourceRef,
     sourceUrl: row.sourceUrl,
-    format: row.format ?? "champions-reg-m-a",
+    format: row.format ?? ACTIVE_REGULATION_FORMAT_ID,
     author: row.author,
     record: row.record,
     archetype: row.archetype,

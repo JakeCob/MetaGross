@@ -6,6 +6,10 @@ import type { PreMatchStrategy } from "@/lib/types/analysis";
 import { PreMatchView } from "./PreMatchView";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  ACTIVE_REGULATION_LABEL,
+  ACTIVE_REGULATION_FORMAT_ID,
+} from "@/lib/data/champions";
 
 interface StrategyGeneratorProps {
   savedTeams?: { id: string; name: string; pokemon: TeamPokemon[] }[];
@@ -14,7 +18,7 @@ interface StrategyGeneratorProps {
 export function StrategyGenerator({ savedTeams = [] }: StrategyGeneratorProps) {
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [opponentInput, setOpponentInput] = useState("");
-  const [format, setFormat] = useState("champions-reg-m-a");
+  const [format, setFormat] = useState(ACTIVE_REGULATION_FORMAT_ID);
   const [strategy, setStrategy] = useState<PreMatchStrategy | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,7 +163,7 @@ export function StrategyGenerator({ savedTeams = [] }: StrategyGeneratorProps) {
               onChange={(e) => setFormat(e.target.value)}
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="champions-reg-m-a">Champions Reg M-A</option>
+              <option value={ACTIVE_REGULATION_FORMAT_ID}>{ACTIVE_REGULATION_LABEL}</option>
               <option value="vgc-reg-g">VGC Regulation G</option>
               <option value="vgc-reg-h">VGC Regulation H</option>
             </select>

@@ -26,6 +26,10 @@ import {
   isDirectTeamEditRequest,
 } from "../edit-intent";
 import { extractSpeciesMentions } from "../species-mentions";
+import {
+  ACTIVE_REGULATION_LABEL,
+  ACTIVE_REGULATION_FORMAT_ID,
+} from "@/lib/data/champions";
 
 const MAX_RETRIES = 1;
 
@@ -209,7 +213,7 @@ export async function verifyResponseNode(
   // Only enforce Champions roster when context + persona is Champions-aligned.
   // If we ever add more formats, add a state flag here. For now MetaGross
   // is Champions-only.
-  const format = "champions-reg-m-a";
+  const format = ACTIVE_REGULATION_FORMAT_ID;
   const violations: string[] = [];
   if (mons.length > 0) {
     for (const mon of mons) {
@@ -294,7 +298,7 @@ export async function verifyResponseNode(
     );
     if (hasRosterViolation) {
       const errorBody = [
-        "I tried to answer your question but kept drifting into Pokemon that aren't in Champions Reg M-A. Specifically:",
+        `I tried to answer your question but kept drifting into Pokemon that aren't in ${ACTIVE_REGULATION_LABEL}. Specifically:`,
         "",
         ...violations,
         "",
@@ -323,7 +327,7 @@ export async function verifyResponseNode(
       "",
       ...violations,
       "",
-      "Rewrite the response using only species valid in Champions Reg M-A, with abilities and moves that actually exist. Do NOT re-apologise or explain the verifier — just produce the corrected response as if this were your first attempt. If a violating species was central to the build, swap it for a legal Champions alternative (e.g. Landorus-Therian → Garchomp or Rillaboom → Sinistcha).",
+      `Rewrite the response using only species valid in ${ACTIVE_REGULATION_LABEL}, with abilities and moves that actually exist. Do NOT re-apologise or explain the verifier — just produce the corrected response as if this were your first attempt. If a violating species was central to the build, swap it for a legal Champions alternative (e.g. Landorus-Therian → Garchomp or Rillaboom → Sinistcha).`,
     ].join("\n"),
   );
 

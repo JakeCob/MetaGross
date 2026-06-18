@@ -161,43 +161,69 @@ function mapDecklistEntry(entry: {
 // Public API
 // ---------------------------------------------------------------------------
 
+/** Regulation tournament codes Limitless uses, newest first. */
+const LIMITLESS_REG_CODES = ["M-B", "M-A"] as const;
+
+/** Fetch + normalise tournaments for one Limitless regulation code. */
+async function fetchTournamentsByFormat(
+  regCode: string,
+): Promise<LimitlessTournament[]> {
+  const url = `${LIMITLESS_BASE}/tournaments?game=VGC&format=${encodeURIComponent(regCode)}`;
+  const response = await timedFetch(url);
+  if (!response) return [];
+
+  if (!response.ok) {
+    console.error(
+      `[limitless] Failed to fetch ${regCode} tournaments: ${response.status}`,
+    );
+    return [];
+  }
+
+  const raw: Array<{
+    id?: string;
+    name?: string;
+    date?: string;
+    format?: string;
+    players?: number;
+  }> = await response.json();
+
+  return raw.map((t) => ({
+    id: String(t.id ?? ""),
+    name: t.name ?? "Unknown Tournament",
+    date: t.date ?? "",
+    format: t.format ?? regCode,
+    players: t.players ?? 0,
+  }));
+}
+
 /**
- * Get recent Champions M-A tournaments from Limitless.
+ * Get recent Champions tournaments from Limitless.
+ *
+ * Targets the active regulation (M-B) first and falls back to the previous
+ * regulation (M-A) when Limitless hasn't published M-B events yet — expected
+ * early in a new season.
+ * TODO: drop the M-A fallback once M-B tournament data is live on Limitless.
  */
 export async function getChampionsTournaments(): Promise<
   LimitlessTournament[]
 > {
-  const cacheKey = "champions-ma";
+  const cacheKey = "champions-active";
   const cached = getCached(tournamentsCache, cacheKey);
   if (cached) return cached;
 
   try {
-    const url = `${LIMITLESS_BASE}/tournaments?game=VGC&format=M-A`;
-    const response = await timedFetch(url);
-    if (!response) return [];
-
-    if (!response.ok) {
-      console.error(
-        `[limitless] Failed to fetch tournaments: ${response.status}`,
-      );
-      return [];
+    let tournaments: LimitlessTournament[] = [];
+    for (const regCode of LIMITLESS_REG_CODES) {
+      tournaments = await fetchTournamentsByFormat(regCode);
+      if (tournaments.length > 0) {
+        if (regCode !== LIMITLESS_REG_CODES[0]) {
+          console.info(
+            `[limitless] No ${LIMITLESS_REG_CODES[0]} tournaments yet — falling back to ${regCode}.`,
+          );
+        }
+        break;
+      }
     }
-
-    const raw: Array<{
-      id?: string;
-      name?: string;
-      date?: string;
-      format?: string;
-      players?: number;
-    }> = await response.json();
-
-    const tournaments: LimitlessTournament[] = raw.map((t) => ({
-      id: String(t.id ?? ""),
-      name: t.name ?? "Unknown Tournament",
-      date: t.date ?? "",
-      format: t.format ?? "M-A",
-      players: t.players ?? 0,
-    }));
 
     // Sort by date descending (most recent first)
     tournaments.sort(

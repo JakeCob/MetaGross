@@ -28,6 +28,8 @@ import {
   CHAMPIONS_ITEMS_CONFIRMED,
   CHAMPIONS_ITEMS_UNCERTAIN,
   CHAMPIONS_ITEMS_BANNED,
+  ACTIVE_REGULATION_LABEL,
+  ACTIVE_REGULATION_FORMAT_ID,
 } from "@/lib/data/champions";
 import { sanitizeMessagesForModel } from "../message-history";
 
@@ -192,7 +194,7 @@ Example 5 — "Build me a new Trick Room team" (using the validation pipeline)
     - Calling simulate_vs_top_teams BEFORE validate_team_build — a team with illegal Pokemon will just waste the simulation call.
     - Emitting the team without a matchup section when simulate_vs_top_teams returned data. The user asked for top-team comparison — deliver it.`;
 
-const BASE_SYSTEM_PROMPT = `You are MetaGross, an expert Pokemon VGC doubles copilot for Champions Regulation M-A.
+const BASE_SYSTEM_PROMPT = `You are MetaGross, an expert Pokemon VGC doubles copilot for ${ACTIVE_REGULATION_LABEL}.
 
 ⚠️ ABSOLUTE RULE — EDIT INTENT DETECTION (read before anything else)
 
@@ -406,7 +408,7 @@ SPECIES RESEARCH (when the user asks "what is X good for" / "what's the best Inc
 Use get_smogon_analysis FIRST. It returns Smogon's prose writeup — role
 summary, teambuilding notes, sample sets with EVs, counter recommendations,
 full learnset. This is the best source for "why does this Pokemon work"
-questions. Caveat: Smogon doesn't write Champions Reg M-A analyses; the
+questions. Caveat: Smogon doesn't write ${ACTIVE_REGULATION_LABEL} analyses; the
 tool returns the closest VGC strategy (latest Regulation > generic VGC
 > Doubles) and tells you WHICH format the analysis is from — cite it so
 the user knows the advice is format-adjacent, not Champions-specific.
@@ -607,12 +609,12 @@ Rules for this turn:
 - Do NOT call propose_pokemon_patch.
 - Do NOT open an approval card.
 - DO call research tools BEFORE you reply, in this order:
-  1. search_meta_teams for each Pokemon they mentioned by name (mode=match species=["X"], format="champions-reg-m-a"). This is our verified Limitless + VGCPastes + creator pool — exactly what they asked you to "gather more info on".
+  1. search_meta_teams for each Pokemon they mentioned by name (mode=match species=["X"], format="${ACTIVE_REGULATION_FORMAT_ID}"). This is our verified Limitless + VGCPastes + creator pool — exactly what they asked you to "gather more info on".
   2. get_pokemon_competitive_sets for any move/item that feels off against the meta.
   3. get_smogon_analysis if you need usage statistics for that move on that species.
   4. Only fall through to search_web + fetch_url if our pool returns nothing.
 - VALIDATE every claim the user made against what came back. If they propose a move/item/ability that does NOT appear in our verified reference sets, push back EXPLICITLY:
-    "Volt Switch on Rotom-Wash isn't showing up in our Limitless top-cut data for Champions Reg M-A — the standard fourth move is Will-O-Wisp. Are you sure?"
+    "Volt Switch on Rotom-Wash isn't showing up in our Limitless top-cut data for ${ACTIVE_REGULATION_LABEL} — the standard fourth move is Will-O-Wisp. Are you sure?"
   Don't rubber-stamp. Don't say "great suggestion" without checking. The user explicitly asked you to verify, so verify.
 - Reply in plain text with: (a) what each suggestion does well, (b) what evidence from the meta supports or contradicts it, (c) tradeoffs, (d) your honest recommendation. End with: "want me to apply [specific summary]?". The user will reply with "yes apply" / "go ahead" before any patch happens.
 - If the user explicitly asks to apply on the NEXT turn, that's the trigger to call propose_pokemon_patch.`);

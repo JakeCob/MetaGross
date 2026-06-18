@@ -10,6 +10,7 @@ import "server-only";
 
 import { scrapeReddit } from "./reddit";
 import { upsertMetaTeam } from "../queries";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 import type { ScraperFn, ScraperResult } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -73,7 +74,7 @@ export async function runAllScrapers(
           source: t.source,
           sourceRef: t.sourceRef,
           sourceUrl: t.sourceUrl,
-          format: t.format ?? "champions-reg-m-a",
+          format: t.format ?? ACTIVE_REGULATION_FORMAT_ID,
           author: t.author,
           record: t.record,
           archetype: t.archetype,

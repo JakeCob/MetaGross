@@ -2,7 +2,8 @@
  * Pikalytics AI endpoint data client (SERVER-ONLY).
  *
  * Parses Pikalytics' machine-readable Markdown endpoints to fetch
- * competitive VGC usage statistics. Champions Reg M-A is the default format.
+ * competitive VGC usage statistics. The Champions endpoint ("championspreview")
+ * tracks the current Champions meta (Reg M-B) and is the default format.
  *
  * Do NOT import this file from client components — it uses the `server-only`
  * guard and should stay out of client bundles.
@@ -44,7 +45,10 @@ export interface PikalyticsPokemonDetail {
 const PIKALYTICS_BASE = "https://www.pikalytics.com/ai/pokedex";
 
 export const PIKALYTICS_FORMATS = [
-  { id: "championspreview", label: "Champions Reg M-A (Current)" },
+  // "championspreview" is Pikalytics' generic Champions endpoint — it tracks
+  // the CURRENT Champions meta (now Reg M-B), so it auto-updates across
+  // regulations without an id change.
+  { id: "championspreview", label: "Champions Reg M-B (Current)" },
   { id: "gen9vgc2026regf", label: "VGC 2026 Reg F" },
   { id: "gen9vgc2025regi", label: "VGC 2025 Reg I" },
 ] as const;
@@ -54,6 +58,27 @@ export const DEFAULT_PIKALYTICS_FORMAT = "championspreview";
 export const PIKALYTICS_FORMAT_IDS: Set<string> = new Set(
   PIKALYTICS_FORMATS.map((f) => f.id),
 );
+
+/**
+ * Resolve any incoming format (a UI label like "Champions Reg M-B", an
+ * internal id like "champions-reg-m-b", or an already-valid Pikalytics id
+ * like "championspreview") to a Pikalytics format id. Pikalytics exposes a
+ * single Champions endpoint that tracks the current meta, so every
+ * Champions regulation maps to "championspreview".
+ *
+ * Without this, callers that pass a team's display format (e.g. the team
+ * suggester) hit pikalytics.com/.../Champions%20Reg%20M-B → 404 → no data.
+ */
+export function resolvePikalyticsFormat(format?: string | null): string {
+  if (!format) return DEFAULT_PIKALYTICS_FORMAT;
+  const f = format.trim();
+  if (PIKALYTICS_FORMAT_IDS.has(f)) return f;
+  const lc = f.toLowerCase();
+  if (lc.includes("champion")) return "championspreview";
+  if (lc.includes("reg-f") || lc.includes("reg f")) return "gen9vgc2026regf";
+  if (lc.includes("reg-i") || lc.includes("reg i")) return "gen9vgc2025regi";
+  return DEFAULT_PIKALYTICS_FORMAT;
+}
 
 // ---------------------------------------------------------------------------
 // In-memory cache (24-hour TTL)

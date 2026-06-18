@@ -10,6 +10,7 @@ import {
   CHAMPIONS_ITEMS_BANNED,
   CHAMPIONS_ITEMS_CONFIRMED,
   CHAMPIONS_MEGAS,
+  ACTIVE_REGULATION_LABEL,
 } from "@/lib/data/champions";
 
 const pokemonInputSchema = z.object({
@@ -160,10 +161,10 @@ export const validateTeamBuildTool = new DynamicStructuredTool({
     format: z
       .string()
       .optional()
-      .describe("Defaults to 'Champions Reg M-A'."),
+      .describe(`Defaults to '${ACTIVE_REGULATION_LABEL}'.`),
   }),
   func: async ({ team, format }) => {
-    const fmt = format ?? "Champions Reg M-A";
+    const fmt = format ?? ACTIVE_REGULATION_LABEL;
     const slots: SlotResult[] = [];
     const teamIssues: string[] = [];
 
@@ -201,7 +202,7 @@ export const validateTeamBuildTool = new DynamicStructuredTool({
         if (blocked.length > 0) {
           const unavailable = getUnavailableMovesFor(p.species).join(", ");
           issues.push(
-            `${p.species} cannot use ${blocked.join(", ")} in Champions Reg M-A. Blocked moves for this species: ${unavailable}. Pick from its Champions movepool (check get_pokemon_competitive_sets results).`,
+            `${p.species} cannot use ${blocked.join(", ")} in ${ACTIVE_REGULATION_LABEL}. Blocked moves for this species: ${unavailable}. Pick from its Champions movepool (check get_pokemon_competitive_sets results).`,
           );
         }
       }

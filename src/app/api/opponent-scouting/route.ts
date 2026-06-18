@@ -5,6 +5,7 @@ import {
 } from "@/lib/ai/opponent-scouting";
 import { getCachedScouting } from "@/lib/ai/opponent-scouting/cache";
 import type { TeamPokemon } from "@/lib/types/pokemon";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 /**
  * POST /api/opponent-scouting
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     const myTeam: TeamPokemon[] = body.myTeam ?? [];
     const myBrought: string[] = body.myBrought ?? [];
     const myTeamDescription: string = body.myTeamDescription ?? "";
-    const format: string = body.format ?? "champions-reg-m-a";
+    const format: string = body.format ?? ACTIVE_REGULATION_FORMAT_ID;
     const speedObservations = body.speedObservations ?? [];
     const damageObservations = body.damageObservations ?? [];
     const forceRefresh: boolean = Boolean(body.forceRefresh);

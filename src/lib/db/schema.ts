@@ -22,7 +22,7 @@ export const teams = sqliteTable(
       .references(() => users.id)
       .default('00000000-0000-0000-0000-000000000001'),
     name: text('name').notNull(),
-    format: text('format').default('champions-reg-m-a'),
+    format: text('format').default('champions-reg-m-b'),
     isActive: integer('is_active').default(0),
     /** Marks teams queued for later review (e.g. bulk-saved from an
      *  agent research response). Draft teams are hidden from the
@@ -87,7 +87,7 @@ export const matches = sqliteTable(
       .references(() => users.id)
       .default('00000000-0000-0000-0000-000000000001'),
     teamId: text('team_id').references(() => teams.id),
-    format: text('format').default('champions-reg-m-a'),
+    format: text('format').default('champions-reg-m-b'),
     mode: text('mode'), // 'realtime' | 'postmatch' | 'quick'
     result: text('result'), // 'win' | 'loss'
     playedAt: integer('played_at'),
@@ -176,7 +176,7 @@ export const metaSpreads = sqliteTable(
   {
     id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
     species: text('species').notNull(),
-    format: text('format').default('champions-reg-m-a'),
+    format: text('format').default('champions-reg-m-b'),
     source: text('source'), // 'pikalytics' | 'smogon' | 'manual'
     nature: text('nature').notNull(),
     evs: text('evs', { mode: 'json' }),
@@ -212,7 +212,7 @@ export const metaTeams = sqliteTable(
     /** URL for the user to verify/attribute (video, tournament result page, reddit thread). */
     sourceUrl: text('source_url'),
     /** Format id like 'champions-reg-m-a'. */
-    format: text('format').default('champions-reg-m-a'),
+    format: text('format').default('champions-reg-m-b'),
     /** Player / handle / creator name. */
     author: text('author'),
     /** Record string like '8-1' or 'Top 16 @ Indianapolis Regional'. */

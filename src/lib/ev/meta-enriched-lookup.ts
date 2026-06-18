@@ -7,11 +7,43 @@
  */
 
 import type { MetaSpread } from "@/lib/types/ev";
-import { getMetaSpreads } from "./meta-lookup";
+import { getMetaSpreads, getMetaThreats, type MetaThreat } from "./meta-lookup";
 import { searchPokemonUsage } from "@/lib/search/meta-enricher";
+import {
+  getPikalyticsTopUsage,
+  resolvePikalyticsFormat,
+} from "@/lib/pokemon/pikalytics";
 import { db } from "@/lib/db";
 import { analysisCache } from "@/lib/db/schema";
 import { eq, and, gte } from "drizzle-orm";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
+
+/**
+ * Live top meta threats — ranked by current Pikalytics usage, enriched with
+ * the curated EV spreads (commonSets) where we have them. Falls back to the
+ * hardcoded {@link getMetaThreats} list when Pikalytics is unreachable, so
+ * callers always get a usable answer. Server-only (hits Pikalytics).
+ */
+export async function getLiveMetaThreats(
+  format: string = ACTIVE_REGULATION_FORMAT_ID,
+  limit = 20,
+): Promise<MetaThreat[]> {
+  const curated = getMetaThreats(format);
+  try {
+    const top = await getPikalyticsTopUsage(resolvePikalyticsFormat(format));
+    if (top.length === 0) return curated;
+    const setsBySpecies = new Map(
+      curated.map((t) => [t.species.toLowerCase(), t.commonSets]),
+    );
+    return top.slice(0, limit).map((e) => ({
+      species: e.species,
+      usagePercent: e.usagePercent,
+      commonSets: setsBySpecies.get(e.species.toLowerCase()) ?? [],
+    }));
+  } catch {
+    return curated;
+  }
+}
 
 const ENRICHED_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -26,7 +58,7 @@ const ENRICHED_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
  */
 export async function getEnrichedMetaSpreads(
   species: string,
-  format: string = "champions-reg-m-a",
+  format: string = ACTIVE_REGULATION_FORMAT_ID,
 ): Promise<MetaSpread[]> {
   // Always start with hardcoded data
   const hardcoded = getMetaSpreads(species, format);

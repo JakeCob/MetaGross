@@ -1,6 +1,7 @@
 import { predictEVs } from "@/lib/ev/reverse-calc";
 import { getMetaSpreads } from "@/lib/ev/meta-lookup";
 import type { DamageObservation, SpeedObservation } from "@/lib/types/ev";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export async function POST(request: Request) {
   try {
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
       observations,
       speedObservations,
       species,
-      format = "champions-reg-m-a",
+      format = ACTIVE_REGULATION_FORMAT_ID,
     } = body as {
       observations: DamageObservation[];
       speedObservations: SpeedObservation[];

@@ -6,6 +6,7 @@ import {
   getTournamentUsage,
   getTournamentPokemonDetail,
 } from "@/lib/pokemon/limitless";
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 /**
  * get_tournament_teams
@@ -25,7 +26,7 @@ import {
 export const getTournamentTeamsTool = new DynamicStructuredTool({
   name: "get_tournament_teams",
   description:
-    "Fetch tournament data from LimitlessVGC for Champions Reg M-A. Use this when the user asks about tournament-winning teams, what famous players are running, or to ground recommendations in actual meta results. Four modes: 'recent' (list tournaments), 'standings' (top cut + full team lists for one tournament), 'usage' (aggregated top species across recent tournaments), 'player' (teams used by a named player).",
+    `Fetch tournament data from LimitlessVGC for ${ACTIVE_REGULATION_LABEL}. Use this when the user asks about tournament-winning teams, what famous players are running, or to ground recommendations in actual meta results. Four modes: 'recent' (list tournaments), 'standings' (top cut + full team lists for one tournament), 'usage' (aggregated top species across recent tournaments), 'player' (teams used by a named player).`,
   schema: z.object({
     mode: z
       .enum(["recent", "standings", "usage", "player"])

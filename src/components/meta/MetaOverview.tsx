@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { PokemonSprite } from "@/components/pokemon-sprite";
 import { UsageStatsCard } from "./UsageStatsCard";
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -404,7 +405,7 @@ export function MetaOverview() {
       })
       .catch(() => {
         setFormats([
-          { id: "championspreview", label: "Champions Reg M-A (Current)", source: "pikalytics" },
+          { id: "championspreview", label: `${ACTIVE_REGULATION_LABEL} (Current)`, source: "pikalytics" },
         ]);
       });
   }, []);

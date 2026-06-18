@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { CHAMPIONS_POINTS } from "@/lib/data/champions";
+import { CHAMPIONS_POINTS, ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 const POKEPASTE_STAT_ORDER = [
   ["hp", "HP"],
@@ -124,12 +124,12 @@ export const exportPokepasteTool = new DynamicStructuredTool({
     format: z
       .string()
       .optional()
-      .default("Champions Reg M-A")
+      .default(ACTIVE_REGULATION_LABEL)
       .describe("Format label for the paste header."),
     pokemon: z.array(pokemonSchema).min(1).max(6),
   }),
   func: async ({ teamName, format, pokemon }) => {
-    const fmtLabel = format ?? "Champions Reg M-A";
+    const fmtLabel = format ?? ACTIVE_REGULATION_LABEL;
     const blocks = pokemon.map(renderOneMon);
     const header = teamName
       ? `=== [${fmtLabel}] ${teamName} ===\n\n`

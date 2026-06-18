@@ -3,6 +3,7 @@ import {
   getReferenceSetsForSpecies,
   type ReferenceSet,
 } from "@/lib/meta-teams/species-sets";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export const runtime = "nodejs";
 
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
         try {
           const sets = await getReferenceSetsForSpecies(
             sp,
-            format ?? "champions-reg-m-a",
+            format ?? ACTIVE_REGULATION_FORMAT_ID,
             1,
           );
           const top = sets[0];

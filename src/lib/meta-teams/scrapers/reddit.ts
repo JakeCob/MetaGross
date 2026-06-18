@@ -10,6 +10,7 @@
  */
 import "server-only";
 
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 import type { ScraperResult, ScrapedTeam } from "./types";
 import {
   extractPokepasteUrls,
@@ -92,7 +93,7 @@ export async function scrapeReddit(): Promise<ScraperResult> {
             source: "reddit",
             sourceRef: `r/${sub}/${post.data.id}::${pasteUrl}`,
             sourceUrl: `https://www.reddit.com${post.data.permalink}`,
-            format: "champions-reg-m-a",
+            format: ACTIVE_REGULATION_FORMAT_ID,
             author: post.data.author,
             record: post.data.link_flair_text ?? undefined,
             description:

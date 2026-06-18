@@ -2,9 +2,49 @@ import { aggregateFromPikalytics } from "@/lib/meta-teams/aggregator-pikalytics"
 import { aggregateFromLimitless } from "@/lib/meta-teams/aggregator-limitless";
 import { aggregateFromCreators } from "@/lib/meta-teams/aggregator-creators";
 import { aggregateFromVgcPastes } from "@/lib/meta-teams/aggregator-vgcpastes";
+import { isCronRequest } from "@/lib/auth/cron";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+
+/**
+ * GET /api/meta-teams/aggregate — cron entry point.
+ *
+ * Vercel Cron (and other schedulers) issue GET with
+ * `Authorization: Bearer <CRON_SECRET>`. Runs every aggregator with
+ * defaults (internalFormat = active regulation). Self-authenticates so it
+ * stays safe even if the middleware bypass changes.
+ */
+export async function GET(request: Request) {
+  if (!isCronRequest(request.headers)) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    const [creators, limitless, pikalytics, vgcpastes] = await Promise.all([
+      aggregateFromCreators({}),
+      aggregateFromLimitless({}),
+      aggregateFromPikalytics({}),
+      aggregateFromVgcPastes({}),
+    ]);
+    return Response.json({
+      source: "all",
+      trigger: "cron",
+      creators,
+      limitless,
+      pikalytics,
+      vgcpastes,
+    });
+  } catch (err) {
+    console.error("GET /api/meta-teams/aggregate (cron) error:", err);
+    return Response.json(
+      {
+        error: "Failed to aggregate meta teams",
+        message: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 },
+    );
+  }
+}
 
 type Source = "all" | "limitless" | "pikalytics" | "creators" | "vgcpastes";
 

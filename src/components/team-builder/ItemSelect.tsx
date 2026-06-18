@@ -2,16 +2,15 @@
 
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import {
-  CHAMPIONS_ITEMS_CONFIRMED,
-  CHAMPIONS_ITEMS_UNCERTAIN,
-} from "@/lib/data/champions";
+import { getRegulation, isChampionsItem } from "@/lib/data/champions";
 
 export interface ItemSelectProps {
   value: string;
   onChange: (item: string) => void;
   /** When true, suggestions are restricted to Champions-legal items. */
   championsOnly?: boolean;
+  /** Format string — scopes suggestions/legality to the right regulation (M-A vs M-B). */
+  format?: string;
   placeholder?: string;
 }
 
@@ -19,6 +18,7 @@ export function ItemSelect({
   value,
   onChange,
   championsOnly = false,
+  format,
   placeholder = "e.g., Choice Band",
 }: ItemSelectProps) {
   const [open, setOpen] = useState(false);
@@ -42,11 +42,12 @@ export function ItemSelect({
 
   const pool = useMemo(() => {
     if (!championsOnly) return null;
+    const reg = getRegulation(format);
     return {
-      confirmed: CHAMPIONS_ITEMS_CONFIRMED,
-      uncertain: CHAMPIONS_ITEMS_UNCERTAIN,
+      confirmed: reg.itemsConfirmed,
+      uncertain: reg.itemsUncertain,
     };
-  }, [championsOnly]);
+  }, [championsOnly, format]);
 
   const filtered = useMemo(() => {
     if (!pool) return { confirmed: [], uncertain: [] };
@@ -66,12 +67,7 @@ export function ItemSelect({
   const notLegal =
     championsOnly &&
     value.trim().length > 0 &&
-    !CHAMPIONS_ITEMS_CONFIRMED.some(
-      (i) => i.toLowerCase() === value.toLowerCase(),
-    ) &&
-    !CHAMPIONS_ITEMS_UNCERTAIN.some(
-      (i) => i.toLowerCase() === value.toLowerCase(),
-    );
+    !isChampionsItem(value, format);
 
   function pick(item: string) {
     onChange(item);

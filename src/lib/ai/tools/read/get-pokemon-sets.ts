@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   isConfirmedNotInChampions,
   isChampionsPokemon,
+  ACTIVE_REGULATION_LABEL,
 } from "@/lib/data/champions";
 
 const PIKALYTICS_BASE = "https://www.pikalytics.com/ai/pokedex";
@@ -99,7 +100,7 @@ function annotateAbilities(
 export const getPokemonSetsTool = new DynamicStructuredTool({
   name: "get_pokemon_competitive_sets",
   description:
-    "Get ACTUAL competitive sets for a Pokemon from Pikalytics usage data (Champions Reg M-A). Returns real moves, abilities, items, and teammates with usage percentages. PASS teamArchetype to get synergy hints for ability selection. ALWAYS use this before recommending any moves, abilities, or items — never guess from memory.",
+    `Get ACTUAL competitive sets for a Pokemon from Pikalytics usage data (${ACTIVE_REGULATION_LABEL}). Returns real moves, abilities, items, and teammates with usage percentages. PASS teamArchetype to get synergy hints for ability selection. ALWAYS use this before recommending any moves, abilities, or items — never guess from memory.`,
   schema: z.object({
     species: z
       .string()
@@ -118,7 +119,7 @@ export const getPokemonSetsTool = new DynamicStructuredTool({
     if (isConfirmedNotInChampions(species)) {
       const replacements = REPLACEMENT_SUGGESTIONS[species] || [];
       return JSON.stringify({
-        error: `❌ ${species} is NOT in Pokemon Champions Reg M-A. Do NOT include it in the team.`,
+        error: `❌ ${species} is NOT in Pokemon ${ACTIVE_REGULATION_LABEL}. Do NOT include it in the team.`,
         species,
         suggestedReplacements: replacements.length > 0
           ? replacements
@@ -134,7 +135,7 @@ export const getPokemonSetsTool = new DynamicStructuredTool({
         warning: `⚠ ${species} is NOT on MetaGross's confirmed Champions roster. This does not mean it's banned — the local list is incomplete. But DO NOT include ${species} in a team until you have verified availability.`,
         species,
         requiredAction:
-          `BEFORE suggesting ${species}, call fetch_reference with reference='bulbapedia_champions_list' AND search the returned text for '${species}'. If not found, also call search_web with '${species} Pokemon Champions Regulation M-A available' and verify from at least TWO sources (Bulbapedia, Serebii, Victory Road, Pikalytics). Only proceed if confirmed. If not confirmed, reject and pick a known-legal alternative.`,
+          `BEFORE suggesting ${species}, call fetch_reference with reference='bulbapedia_champions_list' AND search the returned text for '${species}'. If not found, also call search_web with '${species} Pokemon ${ACTIVE_REGULATION_LABEL} available' and verify from at least TWO sources (Bulbapedia, Serebii, Victory Road, Pikalytics). Only proceed if confirmed. If not confirmed, reject and pick a known-legal alternative.`,
         knownLegalAlternatives: [
           "Incineroar", "Archaludon", "Sneasler", "Sinistcha", "Pelipper",
           "Dragonite", "Whimsicott", "Garchomp", "Kingambit", "Metagross",
@@ -190,7 +191,7 @@ export const getPokemonSetsTool = new DynamicStructuredTool({
 
       return JSON.stringify({
         species,
-        format: "Champions Reg M-A",
+        format: ACTIVE_REGULATION_LABEL,
         dataDate,
         moves: moves.slice(0, 12),
         abilities: annotatedAbilities,

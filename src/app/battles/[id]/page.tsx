@@ -10,6 +10,7 @@ import type { PostMatchInput } from "@/lib/ai/battle-coach/post-match";
 import type { Turn } from "@/lib/types/battle";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import type { ScoutingResult } from "@/lib/ai/opponent-scouting/types";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 function jsonOrNull<T>(v: unknown): T | null {
   if (v == null) return null;
@@ -320,7 +321,7 @@ export default async function MatchDetailPage({
             input={{
               result: (match.result as "win" | "loss") ?? "win",
               mode: (match.mode as "realtime" | "quick") ?? "realtime",
-              format: match.format ?? "champions-reg-m-a",
+              format: match.format ?? ACTIVE_REGULATION_FORMAT_ID,
               opponentName: match.opponentName ?? "",
               notes: match.notes ?? "",
               myTeam: (jsonOrNull<TeamPokemon[]>(match.myTeam) ?? []),

@@ -1,4 +1,5 @@
 import { matchMetaTeams } from "@/lib/meta-teams/queries";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export const runtime = "nodejs";
 
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     const format =
-      typeof body?.format === "string" ? body.format : "champions-reg-m-a";
+      typeof body?.format === "string" ? body.format : ACTIVE_REGULATION_FORMAT_ID;
     const minOverlap =
       typeof body?.minOverlap === "number" && body.minOverlap >= 1
         ? Math.min(6, Math.floor(body.minOverlap))
