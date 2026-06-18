@@ -502,6 +502,51 @@ export const CHAMPIONS_MEGA_ABILITIES: Record<string, string> = {
   "Barbaracle-Mega": "Tough Claws",
   "Dragalge-Mega": "Regenerator",
   "Falinks-Mega": "Defiant",
+  // Real Gen-6/7 ORAS megas — the dex KNOWS these abilities, but getMegaAbility
+  // can't reach @pkmn from client components, so the post-mega ability is listed
+  // statically here too (e.g. Mawile's base Intimidate/Sheer Force becomes Huge
+  // Power on Mega Evolution). Keeps the team builder + agents correct everywhere.
+  "Venusaur-Mega": "Thick Fat",
+  "Charizard-Mega-X": "Tough Claws",
+  "Charizard-Mega-Y": "Drought",
+  "Blastoise-Mega": "Mega Launcher",
+  "Beedrill-Mega": "Adaptability",
+  "Pidgeot-Mega": "No Guard",
+  "Alakazam-Mega": "Trace",
+  "Slowbro-Mega": "Shell Armor",
+  "Gengar-Mega": "Shadow Tag",
+  "Kangaskhan-Mega": "Parental Bond",
+  "Pinsir-Mega": "Aerilate",
+  "Gyarados-Mega": "Mold Breaker",
+  "Aerodactyl-Mega": "Tough Claws",
+  "Ampharos-Mega": "Mold Breaker",
+  "Steelix-Mega": "Sand Force",
+  "Scizor-Mega": "Technician",
+  "Heracross-Mega": "Skill Link",
+  "Houndoom-Mega": "Solar Power",
+  "Tyranitar-Mega": "Sand Stream",
+  "Gardevoir-Mega": "Pixilate",
+  "Sableye-Mega": "Magic Bounce",
+  "Aggron-Mega": "Filter",
+  "Medicham-Mega": "Pure Power",
+  "Manectric-Mega": "Intimidate",
+  "Sharpedo-Mega": "Strong Jaw",
+  "Camerupt-Mega": "Sheer Force",
+  "Altaria-Mega": "Pixilate",
+  "Banette-Mega": "Prankster",
+  "Absol-Mega": "Magic Bounce",
+  "Glalie-Mega": "Refrigerate",
+  "Lopunny-Mega": "Scrappy",
+  "Garchomp-Mega": "Sand Force",
+  "Lucario-Mega": "Adaptability",
+  "Abomasnow-Mega": "Snow Warning",
+  "Gallade-Mega": "Inner Focus",
+  "Audino-Mega": "Healer",
+  "Sceptile-Mega": "Lightning Rod",
+  "Blaziken-Mega": "Speed Boost",
+  "Swampert-Mega": "Swift Swim",
+  "Mawile-Mega": "Huge Power",
+  "Metagross-Mega": "Tough Claws",
 };
 
 // ===========================================================================
@@ -672,9 +717,11 @@ export function getMegaFormFor(
 }
 
 /**
- * The Champions signature Ability for a canonical mega form name
- * (e.g. "Eelektross-Mega" → "Eelevate"), or null when @pkmn/dex already
- * has the correct ability (real Gen-6 megas) or the form isn't a mega.
+ * The Champions in-battle Ability for a canonical mega form name — the ability
+ * the Pokemon has AFTER Mega Evolving (e.g. "Eelektross-Mega" → "Eelevate",
+ * "Mawile-Mega" → "Huge Power"). Covers both the invented Z-A megas and the
+ * real Gen-6 megas, so callers (including client components) never need @pkmn.
+ * Returns null when the form isn't a known mega.
  */
 export function getMegaAbility(megaSpecies: string | null | undefined): string | null {
   if (!megaSpecies) return null;

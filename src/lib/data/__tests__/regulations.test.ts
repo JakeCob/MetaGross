@@ -113,12 +113,19 @@ describe("mega signature abilities", () => {
     expect(getMegaAbility("Pyroar-Mega")).toBe("Fire Mane");
   });
 
-  it("returns null for real Gen-6 megas (the dex ability is correct)", () => {
-    // Metagross-Mega → Tough Claws, Mawile-Mega → Huge Power come straight
-    // from @pkmn/dex, so we must NOT override them.
-    expect(getMegaAbility("Metagross-Mega")).toBeNull();
-    expect(getMegaAbility("Mawile-Mega")).toBeNull();
-    expect(getMegaAbility("Garchomp-Mega")).toBeNull();
+  it("returns the post-mega ability for real Gen-6 megas too", () => {
+    // The dex knows these, but client components can't reach @pkmn, so the
+    // post-mega ability is listed statically here as well — Mawile's base
+    // Intimidate/Sheer Force becomes Huge Power on Mega Evolution.
+    expect(getMegaAbility("Mawile-Mega")).toBe("Huge Power");
+    expect(getMegaAbility("Metagross-Mega")).toBe("Tough Claws");
+    expect(getMegaAbility("Charizard-Mega-Y")).toBe("Drought");
+    expect(getMegaAbility("Garchomp-Mega")).toBe("Sand Force");
+  });
+
+  it("returns null for a form that is not a known mega", () => {
+    expect(getMegaAbility("Pikachu")).toBeNull();
+    expect(getMegaAbility(null)).toBeNull();
   });
 
   it("resolves the mega ability from base species + held stone", () => {

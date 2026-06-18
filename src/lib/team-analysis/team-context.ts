@@ -441,10 +441,48 @@ export function teamErrors(team: AITeamMember[], format: string): TeamViolation[
   return auditTeam(team, format).filter((v) => v.severity === "error");
 }
 
+/**
+ * The ability a member ACTUALLY has, mega-aware. Resolution order:
+ *   1. CHAMPIONS_MEGA_ABILITIES override — for invented Z-A megas where the dex
+ *      returns the wrong (base) ability (Staraptor-Mega → Contrary).
+ *   2. @pkmn's mega-form ability — for REAL Gen-6 megas the dex knows correctly
+ *      (Mawile-Mega → Huge Power, Charizard-Mega-Y → Drought).
+ *   3. The member's own set ability (no mega, or unknown form).
+ *
+ * Server-side only path (uses @pkmn via getSpecies) — that's why it lives here
+ * and not in the client-imported champions.ts.
+ */
+export function megaAbilityFor(
+  m: AITeamMember,
+  format: string,
+): string | null {
+  const mega = getMegaFormFor(m.species, m.item, format);
+  if (!mega) return m.ability ?? null;
+  return (
+    getMegaAbility(mega) ??
+    resolveSpecies(m, format)?.abilities?.[0] ??
+    m.ability ??
+    null
+  );
+}
+
+/** Return the team with each mega member's ability corrected to its real
+ *  post-mega ability (Mega Mawile → Huge Power). Non-mega members unchanged. */
+export function withMegaAbilities<T extends AITeamMember>(
+  team: T[],
+  format: string,
+): T[] {
+  return team.map((m) =>
+    getMegaFormFor(m.species, m.item, format)
+      ? { ...m, ability: megaAbilityFor(m, format) ?? m.ability }
+      : m,
+  );
+}
+
 /** Mega-aware ability label for prompts/transcripts. */
 export function describeMember(m: AITeamMember, format: string): string {
   const mega = getMegaFormFor(m.species, m.item, format);
-  const ability = (mega && getMegaAbility(mega)) || m.ability;
+  const ability = megaAbilityFor(m, format) || m.ability;
   const head = m.item ? `${m.species} @ ${m.item}` : m.species;
   const tags: string[] = [];
   if (mega) tags.push(`Mega → ${mega}`);

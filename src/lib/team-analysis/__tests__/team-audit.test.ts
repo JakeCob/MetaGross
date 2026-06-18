@@ -3,6 +3,7 @@ import {
   analyzeTeam,
   auditTeam,
   teamErrors,
+  megaAbilityFor,
   type AITeamMember,
 } from "../team-context";
 
@@ -48,6 +49,26 @@ describe("analyzeTeam", () => {
         a.weaknesses[1].members.length,
       );
     }
+  });
+});
+
+describe("megaAbilityFor — post-mega ability", () => {
+  it("gives a REAL mega its dex ability, not its base ability (Mawile → Huge Power)", () => {
+    expect(
+      megaAbilityFor({ species: "Mawile", item: "Mawilite", ability: "Intimidate" }, FORMAT),
+    ).toBe("Huge Power");
+  });
+
+  it("gives an INVENTED mega its Champions override (Staraptor → Contrary, not Reckless)", () => {
+    expect(
+      megaAbilityFor({ species: "Staraptor", item: "Staraptite", ability: "Reckless" }, FORMAT),
+    ).toBe("Contrary");
+  });
+
+  it("returns the set ability when the member does not mega", () => {
+    expect(
+      megaAbilityFor({ species: "Incineroar", item: "Sitrus Berry", ability: "Intimidate" }, FORMAT),
+    ).toBe("Intimidate");
   });
 });
 

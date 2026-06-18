@@ -5,7 +5,11 @@ import type {
 } from "../state";
 import { runModel, parseDraftJson, renderDraft } from "../llm";
 import { getRegulation } from "@/lib/data/champions";
-import { auditTeam, type AITeamMember } from "@/lib/team-analysis/team-context";
+import {
+  auditTeam,
+  withMegaAbilities,
+  type AITeamMember,
+} from "@/lib/team-analysis/team-context";
 
 /** Pull the first {...} object out of a possibly fenced reply. */
 function extractJsonObject(text: string): string {
@@ -72,6 +76,9 @@ export async function finalizeNode(
     );
     if (errs.length === 0) finalTeam = polished;
   }
+  // Correct each mega member's ability to its real post-mega ability
+  // (Mega Mawile → Huge Power), regardless of what the LLM wrote.
+  finalTeam = withMegaAbilities(finalTeam, format);
 
   // Summarise in a SEPARATE pass that ONLY sees the finished team — so the
   // prose can't drift onto Pokemon from an earlier draft (the model has no
