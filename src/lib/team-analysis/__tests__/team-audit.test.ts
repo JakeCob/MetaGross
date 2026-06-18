@@ -101,6 +101,26 @@ describe("auditTeam — speed identity", () => {
     expect(v.some((x) => x.rule === "speed-identity" && x.severity === "error")).toBe(true);
   });
 
+  it("flags a fast Pokemon (Garchomp, base Spe 102) on a Trick Room team", () => {
+    const team: AITeamMember[] = [
+      { species: "Farigiraf", ability: "Armor Tail", moves: ["Trick Room", "Psychic", "Protect"] },
+      { species: "Mawile", item: "Mawilite", ability: "Huge Power", moves: ["Play Rough", "Sucker Punch", "Protect"] },
+      { species: "Garchomp", ability: "Rough Skin", moves: ["Earthquake", "Stone Edge", "Protect"] },
+    ];
+    const v = auditTeam(team, FORMAT);
+    expect(v.some((x) => x.rule === "tr-speed" && x.severity === "error" && x.subject === "Garchomp")).toBe(true);
+  });
+
+  it("does NOT flag an all-slow Trick Room core (Mawile/Farigiraf/Torkoal)", () => {
+    const team: AITeamMember[] = [
+      { species: "Mawile", item: "Mawilite", ability: "Huge Power", moves: ["Play Rough", "Sucker Punch", "Protect"] },
+      { species: "Farigiraf", ability: "Armor Tail", moves: ["Trick Room", "Psychic", "Protect"] },
+      { species: "Torkoal", ability: "Drought", moves: ["Eruption", "Heat Wave", "Protect"] },
+    ];
+    const v = auditTeam(team, FORMAT);
+    expect(v.some((x) => x.rule === "tr-speed")).toBe(false);
+  });
+
   it("does NOT flag a pure Trick Room team", () => {
     const team: AITeamMember[] = [
       { species: "Farigiraf", ability: "Armor Tail", moves: ["Trick Room", "Psychic", "Protect"] },

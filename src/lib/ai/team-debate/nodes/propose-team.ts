@@ -6,6 +6,7 @@ import {
   detectSpeedDirective,
   detectWeatherDirective,
   computeCoreWeaknesses,
+  formatSpeedProfile,
 } from "@/lib/team-analysis/team-context";
 
 /**
@@ -30,12 +31,15 @@ export async function proposeTeamNode(
   const speed = detectSpeedDirective(basis, format);
   const weather = detectWeatherDirective(basis, format);
   const weaknesses = computeCoreWeaknesses(basis, format);
+  const speeds = formatSpeedProfile(basis, format);
 
   const system = [
     `You are the lead team architect for Pokemon ${reg.label} (VGC doubles, bring 6 pick 4, level 50, Mega ON, NO Tera, IVs 31, ${reg.points.totalMax}-pt stats max ${reg.points.perStatMax}/stat).`,
     `Build ONE cohesive 6-Pokemon team with a clear win condition. Think synergy first: weather/terrain ↔ its abusers, the speed mode (Tailwind XOR Trick Room) ↔ the attackers built for it, redirection ↔ a fragile sweeper, Intimidate/Fake Out ↔ securing KOs, pivots ↔ bringing breakers in safely.`,
     `HARD RULES: only Pokemon from this roster (exact names): ${reg.pokemon.join(", ")}. No duplicate species. EXACTLY ONE mega stone on the team. No Terastallization. Never put Trick Room and Tailwind (or a Swift-Swim/weather-speed plan) on the same team. Never run a weather-locked payoff (Archaludon Electro Shot needs rain; Solar Beam needs sun) unless the team sets that weather.`,
-    `Cover the core's shared defensive weaknesses — prefer ability immunities that also redirect (Lightning Rod ↔ Electric, Storm Drain ↔ Water, Flash Fire ↔ Fire, Levitate ↔ Ground).`,
+    `DEFENSIVE TYPE BACKBONE: build a core whose types COVER EACH OTHER so no single attack threatens the whole team — classic mutually-covering triangles like Fire / Water / Grass or Steel / Fairy / Dragon (e.g. Mawile Steel/Fairy + Garchomp Dragon/Ground + Sylveon Fairy support each other). Every shared weakness should be RESISTED or made IMMUNE by a teammate (prefer abilities that also redirect: Lightning Rod ↔ Electric, Storm Drain ↔ Water, Flash Fire ↔ Fire, Levitate ↔ Ground).`,
+    `SPEED FITS THE PLAN: on a Trick Room team every attacker must be SLOW (low base Speed — the slowest moves first); on a fast/Tailwind team they must be FAST. Do not put a high base-Speed attacker on a Trick Room team.`,
+    `ANSWER NAMED THREATS concretely: for each big meta threat, include a member that beats it with a real typing + move — e.g. answer Charizard-Y (Fire/sun) with a Fire-resist carrying a Rock move (Hisuian Arcanine Fire/Rock OHKOs it with Rock Slide); answer Garchomp / Ground spam with a Fairy or a Levitate/Flying mon. Say WHICH threat each pick answers.`,
     `Respond with ONLY a JSON array of exactly 6 objects (no prose, no fences):`,
     `[{"species":"<roster name>","role":"<short role>","item":"<item>","ability":"<ability>","moves":["m1","m2","m3","m4"],"note":"<1 sentence on why it's here / what it does for a named teammate>"}]`,
   ].join("\n");
@@ -50,8 +54,9 @@ export async function proposeTeamNode(
     brief ? `\nUSER BRIEF / win condition: ${brief}` : "",
     speed ? `\n${speed}` : "",
     weather ? `\n${weather}` : "",
+    speeds ? `\nBASE SPEEDS of the current core (the slowest move first under Trick Room): ${speeds}` : "",
     weaknesses
-      ? `\nSHARED DEFENSIVE WEAKNESSES to cover:\n${weaknesses}`
+      ? `\nSHARED DEFENSIVE WEAKNESSES (cover each one with a teammate's resist/immunity):\n${weaknesses}`
       : "",
     isRevision && draft.length
       ? `\nCURRENT DRAFT (improve it, keep what works):\n${renderDraft(draft, format)}`

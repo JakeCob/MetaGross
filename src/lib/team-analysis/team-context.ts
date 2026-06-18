@@ -89,11 +89,15 @@ function memberMoves(m: AITeamMember): string[] {
   return (m.moves ?? []).map(norm).filter(Boolean);
 }
 
+/** Resolve a member to its effective species (mega form when it megas). */
+function resolveSpecies(m: AITeamMember, format: string) {
+  const megaName = getMegaFormFor(m.species, m.item, format);
+  return (megaName && getSpecies(megaName)) || getSpecies(m.species);
+}
+
 /** Resolved typing for a member, using the mega form's typing when it megas. */
 function memberTypes(m: AITeamMember, format: string): string[] {
-  const megaName = getMegaFormFor(m.species, m.item, format);
-  const sp = (megaName && getSpecies(megaName)) || getSpecies(m.species);
-  return sp ? sp.types : [];
+  return resolveSpecies(m, format)?.types ?? [];
 }
 
 export interface WeaknessEntry {
@@ -108,6 +112,13 @@ export interface WeaknessEntry {
   resisted: string[];
 }
 
+export interface MemberProfile {
+  name: string;
+  types: string[];
+  /** Base Speed of the effective (mega) form — what Trick Room cares about. */
+  baseSpeed: number;
+}
+
 export interface TeamAnalysis {
   format: string;
   /** Weather this team actually sets (from an ability or a move), or null. */
@@ -118,6 +129,8 @@ export interface TeamAnalysis {
   fastAbilities: string[];
   /** Count of members holding a mega stone (legal Champions max = 1). */
   megaCount: number;
+  /** Per-member typing + base Speed (mega-aware). */
+  members: MemberProfile[];
   /** Shared defensive weaknesses (attacking types hitting 2+ members SE). */
   weaknesses: WeaknessEntry[];
 }
@@ -143,10 +156,18 @@ export function analyzeTeam(
     if (getMegaFormFor(m.species, m.item, format)) megaCount += 1;
   }
 
+  // Per-member typing + base Speed (mega-aware).
+  const members: MemberProfile[] = team
+    .map((m) => {
+      const sp = resolveSpecies(m, format);
+      return sp
+        ? { name: m.species, types: sp.types, baseSpeed: sp.baseStats.spe }
+        : null;
+    })
+    .filter((p): p is MemberProfile => p !== null);
+
   // Defensive weakness profile across members with known typing.
-  const profiles = team
-    .map((m) => ({ name: m.species, types: memberTypes(m, format) }))
-    .filter((p) => p.types.length > 0);
+  const profiles = members.filter((p) => p.types.length > 0);
 
   const weaknesses: WeaknessEntry[] = [];
   if (profiles.length >= 2) {
@@ -177,6 +198,7 @@ export function analyzeTeam(
     hasTailwind: allMoves.includes("tailwind"),
     fastAbilities,
     megaCount,
+    members,
     weaknesses,
   };
 }
@@ -195,9 +217,26 @@ export function computeCoreWeaknesses(
     .map((w) => {
       const quad = w.quad.length ? ` [4× on ${w.quad.join(", ")}]` : "";
       const cover = TYPE_IMMUNITY_ABILITIES[w.type];
-      return `${w.type} → threatens ${w.members.join(", ")}${quad}${cover ? `; best answer = immunity ability (${cover})` : "; cover with a resist/answer"}`;
+      // Whether a teammate already resists it (the type-backbone signal).
+      const covered = w.resisted.length
+        ? `resisted by ${w.resisted.join(", ")}`
+        : `NOT resisted by anyone — uncovered`;
+      const fix = cover ? `; ideal: immunity ability (${cover})` : "";
+      return `${w.type} → threatens ${w.members.join(", ")}${quad}; ${covered}${fix}`;
     })
     .join("\n");
+}
+
+/** Per-member base Speed list — the data a Trick Room / fast plan turns on. */
+export function formatSpeedProfile(
+  team: AITeamMember[],
+  format: string,
+): string {
+  const { members } = analyzeTeam(team, format);
+  if (!members.length) return "";
+  return members
+    .map((m) => `${m.name} ${m.baseSpeed} Spe (${m.types.join("/")})`)
+    .join(", ");
 }
 
 /**
@@ -211,7 +250,7 @@ export function detectSpeedDirective(team: AITeamMember[], format: string): stri
   // plan: Drought sun on a slow Trick Room team is a damage weather, not speed.
   const fast = a.fastAbilities.length > 0 || a.hasTailwind;
   if (a.hasTrickRoom && !fast) {
-    return `SPEED PLAN: this is a TRICK ROOM team — it WINS BY GOING SLOW. Suggest slow, bulky attackers (and they may still use a damage weather like Drought sun). Do NOT add Tailwind, Swift Swim or other speed-boosters — they fight Trick Room.`;
+    return `SPEED PLAN: this is a TRICK ROOM team — under TR the SLOWEST Pokemon moves first, so every attacker should have LOW base Speed (aim ≤ ~60; never add a base-Speed ≥ 95 attacker). Pick slow, bulky breakers (e.g. Kingambit 50, Sylveon 60, Torkoal 20, Mawile 50). Do NOT add Tailwind, Swift Swim or other speed-boosters — they fight Trick Room.`;
   }
   if (fast && !a.hasTrickRoom) {
     const plan = a.weather ? `${a.weather} ` : "fast ";
@@ -359,7 +398,29 @@ export function auditTeam(
     }
   }
 
-  // 6. Uncovered shared weakness — a type hits 3+ members SE and NObody on the
+  // 6. Trick Room speed fit — under TR the slowest moves first, so attackers
+  //    should be slow. Flag fast Pokemon on a committed TR team.
+  if (analysis.hasTrickRoom && !fastPlan) {
+    for (const mem of analysis.members) {
+      if (mem.baseSpeed >= 95) {
+        out.push({
+          rule: "tr-speed",
+          severity: "error",
+          subject: mem.name,
+          message: `${mem.name} has base Speed ${mem.baseSpeed} — far too fast for a Trick Room team (TR makes the SLOWEST Pokemon move first). Replace it with a slow attacker (base Speed ≤ ~60).`,
+        });
+      } else if (mem.baseSpeed >= 75) {
+        out.push({
+          rule: "tr-speed",
+          severity: "warning",
+          subject: mem.name,
+          message: `${mem.name} (base Speed ${mem.baseSpeed}) is on the fast side for Trick Room — acceptable as a defensive answer, but most TR attackers want base Speed ≤ ~60.`,
+        });
+      }
+    }
+  }
+
+  // 7. Uncovered shared weakness — a type hits 3+ members SE and NObody on the
   //    team resists/is immune to it (purely typing-based — abilities may still
   //    help, hence a warning not an error).
   for (const w of analysis.weaknesses) {
