@@ -23,6 +23,7 @@ import { PokemonForm } from "./PokemonForm";
 import { PokemonSlotCard } from "./PokemonSlotCard";
 import { TeamImport } from "./TeamImport";
 import { AITeamSuggestions } from "./AITeamSuggestions";
+import { TeamDebatePanel, type TeamDebateMember } from "./TeamDebatePanel";
 import { SlotAISuggestions } from "./SlotAISuggestions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
@@ -338,6 +339,23 @@ export function TeamBuilder({
     setImportDialogOpen(false);
     setEditingSlot(null);
   }, []);
+
+  /** Replace the team with a debated build (full sets, EVs left at defaults). */
+  const handleDebateApply = useCallback((members: TeamDebateMember[]) => {
+    const imported: Partial<TeamPokemon>[] = members.slice(0, 6).map((m) => ({
+      ...emptyPokemon(),
+      species: m.species,
+      item: m.item ?? "",
+      ability: m.ability ?? "",
+      moves: [
+        m.moves?.[0] ?? "",
+        m.moves?.[1] ?? "",
+        m.moves?.[2] ?? "",
+        m.moves?.[3] ?? "",
+      ] as [string, string, string, string],
+    }));
+    handleImport(imported as TeamPokemon[]);
+  }, [handleImport]);
 
   const handleSuggestionAdd = useCallback((species: string) => {
     setPokemon((prev) => {
@@ -722,6 +740,15 @@ export function TeamBuilder({
           hasEmptySlots={hasEmptySlots}
         />
       )}
+
+      {/* Multi-agent team debate — build/finish a whole team around the
+          current core (or from scratch) with offense/defense/data/critic
+          agents. */}
+      <TeamDebatePanel
+        seed={filledDetails}
+        format={format}
+        onApplyTeam={handleDebateApply}
+      />
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
