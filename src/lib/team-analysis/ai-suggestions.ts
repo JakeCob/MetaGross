@@ -20,6 +20,8 @@ import {
   isConfirmedNotInChampions,
 } from "@/lib/data/champions";
 import { getLiveMetaThreats } from "@/lib/ev/meta-enriched-lookup";
+import { getSpecies } from "@/lib/pokemon/species";
+import { getTypeEffectiveness, getAllTypes } from "@/lib/pokemon/types";
 import {
   getPikalyticsPokemonDetail,
   resolvePikalyticsFormat,
@@ -74,6 +76,8 @@ function buildSystemPrompt(format: string): string {
     `- For weather, pair the setter with abusers that don't ALL depend on the speed ability. Rain example: Pelipper/Politoed (setter) + Archaludon (Electro Shot is instant AND boosted in rain — a premier rain pick that needs no Swift Swim) + ONE Swift Swim sweeper + supportive/independent members. Name premier real abusers, not just whatever shares the ability.`,
     `- ROLE COVERAGE — across the finished 6, aim to cover: speed control, redirection or partner protection (Rage Powder / Follow Me), disruption (Fake Out / Intimidate / Taunt), at least one bulky defensive pivot, and an answer to top threats (Incineroar, Kingambit, the strong megas).`,
     `- SPEED IDENTITY: speed control MUST match the team's speed plan. A fast / weather / Swift-Swim / Tailwind core uses Tailwind — do NOT add a Trick Room setter to it. A slow, bulky core uses Trick Room — and then should NOT run Swift Swim or Tailwind. NEVER put Trick Room and Tailwind (or Swift Swim) on the same team; they cancel each other.`,
+    `- CONDITIONAL PAYOFFS need their enabler ON THE TEAM: some Pokemon only pay off under a specific weather. Electro Shot (Archaludon) is a 2-turn CHARGE move UNLESS it is raining — instant + SpA-boosted in rain, a liability without it; Solar Beam / Solar Blade skip their charge only in sun; Swift Swim / Chlorophyll / Sand Rush / Slush Rush only boost speed in their weather. ONLY suggest such a Pokemon if THIS team already sets that weather, or you are simultaneously adding the setter. NEVER suggest a rain payoff like Archaludon for a team with no rain source.`,
+    `- DEFENSIVE TYPE SYNERGY: cover the core's SHARED weaknesses. When several members fold to the same attacking type (e.g. a Flying + two Water mons all weak to Electric), prefer a partner that is IMMUNE to it via ability AND redirects it — Lightning Rod (Electric), Storm Drain (Water), Flash Fire (Fire), Levitate / Earth Eater (Ground), Sap Sipper (Grass), Thick Fat (Ice/Fire) — so the threat is both neutralised and DRAWN OFF the weak member. A plain resist helps; an ability immunity that also redirects is far better. Also value priority + typing answers (e.g. Kingambit's Sucker Punch + Steel/Dark resisting Ice/Fairy/Rock) for a Flying/physical core.`,
     `- AVOID REDUNDANCY: don't suggest multiple mons with the same role, typing, and shared weakness (e.g. three Water-types all weak to Grass/Electric).`,
     `- Weigh each suggestion by how much it FIXES the current core's biggest gap, not just how flashy it is.`,
     ``,
@@ -126,6 +130,74 @@ function detectSpeedDirective(team: AITeamMember[]): string {
     return `SPEED PLAN: this is a ${plan} team — it WINS BY OUTSPEEDING (weather speed abilities + Tailwind). Use TAILWIND for speed control. Do NOT suggest any Trick Room setter or a slow Trick Room attacker — Trick Room inverts speed and would sabotage this team.`;
   }
   return "";
+}
+
+/** Ability immunities / redirection that neutralise an attacking type. */
+const TYPE_IMMUNITY_ABILITIES: Record<string, string> = {
+  Electric: "Lightning Rod / Volt Absorb / Motor Drive — Lightning Rod also REDIRECTS Electric off your weak member",
+  Water: "Storm Drain / Water Absorb / Dry Skin — Storm Drain REDIRECTS Water",
+  Fire: "Flash Fire / Thick Fat",
+  Ground: "Levitate / Earth Eater",
+  Grass: "Sap Sipper",
+  Ice: "Thick Fat",
+};
+
+/**
+ * Defensive weakness profile of the current core: attacking types that hit
+ * 2+ members super-effectively (the team's shared soft spots). Surfacing this
+ * lets the AI cover real weaknesses — ideally via an ability immunity /
+ * redirect (Lightning Rod for an Electric-weak Flying/Water core), not just a
+ * generically-strong pick. Uses the mega form's typing when the item megas.
+ */
+function computeCoreWeaknesses(team: AITeamMember[], format: string): string {
+  const profiles = team
+    .map((m) => {
+      const megaName = getMegaFormFor(m.species, m.item, format);
+      const sp = (megaName && getSpecies(megaName)) || getSpecies(m.species);
+      return sp ? { name: m.species, types: sp.types } : null;
+    })
+    .filter((p): p is { name: string; types: string[] } => p !== null);
+  if (profiles.length < 2) return "";
+
+  const hits = new Map<string, { weak: string[]; quad: string[] }>();
+  for (const atk of getAllTypes()) {
+    for (const p of profiles) {
+      const eff = getTypeEffectiveness(atk, p.types);
+      if (eff >= 2) {
+        const rec = hits.get(atk) ?? { weak: [], quad: [] };
+        rec.weak.push(p.name);
+        if (eff >= 4) rec.quad.push(p.name);
+        hits.set(atk, rec);
+      }
+    }
+  }
+  const shared = [...hits.entries()]
+    .filter(([, r]) => r.weak.length >= 2)
+    .sort((a, b) => b[1].weak.length - a[1].weak.length);
+  if (shared.length === 0) return "";
+
+  return shared
+    .map(([atk, r]) => {
+      const quad = r.quad.length ? ` [4× on ${r.quad.join(", ")}]` : "";
+      const cover = TYPE_IMMUNITY_ABILITIES[atk];
+      return `${atk} → threatens ${r.weak.join(", ")}${quad}${cover ? `; best answer = immunity ability (${cover})` : "; cover with a resist/answer"}`;
+    })
+    .join("\n");
+}
+
+/**
+ * Weather directive: weather-locked payoffs are traps without their enabler on
+ * the team. Detects the team's own weather (from abilities); if none is set,
+ * hard-warns against rain/sun/sand/snow-dependent picks (esp. Archaludon's
+ * Electro Shot, which is a 2-turn charge move unless it is raining).
+ */
+function detectWeatherDirective(team: AITeamMember[]): string {
+  const abilities = team.map((m) => (m.ability ?? "").toLowerCase());
+  const weather = abilities.map((a) => WEATHER_BY_ABILITY[a]).find(Boolean);
+  if (weather) {
+    return `WEATHER PLAN: this team sets ${weather}. Weather-locked payoffs are valid ONLY if they use ${weather} — do NOT suggest a pick that needs a DIFFERENT weather.`;
+  }
+  return `NO WEATHER ON THIS TEAM: no member sets rain / sun / sand / snow. Do NOT suggest a Pokemon whose payoff REQUIRES a weather this team lacks — especially Archaludon (Electro Shot is a 2-turn charge move unless it is raining), Swift Swim / Chlorophyll / Sand Rush / Slush Rush sweepers, or Solar Beam / Solar Power sun abusers. Only suggest such a pick if you ALSO add the weather setter that enables it.`;
 }
 
 /** Worst matchups of a team vs recent top-cut teams (shared heuristic). */
@@ -215,6 +287,10 @@ export async function generateAITeamSuggestions(
   // Infer the team's speed identity so we can hard-block contradictory speed
   // control (e.g. a Trick Room setter on a fast rain team).
   const speedDirective = detectSpeedDirective(team);
+  // Hard-block weather-locked traps (Archaludon w/o rain) and surface the
+  // core's shared defensive weaknesses for ability-immunity coverage.
+  const weatherDirective = detectWeatherDirective(team);
+  const coreWeaknesses = computeCoreWeaknesses(team, format);
 
   const system = buildSystemPrompt(format);
   const user = [
@@ -222,6 +298,10 @@ export async function generateAITeamSuggestions(
     ...team.map((m) => `- ${describeMember(m, format)}`),
     ``,
     speedDirective,
+    weatherDirective,
+    coreWeaknesses
+      ? `DEFENSIVE WEAKNESSES of your current core (attacking types that threaten 2+ members — prioritise a teammate that RESISTS or, better, is IMMUNE to these via an ability that also redirects, so it shields the weak member):\n${coreWeaknesses}`
+      : "",
     `TOP OPPOSING THREATS this team will face (must have answers): ${threats}.`,
     worstMatchups
       ? `The current core's WORST matchups vs recent top-cut teams (lower score = worse) are: ${worstMatchups}. Prioritise teammates that shore up these specific matchups.`
