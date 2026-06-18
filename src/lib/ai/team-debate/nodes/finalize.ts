@@ -52,16 +52,11 @@ export async function finalizeNode(
   const text = await runModel(system, user);
 
   let polished: DraftMember[] | null = null;
-  let summary = "";
   try {
-    const obj = JSON.parse(extractJsonObject(text)) as {
-      team?: unknown;
-      summary?: unknown;
-    };
+    const obj = JSON.parse(extractJsonObject(text)) as { team?: unknown };
     if (Array.isArray(obj.team)) {
       polished = parseDraftJson(JSON.stringify(obj.team), format);
     }
-    if (typeof obj.summary === "string") summary = obj.summary.trim();
   } catch {
     polished = null;
   }
@@ -77,6 +72,20 @@ export async function finalizeNode(
     );
     if (errs.length === 0) finalTeam = polished;
   }
+
+  // Summarise in a SEPARATE pass that ONLY sees the finished team — so the
+  // prose can't drift onto Pokemon from an earlier draft (the model has no
+  // other names in front of it).
+  const summarySystem = `Write a 3-5 sentence competitive summary of EXACTLY the finished ${reg.label} doubles team below and nothing else: the win condition, the speed/weather plan, and how the team covers its shared weaknesses. Mention ONLY Pokemon that appear in the list. No preamble.`;
+  const summaryUser = [
+    `Final team:`,
+    renderDraft(finalTeam, format),
+    state.brief ? `\nUser brief: ${state.brief}` : "",
+    `\nWrite the summary.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const summary = (await runModel(summarySystem, summaryUser)).trim();
 
   // Honest residual warnings on whatever we shipped.
   const residual = auditTeam(toMembers(finalTeam), format);

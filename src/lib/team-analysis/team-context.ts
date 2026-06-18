@@ -206,13 +206,17 @@ export function computeCoreWeaknesses(
  */
 export function detectSpeedDirective(team: AITeamMember[], format: string): string {
   const a = analyzeTeam(team, format);
-  const fast = a.weather || a.fastAbilities.length > 0 || a.hasTailwind;
+  // A "fast / outspeed" plan needs an actual speed booster — a weather-speed
+  // ability (Swift Swim, Chlorophyll…) or Tailwind. BARE weather is not a speed
+  // plan: Drought sun on a slow Trick Room team is a damage weather, not speed.
+  const fast = a.fastAbilities.length > 0 || a.hasTailwind;
   if (a.hasTrickRoom && !fast) {
-    return `SPEED PLAN: this is a TRICK ROOM team — it WINS BY GOING SLOW. Suggest slow, bulky attackers. Do NOT add Tailwind, Swift Swim or other speed-boosters — they fight Trick Room.`;
+    return `SPEED PLAN: this is a TRICK ROOM team — it WINS BY GOING SLOW. Suggest slow, bulky attackers (and they may still use a damage weather like Drought sun). Do NOT add Tailwind, Swift Swim or other speed-boosters — they fight Trick Room.`;
   }
-  if (fast) {
-    const plan = a.weather ? `${a.weather} weather` : "fast offensive";
-    return `SPEED PLAN: this is a ${plan} team — it WINS BY OUTSPEEDING (weather/Tailwind). Use TAILWIND for speed control. Do NOT suggest any Trick Room setter or a slow Trick Room attacker — Trick Room inverts speed and would sabotage this team.`;
+  if (fast && !a.hasTrickRoom) {
+    const plan = a.weather ? `${a.weather} ` : "fast ";
+    const via = a.fastAbilities.length ? "weather-speed abilities + Tailwind" : "Tailwind";
+    return `SPEED PLAN: this is a ${plan}offensive team — it WINS BY OUTSPEEDING (${via}). Use TAILWIND for speed control. Do NOT suggest any Trick Room setter or a slow Trick Room attacker — Trick Room inverts speed and would sabotage this team.`;
   }
   return "";
 }
@@ -308,14 +312,15 @@ export function auditTeam(
     });
   }
 
-  // 4. Speed identity clash — Trick Room AND a fast/weather/Tailwind plan.
+  // 4. Speed identity clash — Trick Room AND an actual speed booster (a
+  //    weather-speed ability or Tailwind). Bare weather (e.g. Drought sun for
+  //    damage on a TR team) is NOT a clash.
   const fastPlan =
-    analysis.weather || analysis.fastAbilities.length > 0 || analysis.hasTailwind;
+    analysis.fastAbilities.length > 0 || analysis.hasTailwind;
   if (analysis.hasTrickRoom && fastPlan) {
     const why = [
       analysis.hasTailwind ? "Tailwind" : "",
       analysis.fastAbilities.length ? `${analysis.fastAbilities.join("/")}` : "",
-      analysis.weather ? `${analysis.weather} (speed weather)` : "",
     ]
       .filter(Boolean)
       .join(" + ");

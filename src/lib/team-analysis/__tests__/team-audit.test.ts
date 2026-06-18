@@ -81,6 +81,26 @@ describe("auditTeam — speed identity", () => {
     expect(v.some((x) => x.rule === "speed-identity" && x.severity === "error")).toBe(true);
   });
 
+  it("does NOT flag a Trick Room + sun (Drought) team — sun is a damage weather, not speed", () => {
+    const team: AITeamMember[] = [
+      { species: "Torkoal", ability: "Drought", moves: ["Eruption", "Heat Wave", "Protect"] },
+      { species: "Farigiraf", ability: "Armor Tail", moves: ["Trick Room", "Psychic", "Protect"] },
+      { species: "Mawile", item: "Mawilite", ability: "Huge Power", moves: ["Play Rough", "Sucker Punch", "Protect"] },
+    ];
+    const v = auditTeam(team, FORMAT);
+    expect(v.some((x) => x.rule === "speed-identity")).toBe(false);
+  });
+
+  it("DOES flag Trick Room + a Chlorophyll speed abuser (real clash)", () => {
+    const team: AITeamMember[] = [
+      { species: "Torkoal", ability: "Drought", moves: ["Eruption", "Heat Wave", "Protect"] },
+      { species: "Lilligant", ability: "Chlorophyll", moves: ["Solar Beam", "Protect"] },
+      { species: "Farigiraf", ability: "Armor Tail", moves: ["Trick Room", "Psychic", "Protect"] },
+    ];
+    const v = auditTeam(team, FORMAT);
+    expect(v.some((x) => x.rule === "speed-identity" && x.severity === "error")).toBe(true);
+  });
+
   it("does NOT flag a pure Trick Room team", () => {
     const team: AITeamMember[] = [
       { species: "Farigiraf", ability: "Armor Tail", moves: ["Trick Room", "Psychic", "Protect"] },
