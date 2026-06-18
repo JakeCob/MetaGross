@@ -14,26 +14,25 @@ import "server-only";
 import { aiComplete, isAIAvailable } from "@/lib/ai/client";
 import {
   getRegulation,
-  getMegaFormFor,
-  getMegaAbility,
   isChampionsPokemon,
   isConfirmedNotInChampions,
 } from "@/lib/data/champions";
 import { getLiveMetaThreats } from "@/lib/ev/meta-enriched-lookup";
-import { getSpecies } from "@/lib/pokemon/species";
-import { getTypeEffectiveness, getAllTypes } from "@/lib/pokemon/types";
 import {
   getPikalyticsPokemonDetail,
   resolvePikalyticsFormat,
 } from "@/lib/pokemon/pikalytics";
 import { scoreTeamVsTopTeams } from "./matchup-heuristic";
+import {
+  type AITeamMember,
+  describeMember,
+  computeCoreWeaknesses,
+  detectSpeedDirective,
+  detectWeatherDirective,
+} from "./team-context";
 import type { TeamSuggestion } from "./suggestions";
 
-export interface AITeamMember {
-  species: string;
-  item?: string;
-  ability?: string;
-}
+export type { AITeamMember };
 
 const VALID_CATEGORIES = new Set<TeamSuggestion["category"]>([
   "coverage",
@@ -41,17 +40,6 @@ const VALID_CATEGORIES = new Set<TeamSuggestion["category"]>([
   "role",
   "meta",
 ]);
-
-/** Human-readable description of a team member, surfacing mega + ability. */
-function describeMember(m: AITeamMember, format: string): string {
-  const mega = getMegaFormFor(m.species, m.item, format);
-  const ability = (mega && getMegaAbility(mega)) || m.ability;
-  const head = m.item ? `${m.species} @ ${m.item}` : m.species;
-  const tags: string[] = [];
-  if (mega) tags.push(`Mega → ${mega}`);
-  if (ability) tags.push(`ability: ${ability}`);
-  return tags.length ? `${head} (${tags.join(", ")})` : head;
-}
 
 function buildSystemPrompt(format: string): string {
   const reg = getRegulation(format);
@@ -101,107 +89,8 @@ function extractJsonArray(text: string): string {
   return start >= 0 && end > start ? t.slice(start, end + 1) : t;
 }
 
-const WEATHER_BY_ABILITY: Record<string, string> = {
-  drizzle: "rain",
-  drought: "sun",
-  "sand stream": "sandstorm",
-  "snow warning": "snow",
-};
-const FAST_ABILITIES = new Set([
-  "swift swim",
-  "chlorophyll",
-  "sand rush",
-  "slush rush",
-  "unburden",
-  "surge surfer",
-]);
-
-/**
- * A hard speed-plan directive based on the current core, so the AI doesn't add
- * a contradictory speed mode (the classic mistake: a Trick Room setter on a
- * fast rain/Tailwind team). Returns "" when the plan is ambiguous.
- */
-function detectSpeedDirective(team: AITeamMember[]): string {
-  const abilities = team.map((m) => (m.ability ?? "").toLowerCase());
-  const weather = abilities.map((a) => WEATHER_BY_ABILITY[a]).find(Boolean);
-  const isFast = abilities.some((a) => FAST_ABILITIES.has(a));
-  if (weather || isFast) {
-    const plan = weather ? `${weather} weather` : "fast offensive";
-    return `SPEED PLAN: this is a ${plan} team — it WINS BY OUTSPEEDING (weather speed abilities + Tailwind). Use TAILWIND for speed control. Do NOT suggest any Trick Room setter or a slow Trick Room attacker — Trick Room inverts speed and would sabotage this team.`;
-  }
-  return "";
-}
-
-/** Ability immunities / redirection that neutralise an attacking type. */
-const TYPE_IMMUNITY_ABILITIES: Record<string, string> = {
-  Electric: "Lightning Rod / Volt Absorb / Motor Drive — Lightning Rod also REDIRECTS Electric off your weak member",
-  Water: "Storm Drain / Water Absorb / Dry Skin — Storm Drain REDIRECTS Water",
-  Fire: "Flash Fire / Thick Fat",
-  Ground: "Levitate / Earth Eater",
-  Grass: "Sap Sipper",
-  Ice: "Thick Fat",
-};
-
-/**
- * Defensive weakness profile of the current core: attacking types that hit
- * 2+ members super-effectively (the team's shared soft spots). Surfacing this
- * lets the AI cover real weaknesses — ideally via an ability immunity /
- * redirect (Lightning Rod for an Electric-weak Flying/Water core), not just a
- * generically-strong pick. Uses the mega form's typing when the item megas.
- */
-function computeCoreWeaknesses(team: AITeamMember[], format: string): string {
-  const profiles = team
-    .map((m) => {
-      const megaName = getMegaFormFor(m.species, m.item, format);
-      const sp = (megaName && getSpecies(megaName)) || getSpecies(m.species);
-      return sp ? { name: m.species, types: sp.types } : null;
-    })
-    .filter((p): p is { name: string; types: string[] } => p !== null);
-  if (profiles.length < 2) return "";
-
-  const hits = new Map<string, { weak: string[]; quad: string[] }>();
-  for (const atk of getAllTypes()) {
-    for (const p of profiles) {
-      const eff = getTypeEffectiveness(atk, p.types);
-      if (eff >= 2) {
-        const rec = hits.get(atk) ?? { weak: [], quad: [] };
-        rec.weak.push(p.name);
-        if (eff >= 4) rec.quad.push(p.name);
-        hits.set(atk, rec);
-      }
-    }
-  }
-  const shared = [...hits.entries()]
-    .filter(([, r]) => r.weak.length >= 2)
-    .sort((a, b) => b[1].weak.length - a[1].weak.length);
-  if (shared.length === 0) return "";
-
-  return shared
-    .map(([atk, r]) => {
-      const quad = r.quad.length ? ` [4× on ${r.quad.join(", ")}]` : "";
-      const cover = TYPE_IMMUNITY_ABILITIES[atk];
-      return `${atk} → threatens ${r.weak.join(", ")}${quad}${cover ? `; best answer = immunity ability (${cover})` : "; cover with a resist/answer"}`;
-    })
-    .join("\n");
-}
-
-/**
- * Weather directive: weather-locked payoffs are traps without their enabler on
- * the team. Detects the team's own weather (from abilities); if none is set,
- * hard-warns against rain/sun/sand/snow-dependent picks (esp. Archaludon's
- * Electro Shot, which is a 2-turn charge move unless it is raining).
- */
-function detectWeatherDirective(team: AITeamMember[]): string {
-  const abilities = team.map((m) => (m.ability ?? "").toLowerCase());
-  const weather = abilities.map((a) => WEATHER_BY_ABILITY[a]).find(Boolean);
-  if (weather) {
-    return `WEATHER PLAN: this team sets ${weather}. Weather-locked payoffs are valid ONLY if they use ${weather} — do NOT suggest a pick that needs a DIFFERENT weather.`;
-  }
-  return `NO WEATHER ON THIS TEAM: no member sets rain / sun / sand / snow. Do NOT suggest a Pokemon whose payoff REQUIRES a weather this team lacks — especially Archaludon (Electro Shot is a 2-turn charge move unless it is raining), Swift Swim / Chlorophyll / Sand Rush / Slush Rush sweepers, or Solar Beam / Solar Power sun abusers. Only suggest such a pick if you ALSO add the weather setter that enables it.`;
-}
-
 /** Worst matchups of a team vs recent top-cut teams (shared heuristic). */
-async function computeWorstMatchups(team: AITeamMember[]): Promise<string> {
+export async function computeWorstMatchups(team: AITeamMember[]): Promise<string> {
   if (team.length < 2) return "";
   try {
     const report = await scoreTeamVsTopTeams(
@@ -223,7 +112,7 @@ async function computeWorstMatchups(team: AITeamMember[]): Promise<string> {
  * "Common Teammates" signal, summed per partner and filtered to legal,
  * not-already-on-team picks. Reuses getPikalyticsPokemonDetail.
  */
-async function computePikalyticsPartners(
+export async function computePikalyticsPartners(
   team: AITeamMember[],
   format: string,
 ): Promise<string> {
@@ -286,10 +175,10 @@ export async function generateAITeamSuggestions(
 
   // Infer the team's speed identity so we can hard-block contradictory speed
   // control (e.g. a Trick Room setter on a fast rain team).
-  const speedDirective = detectSpeedDirective(team);
+  const speedDirective = detectSpeedDirective(team, format);
   // Hard-block weather-locked traps (Archaludon w/o rain) and surface the
   // core's shared defensive weaknesses for ability-immunity coverage.
-  const weatherDirective = detectWeatherDirective(team);
+  const weatherDirective = detectWeatherDirective(team, format);
   const coreWeaknesses = computeCoreWeaknesses(team, format);
 
   const system = buildSystemPrompt(format);
