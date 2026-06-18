@@ -30,6 +30,7 @@ export interface FetchedUrl {
 }
 
 const FETCH_TIMEOUT_MS = 6000;
+const JINA_TIMEOUT_MS = 22000; // Jina reader renders JS pages — give it room.
 const MAX_EXCERPT = 6000;
 const USER_AGENT =
   "Mozilla/5.0 (compatible; MetaGrossBot/1.0; +https://metagross.local)";
@@ -44,9 +45,43 @@ export async function fetchUrl(url: string): Promise<FetchedUrl | null> {
   const domain = parsed.hostname.replace(/^www\./, "");
 
   try {
-    if (isYouTube(domain)) return await fetchYouTube(parsed);
+    if (isYouTube(domain)) {
+      // Prefer the watch-page scrape: it returns the CLEAN full description
+      // (chapters, team cores, pokepaste links) straight from
+      // ytInitialPlayerResponse — no nav chrome. Only fall back to the reader
+      // when that description comes back thin.
+      const base = await fetchYouTube(parsed);
+      const baseLen = base.excerpt.replace(/…\[truncated\]$/, "").length;
+      if (baseLen >= 400) return base;
+      const jina = await fetchViaJina(url);
+      if (jina && jina.text.length > base.excerpt.length) {
+        return {
+          ...base,
+          title: base.title || jina.title,
+          excerpt: truncate(jina.text),
+          note: "Read via reader (watch-page description was thin).",
+        };
+      }
+      return base;
+    }
     if (isReddit(domain)) return await fetchReddit(parsed);
-    return await fetchGeneric(parsed);
+
+    // Generic page: fast raw scrape; if it comes back thin (SPA / JS page),
+    // fall back to the reader.
+    const base = await fetchGeneric(parsed);
+    const baseLen = base.excerpt.replace(/…\[truncated\]$/, "").length;
+    if (baseLen < 500) {
+      const jina = await fetchViaJina(url);
+      if (jina && jina.text.length > base.excerpt.length) {
+        return {
+          ...base,
+          title: base.title || jina.title,
+          excerpt: truncate(jina.text),
+          note: "Read via reader (raw HTML was thin).",
+        };
+      }
+    }
+    return base;
   } catch (err) {
     console.info(
       `[fetch-url] ${domain} failed:`,
@@ -108,9 +143,10 @@ function stripHtml(html: string): string {
 async function timedFetch(
   input: string,
   init: RequestInit = {},
+  timeoutMs: number = FETCH_TIMEOUT_MS,
 ): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(input, {
       ...init,
@@ -122,6 +158,53 @@ async function timedFetch(
     });
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/**
+ * Universal reader via Jina (r.jina.ai) — renders JS pages and returns clean
+ * markdown. This is how we read content the raw HTML scrape can't: YouTube
+ * descriptions/chapters (where team cores + pokepaste links live), SPA blogs,
+ * etc. Strips obvious nav/link/image chrome so the model sees prose. Returns
+ * null on failure so callers fall back to the raw scrape.
+ */
+async function fetchViaJina(
+  rawUrl: string,
+): Promise<{ title: string; text: string } | null> {
+  try {
+    const res = await timedFetch(
+      `https://r.jina.ai/${rawUrl}`,
+      {},
+      JINA_TIMEOUT_MS,
+    );
+    if (!res.ok) return null;
+    const md = await res.text();
+    const title = md.match(/^Title:\s*(.+)$/m)?.[1]?.trim() ?? "";
+    const text = md
+      .replace(/^Title:.*$/m, "")
+      .replace(/^URL Source:.*$/m, "")
+      .replace(/^Markdown Content:\s*/m, "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => {
+        if (!l) return false;
+        // Drop lines that are purely a link or image (nav chrome).
+        if (/^!?\[[^\]]*\]\([^)]*\)\/?$/.test(l)) return false;
+        // Drop common YouTube/site UI tokens.
+        if (
+          /^(Skip navigation|Search( with your voice)?|Sign in|Tap to unmute|Back|Show more|Show less|Copy link|Info|Share|Save|Download|\d+x|New|Subscribe|Subscribed|Like|Dislike|Shorts|Home|Explore)$/i.test(
+            l,
+          )
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n");
+    return text.length > 0 ? { title, text } : null;
+  } catch {
+    return null;
   }
 }
 

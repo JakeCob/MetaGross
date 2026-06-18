@@ -431,6 +431,8 @@ Step 1 — ALWAYS start with search_meta_teams. We maintain a local pool of tour
 Step 2 — If the pool didn't have it, try get_tournament_teams (direct Limitless API — player lookup or tournament standings).
   - mode=player with the user's handle hints if the exact name returns empty.
 
+Step 0 — If the USER pasted a URL (a website or a YouTube link), call fetch_url on it FIRST, before anything else, and base your answer on the fetched content — cite specifics from it (team cores, pokepaste links, chapters, the author's claims). fetch_url reads YouTube descriptions/chapters and article text, so "learn from this video/page" means fetch it and extract the concrete VGC content, not just acknowledge the link.
+
 Step 3 — ONLY if steps 1 and 2 returned empty, fall to search_web.
   - search_web returns titles + snippets — it's a lead, not an answer.
   - Pick the 2-3 most promising URLs (YouTube, Reddit, VGC blog).
