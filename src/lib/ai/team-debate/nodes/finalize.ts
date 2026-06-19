@@ -35,7 +35,8 @@ export async function finalizeNode(
   const reg = getRegulation(format);
 
   const system = [
-    `You are the Final Synthesizer for a ${reg.label} doubles team. Merge the debate into ONE finished team: complete every set (item, ability, 4 moves) and apply the judge's required changes. Keep it legal — only roster Pokemon, no duplicates, EXACTLY ONE mega, no contradictory speed modes, no weather-locked move without its weather.`,
+    `You are the Final Synthesizer for a ${reg.label} doubles team. Merge the debate into ONE finished team: complete every set (item, ability, 4 moves) and apply the judge's required changes. Keep it legal — only roster Pokemon, no duplicates, EXACTLY ONE mega, no contradictory speed modes, no weather-locked move without its weather, and a LEGAL held item + a real ability for each member.`,
+    `BANNED ITEMS — never use these (illegal in ${reg.label}): ${reg.itemsBanned.join(", ")}.`,
     `Respond with ONLY a JSON object (no prose, no fences):`,
     `{"team":[{"species","role","item","ability","moves":["m1","m2","m3","m4"],"note"} ×6],"summary":"3-5 sentences: the win condition, how the team's speed/weather plan works, and how its shared weaknesses are covered"}`,
     `CRITICAL: the summary must describe ONLY the 6 Pokemon in your team array — never mention a Pokemon, item, or ability that isn't in the final team.`,

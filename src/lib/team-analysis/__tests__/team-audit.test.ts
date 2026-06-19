@@ -177,6 +177,36 @@ describe("auditTeam — legality", () => {
     expect(v.some((x) => x.rule === "species-clause")).toBe(true);
   });
 
+  it("flags a banned item (Assault Vest in M-B)", () => {
+    const team: AITeamMember[] = [
+      { species: "Incineroar", item: "Assault Vest", ability: "Intimidate" },
+    ];
+    const v = auditTeam(team, FORMAT);
+    expect(v.some((x) => x.rule === "item-legality" && x.subject === "Incineroar")).toBe(true);
+  });
+
+  it("flags an ability the species can't have (Garchomp with Levitate)", () => {
+    const team: AITeamMember[] = [{ species: "Garchomp", ability: "Levitate" }];
+    const v = auditTeam(team, FORMAT);
+    expect(v.some((x) => x.rule === "ability-legality" && x.severity === "error")).toBe(true);
+  });
+
+  it("accepts the post-mega ability on a mega member (Mawile @ Mawilite = Huge Power)", () => {
+    const team: AITeamMember[] = [
+      { species: "Mawile", item: "Mawilite", ability: "Huge Power" },
+    ];
+    const v = auditTeam(team, FORMAT);
+    expect(v.some((x) => x.rule === "ability-legality")).toBe(false);
+  });
+
+  it("warns on a made-up move name", () => {
+    const team: AITeamMember[] = [
+      { species: "Garchomp", ability: "Rough Skin", moves: ["Earthquake", "Dragon Pulse Deluxe"] },
+    ];
+    const v = auditTeam(team, FORMAT);
+    expect(v.some((x) => x.rule === "move-legality" && x.severity === "warning")).toBe(true);
+  });
+
   it("passes a clean, coherent team with no blocking errors", () => {
     const team: AITeamMember[] = [
       ...tailwindCore,

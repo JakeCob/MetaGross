@@ -19,8 +19,10 @@ import {
   getMegaAbility,
   isChampionsPokemon,
   isConfirmedNotInChampions,
+  isChampionsItem,
 } from "@/lib/data/champions";
 import { getSpecies } from "@/lib/pokemon/species";
+import { getMove } from "@/lib/pokemon/moves";
 import { getTypeEffectiveness, getAllTypes } from "@/lib/pokemon/types";
 
 /** A team member as the AI tools pass it around. Moves are optional because
@@ -429,6 +431,74 @@ export function auditTeam(
         rule: "open-weakness",
         severity: "warning",
         message: `${w.type} threatens ${w.members.length} members (${w.members.join(", ")}) and nothing on the team resists it — add a ${w.type}-resist or an immunity ability.`,
+      });
+    }
+  }
+
+  // 8. Set legality — item, ability, and move existence per member. Catches the
+  //    LLM handing a Pokemon a banned item, an ability it can't have, or a made-
+  //    up move. (Learnset isn't checked — too heavy + unreliable for new mons.)
+  for (const m of team) {
+    if (!m.species || !isChampionsPokemon(m.species, format)) continue;
+
+    // Item legality.
+    if (m.item && !isChampionsItem(m.item, format)) {
+      out.push({
+        rule: "item-legality",
+        severity: "error",
+        subject: m.species,
+        message: `${m.item} is not a legal held item in ${getRegulation(format).label} (banned or unavailable).`,
+      });
+    }
+
+    // Ability legality — valid pool = the base species' abilities PLUS the
+    // post-mega ability (so both "Intimidate" pre-mega and "Huge Power"
+    // post-mega validate for Mawile).
+    if (m.ability) {
+      const sp = getSpecies(m.species);
+      const pool = sp ? [...sp.abilities] : [];
+      // Add the post-mega ability ONLY when the member actually megas, so a
+      // non-mega member's stray ability can't validate itself.
+      const megaForm = getMegaFormFor(m.species, m.item, format);
+      const mega = megaForm
+        ? getMegaAbility(megaForm) ?? getSpecies(megaForm)?.abilities?.[0] ?? null
+        : null;
+      if (mega && !pool.some((a) => a.toLowerCase() === mega.toLowerCase())) {
+        pool.push(mega);
+      }
+      if (pool.length) {
+        const wanted = m.ability
+          .split(/\s+or\s+|\s*\/\s*|\s*,\s*/i)
+          .map((a) => a.trim().toLowerCase())
+          .filter(Boolean);
+        const valid = new Set(pool.map((a) => a.toLowerCase()));
+        if (!wanted.some((a) => valid.has(a))) {
+          out.push({
+            rule: "ability-legality",
+            severity: "error",
+            subject: m.species,
+            message: `${m.species} can't have "${m.ability}". Legal: ${pool.join(", ")}.`,
+          });
+        }
+      }
+    }
+
+    // Move existence — flag completely made-up move names (placeholder records
+    // from @pkmn have an empty type). Warning, not error, to tolerate any
+    // new-content gaps in the dex.
+    const bad = (m.moves ?? [])
+      .map((mv) => mv.trim())
+      .filter(Boolean)
+      .filter((mv) => {
+        const rec = getMove(mv);
+        return !rec || !rec.type;
+      });
+    if (bad.length) {
+      out.push({
+        rule: "move-legality",
+        severity: "warning",
+        subject: m.species,
+        message: `${m.species} has unknown move${bad.length > 1 ? "s" : ""}: ${bad.join(", ")}.`,
       });
     }
   }
