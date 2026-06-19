@@ -64,8 +64,19 @@ export function ItemSelect({
     [filtered],
   );
 
+  // A real item that's explicitly BANNED in this regulation (e.g. Assault Vest
+  // in M-B) — distinct from an item we simply don't recognise.
+  const banned = useMemo(() => {
+    if (!championsOnly || value.trim().length === 0) return false;
+    const v = value.trim().toLowerCase();
+    return getRegulation(format).itemsBanned.some(
+      (i) => i.toLowerCase() === v,
+    );
+  }, [championsOnly, value, format]);
+
   const notLegal =
     championsOnly &&
+    !banned &&
     value.trim().length > 0 &&
     !isChampionsItem(value, format);
 
@@ -104,6 +115,12 @@ export function ItemSelect({
         placeholder={placeholder}
         autoComplete="off"
       />
+
+      {banned && (
+        <span className="text-[10px] text-destructive mt-1 block">
+          ⛔ {value.trim()} is banned in {getRegulation(format).label}
+        </span>
+      )}
 
       {notLegal && (
         <span className="text-[10px] text-amber-400 mt-1 block">
