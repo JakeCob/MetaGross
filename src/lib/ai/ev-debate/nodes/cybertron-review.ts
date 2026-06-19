@@ -2,7 +2,7 @@ import type { EVDebateStateType, EVDebateStateUpdate } from "../state";
 import { createModel, detectProvider } from "@/lib/ai/graph/model";
 import { AGENT_PERSONAS } from "@/lib/types/agent";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { CHAMPIONS_POINTS } from "@/lib/data/champions";
+import { CHAMPIONS_POINTS, ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 import {
   getReferenceSetsForSpecies,
   formatReferenceSetsBlock,
@@ -57,7 +57,7 @@ export async function cybertronReviewNode(
     .map((r) => `- ${r.survives ? "OK" : "FAIL"} vs ${r.threat}: ${r.damageRange}, ${r.speedComparison}`)
     .join("\n");
 
-  const systemPrompt = `${persona.systemPromptAddition} You are reviewing the WHOLE set — Ability, Item, Moves, Nature, and ${isChampions ? "stat points" : "EVs"} — not just the numbers. Keep it to 3-5 sentences. Focus on survival benchmarks${isChampions ? " against Champions Reg M-A threats (Sneasler, Archaludon, Kingambit, Garchomp, Dragonite-Mega, Tyranitar-Mega, Charizard-Mega-Y)" : ""}, defensive calcs, and fundamental consistency. Flag Nature/moveset mismatches and weak item/ability choices explicitly.`;
+  const systemPrompt = `${persona.systemPromptAddition} You are reviewing the WHOLE set — Ability, Item, Moves, Nature, and ${isChampions ? "stat points" : "EVs"} — not just the numbers. Keep it to 3-5 sentences. Focus on survival benchmarks${isChampions ? ` against ${ACTIVE_REGULATION_LABEL} threats (Sneasler, Archaludon, Kingambit, Garchomp, Dragonite-Mega, Tyranitar-Mega, Charizard-Mega-Y)` : ""}, defensive calcs, and fundamental consistency. Flag Nature/moveset mismatches and weak item/ability choices explicitly.`;
 
   const referenceSets = await getReferenceSetsForSpecies(pokemon.species, format, 6);
   const referenceBlock = formatReferenceSetsBlock(referenceSets);

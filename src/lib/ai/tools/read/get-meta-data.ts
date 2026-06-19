@@ -11,12 +11,14 @@ import {
   isConfirmedNotInChampions,
   canMegaEvolve,
   getChampionsMegaEntriesForSpecies,
+  ACTIVE_REGULATION_LABEL,
+  ACTIVE_REGULATION_FORMAT_ID,
 } from "@/lib/data/champions";
 
 export const getMetaDataTool = new DynamicStructuredTool({
   name: "get_meta_data",
   description:
-    "Get meta game data for Pokemon Champions Reg M-A. Can return: top threats with usage % and common sets, common spreads for a species, list of available Pokemon, or list of available items. ALWAYS use this before recommending Pokemon, items, or moves to verify they exist in Champions.",
+    `Get meta game data for Pokemon ${ACTIVE_REGULATION_LABEL}. Can return: top threats with usage % and common sets, common spreads for a species, list of available Pokemon, or list of available items. ALWAYS use this before recommending Pokemon, items, or moves to verify they exist in Champions.`,
   schema: z.object({
     query: z
       .enum(["threats", "spreads", "available_pokemon", "available_items", "check_pokemon"])
@@ -28,13 +30,13 @@ export const getMetaDataTool = new DynamicStructuredTool({
     format: z
       .string()
       .optional()
-      .default("champions-reg-m-a")
+      .default(ACTIVE_REGULATION_FORMAT_ID)
       .describe("Format to look up"),
   }),
   func: async ({ query, species }) => {
     if (query === "available_pokemon") {
       return JSON.stringify({
-        format: "Champions Reg M-A",
+        format: ACTIVE_REGULATION_LABEL,
         totalAvailable: CHAMPIONS_POKEMON.length,
         pokemon: CHAMPIONS_POKEMON,
         note: "This list includes Pokemon confirmed in competitive play. More may be available.",
@@ -43,7 +45,7 @@ export const getMetaDataTool = new DynamicStructuredTool({
 
     if (query === "available_items") {
       return JSON.stringify({
-        format: "Champions Reg M-A",
+        format: ACTIVE_REGULATION_LABEL,
         confirmed: CHAMPIONS_ITEMS_CONFIRMED,
         uncertain: CHAMPIONS_ITEMS_UNCERTAIN,
         note: "Items in 'uncertain' appear in Showdown preview but may not be on cartridge (Life Orb, Choice Band, Choice Specs, Assault Vest reportedly cut). Recommend confirmed items when possible.",

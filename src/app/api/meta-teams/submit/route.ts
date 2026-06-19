@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { upsertMetaTeam } from "@/lib/meta-teams/queries";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export const runtime = "nodejs";
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
       source: "user",
       sourceRef: input.author ? `user::${input.author}::${Date.now()}` : null,
       sourceUrl: input.sourceUrl ?? null,
-      format: input.format ?? "champions-reg-m-a",
+      format: input.format ?? ACTIVE_REGULATION_FORMAT_ID,
       author: input.author ?? null,
       record: input.record ?? null,
       archetype: input.archetype ?? null,

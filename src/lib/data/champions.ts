@@ -1,20 +1,110 @@
 /**
- * Pokemon Champions Regulation M-A game data.
+ * Pokemon Champions regulation game data.
+ *
+ * This module is a MULTI-REGULATION registry. Each season's roster / items /
+ * megas / rules live in a `Regulation` object inside `REGULATIONS`, and
+ * `ACTIVE_REGULATION` points at the current season. The legacy top-level
+ * exports (`CHAMPIONS_POKEMON`, `isChampionsPokemon`, …) resolve to the
+ * ACTIVE regulation so existing callers keep working untouched; pass a
+ * `format` string to any helper to target a specific regulation instead.
+ *
+ * Regulations:
+ * - M-A (April 8 – June 17, 2026)
+ * - M-B (June 17 – September 2, 2026) — additive to M-A; ACTIVE.
  *
  * Sources:
  * - Pikalytics (competitive usage): pikalytics.com/ai/pokedex/championspreview
  * - Serebii: serebii.net/pokemonchampions/
- * - Bulbapedia: bulbapedia.bulbagarden.net/wiki/Regulation_Set_M-A
+ * - Bulbapedia: bulbapedia.bulbagarden.net/wiki/Regulation_Set_M-A (+ /Mega_Stone)
  * - Victory Road: victoryroad.pro/champions-regulations/
  * - Game8: game8.co/games/Pokemon-Champions
  *
- * Last updated: 2026-04-11
+ * See docs/agent-knowledge/regulation-m-b.md for the M-B diff + sources.
+ * Last updated: 2026-06-17.
  */
 
 // ---------------------------------------------------------------------------
-// Format Rules
+// Types
 // ---------------------------------------------------------------------------
-export const CHAMPIONS_RULES = {
+export type RegulationId = "m-a" | "m-b";
+
+export interface RegulationRules {
+  format: string;
+  teamSize: number;
+  bring: number;
+  level: number;
+  megaEvolution: boolean;
+  terastallization: boolean;
+  speciesClause: boolean;
+  itemClause: boolean;
+  legendaries: boolean;
+  restricted: boolean;
+  period: string;
+  ivsFixed: boolean;
+  ivValue: number;
+}
+
+export interface PointSystem {
+  totalMax: number;
+  perStatMax: number;
+  label: string;
+  evConversion: number;
+  vpCostPerPoint: number;
+}
+
+export interface ChampionsMegaInfo {
+  baseSpecies: string;
+  stone: string;
+  confirmed: boolean;
+}
+
+export interface Regulation {
+  id: RegulationId;
+  /** Human-facing label, e.g. "Champions Reg M-A". */
+  label: string;
+  /** Canonical format string stored on teams/matches, e.g. "champions-reg-m-a". */
+  formatId: string;
+  rules: RegulationRules;
+  points: PointSystem;
+  pokemon: string[];
+  notInPokemon: string[];
+  itemsConfirmed: string[];
+  itemsUncertain: string[];
+  itemsBanned: string[];
+  megas: Record<string, ChampionsMegaInfo>;
+  unavailableMoves: Record<string, string[]>;
+}
+
+// ---------------------------------------------------------------------------
+// Shared (regulation-independent) data
+// ---------------------------------------------------------------------------
+
+/** Point System — identical across M-A and M-B (replaces traditional EVs). */
+const POINTS: PointSystem = {
+  totalMax: 66,
+  perStatMax: 32,
+  label: "Points",
+  evConversion: 8, // 1 Stat Point = 8 EVs for damage calc
+  vpCostPerPoint: 5, // 5 VP to set 1 stat point
+};
+
+/**
+ * Species → moves that are NOT legal for them in Champions, even though
+ * @pkmn/dex thinks they're learnable. Unchanged between M-A and M-B.
+ * Keep entries narrow and well-sourced — wrong entries block legal builds.
+ */
+const UNAVAILABLE_MOVES: Record<string, string[]> = {
+  // Incineroar: Knock Off was cut — not in Incineroar's Champions movepool
+  // (reported 2026-04-23). Fake Out, Flare Blitz, Parting Shot, Darkest
+  // Lariat, Throat Chop are the common replacements.
+  Incineroar: ["Knock Off"],
+};
+
+// ===========================================================================
+// REGULATION M-A
+// ===========================================================================
+
+const M_A_RULES: RegulationRules = {
   format: "Doubles (VGC)",
   teamSize: 6,
   bring: 4,
@@ -30,28 +120,12 @@ export const CHAMPIONS_RULES = {
   ivValue: 31,
 };
 
-// ---------------------------------------------------------------------------
-// Point System (replaces EVs)
-// ---------------------------------------------------------------------------
-export const CHAMPIONS_POINTS = {
-  totalMax: 66,
-  perStatMax: 32,
-  label: "Points",
-  evConversion: 8, // 1 Stat Point = 8 EVs for damage calc
-  vpCostPerPoint: 5, // 5 VP to set 1 stat point
-};
-
-// ---------------------------------------------------------------------------
-// Pokemon — confirmed available from multiple sources
-// ---------------------------------------------------------------------------
-
 /**
  * Pokemon confirmed in Champions Reg M-A.
- * Source of truth: Bulbapedia — List of Pokémon in Pokémon Champions
- * (https://bulbapedia.bulbagarden.net/wiki/List_of_Pokémon_in_Pokémon_Champions)
+ * Source of truth: Bulbapedia — List of Pokémon in Pokémon Champions.
  * Last synced: 2026-04-13.
  */
-export const CHAMPIONS_POKEMON: string[] = [
+const M_A_POKEMON: string[] = [
   // Gen 1
   "Venusaur", "Charizard", "Blastoise", "Beedrill", "Pidgeot", "Arbok",
   "Pikachu", "Raichu", "Raichu-Alola", "Clefable",
@@ -116,20 +190,8 @@ export const CHAMPIONS_POKEMON: string[] = [
   "Archaludon", "Hydrapple",
 ];
 
-// NOTE: The list above contains source-verified entries from Pikalytics
-// (championspreview), Serebii (pokemonchampions), Bulbapedia, and
-// Victory Road. It intentionally under-includes rather than
-// over-includes — listing a Pokemon that is NOT in Champions leads to
-// bad agent recommendations, which is worse than omitting a few.
-//
-// Unknown Pokemon are handled by the agent's fact-check flow
-// (fetch_reference + search_web in get_pokemon_competitive_sets) before
-// being suggested.
-
-/**
- * Pokemon NOT in Champions (commonly suggested by AI incorrectly)
- */
-export const NOT_IN_CHAMPIONS: string[] = [
+/** Pokemon NOT in Champions Reg M-A (commonly suggested by AI incorrectly). */
+const M_A_NOT_IN: string[] = [
   "Kingdra", "Ludicolo", "Amoonguss", "Rillaboom", "Flutter Mane",
   "Iron Hands", "Urshifu", "Urshifu-Rapid-Strike", "Calyrex-Ice",
   "Calyrex-Shadow", "Zacian", "Zamazenta", "Eternatus",
@@ -161,22 +223,12 @@ export const NOT_IN_CHAMPIONS: string[] = [
   "Happiny", "Munchlax", "Mantyke", "Riolu",
 ];
 
-// ---------------------------------------------------------------------------
-// Items
-// ---------------------------------------------------------------------------
-
 /**
- * Items confirmed in Champions — canonical list from Game8
- * (https://game8.co/games/Pokemon-Champions/archives/588871).
- *
- * IMPORTANT: many VGC staples (Weakness Policy, Life Orb, Choice Band,
- * Choice Specs, Rocky Helmet, Safety Goggles, Clear Amulet, Covert Cloak,
- * Assault Vest, Eject Button, Throat Spray, Power Herb, Wide Lens,
- * Toxic Orb, Air Balloon, Black Sludge, Figy/Aguav Berries, Mirror Herb)
- * are NOT in Champions. Do not suggest them. Anything not on this list
- * should be treated as disallowed.
+ * Items confirmed in Champions Reg M-A — canonical list from Game8.
+ * Many VGC staples (Weakness Policy, Life Orb, Choice Band, etc.) are NOT
+ * in M-A. Anything not on this list is treated as disallowed for M-A.
  */
-export const CHAMPIONS_ITEMS_CONFIRMED: string[] = [
+const M_A_ITEMS_CONFIRMED: string[] = [
   // Pinch Berries
   "Sitrus Berry", "Lum Berry", "Persim Berry", "Oran Berry",
   "Leppa Berry", "Aspear Berry", "Rawst Berry", "Pecha Berry",
@@ -219,20 +271,17 @@ export const CHAMPIONS_ITEMS_CONFIRMED: string[] = [
 ];
 
 /**
- * Items reported in other data sources (Showdown Preview, Bulbapedia) but
- * NOT on the Game8 list. Treat as not-in-format unless a newer source
- * confirms them.
+ * Items reported in other M-A data sources but NOT on the Game8 list.
+ * Treat as not-in-format unless a newer source confirms them.
  */
-export const CHAMPIONS_ITEMS_UNCERTAIN: string[] = [
-  // Raichu Mega stones — Raichu is in roster but Game8 doesn't list these stones.
+const M_A_ITEMS_UNCERTAIN: string[] = [
+  // Raichu Mega stones — Raichu is in roster but Game8 doesn't list these
+  // stones for M-A. (Confirmed in M-B.)
   "Raichunite X", "Raichunite Y",
 ];
 
-/**
- * Items that VGC players expect but are confirmed NOT in Champions.
- * Prompt includes this verbatim so the agent knows exactly what to avoid.
- */
-export const CHAMPIONS_ITEMS_BANNED: string[] = [
+/** Items that VGC players expect but are confirmed NOT in Champions Reg M-A. */
+const M_A_ITEMS_BANNED: string[] = [
   "Weakness Policy", "Life Orb", "Choice Band", "Choice Specs",
   "Assault Vest", "Rocky Helmet", "Safety Goggles", "Clear Amulet",
   "Covert Cloak", "Eject Button", "Eject Pack", "Throat Spray",
@@ -245,74 +294,11 @@ export const CHAMPIONS_ITEMS_BANNED: string[] = [
   "Mago Berry", "Wiki Berry", "Normal Gem",
 ];
 
-// ---------------------------------------------------------------------------
-// Moves that a species LOSES in Champions (but @pkmn/dex still says it learns)
-// ---------------------------------------------------------------------------
-
 /**
- * Species → list of moves that are NOT legal for them in Champions Reg M-A,
- * even though @pkmn/dex thinks they're learnable. Champions cuts a subset
- * of TMs and egg-move tutors; the validator + prompt reference this so the
- * agent doesn't propose moves the user literally cannot put on the set.
- *
- * Keep entries narrow and well-sourced — wrong entries here block legal
- * builds. Add as users report hallucinated moves. Matching is
- * case-insensitive and whitespace-tolerant.
+ * Available Mega Evolutions in Champions Reg M-A.
+ * Keys use the canonical @pkmn/dex Mega species names.
  */
-export const CHAMPIONS_UNAVAILABLE_MOVES: Record<string, string[]> = {
-  // Incineroar: Knock Off was cut — not in Incineroar's Champions
-  // movepool (reported 2026-04-23). Fake Out, Flare Blitz, Parting
-  // Shot, Darkest Lariat, Throat Chop are the common replacements.
-  Incineroar: ["Knock Off"],
-};
-
-/**
- * Case-insensitive lookup for CHAMPIONS_UNAVAILABLE_MOVES.
- * Returns the canonical-cased blocked list for a species (empty if none).
- */
-export function getUnavailableMovesFor(species: string): string[] {
-  const base = species
-    .replace(/-Mega(-[XY])?$/i, "")
-    .trim();
-  const direct = CHAMPIONS_UNAVAILABLE_MOVES[base];
-  if (direct) return direct;
-  const ci = Object.entries(CHAMPIONS_UNAVAILABLE_MOVES).find(
-    ([k]) => k.toLowerCase() === base.toLowerCase(),
-  );
-  return ci ? ci[1] : [];
-}
-
-/**
- * Returns true if `move` is explicitly blocked for `species` in Champions.
- * Case/whitespace-insensitive.
- */
-export function isMoveBlockedForSpecies(
-  species: string,
-  move: string,
-): boolean {
-  const blocked = getUnavailableMovesFor(species);
-  const needle = move.trim().toLowerCase();
-  return blocked.some((m) => m.toLowerCase() === needle);
-}
-
-// ---------------------------------------------------------------------------
-// Mega Evolutions
-// ---------------------------------------------------------------------------
-
-export interface ChampionsMegaInfo {
-  baseSpecies: string;
-  stone: string;
-  confirmed: boolean;
-}
-
-/**
- * Available Mega Evolutions in Champions.
- *
- * Keys use the canonical @pkmn/dex Mega species names. Most entries map 1:1
- * with Bulbapedia's Mega table; `Meowstic-F-Mega` is kept as a separate dex
- * species even though Bulbapedia folds it into "Mega Meowstic".
- */
-export const CHAMPIONS_MEGAS: Record<string, ChampionsMegaInfo> = {
+const M_A_MEGAS: Record<string, ChampionsMegaInfo> = {
   "Venusaur-Mega": { baseSpecies: "Venusaur", stone: "Venusaurite", confirmed: true },
   "Charizard-Mega-X": { baseSpecies: "Charizard", stone: "Charizardite X", confirmed: true },
   "Charizard-Mega-Y": { baseSpecies: "Charizard", stone: "Charizardite Y", confirmed: true },
@@ -377,17 +363,264 @@ export const CHAMPIONS_MEGAS: Record<string, ChampionsMegaInfo> = {
   "Glimmora-Mega": { baseSpecies: "Glimmora", stone: "Glimmoranite", confirmed: true },
 };
 
+const M_A: Regulation = {
+  id: "m-a",
+  label: "Champions Reg M-A",
+  formatId: "champions-reg-m-a",
+  rules: M_A_RULES,
+  points: POINTS,
+  pokemon: M_A_POKEMON,
+  notInPokemon: M_A_NOT_IN,
+  itemsConfirmed: M_A_ITEMS_CONFIRMED,
+  itemsUncertain: M_A_ITEMS_UNCERTAIN,
+  itemsBanned: M_A_ITEMS_BANNED,
+  megas: M_A_MEGAS,
+  unavailableMoves: UNAVAILABLE_MOVES,
+};
+
+// ===========================================================================
+// REGULATION M-B  (additive delta over M-A)
+// See docs/agent-knowledge/regulation-m-b.md. Synced 2026-06-17.
+// ===========================================================================
+
+/** 22 base species newly legal in M-B. */
+const M_B_ADDED_POKEMON: string[] = [
+  "Vileplume", "Qwilfish", "Sceptile", "Blaziken", "Swampert", "Mawile",
+  "Metagross", "Staraptor", "Musharna", "Scolipede", "Scrafty", "Eelektross",
+  "Pyroar", "Malamar", "Barbaracle", "Dragalge", "Grimmsnarl", "Falinks",
+  "Overqwil", "Houndstone", "Annihilape", "Gholdengo",
+];
+
+/** Species that were in M-A's banlist but are LEGAL in M-B. */
+const M_B_UNBANNED_SPECIES: string[] = ["Metagross", "Grimmsnarl", "Gholdengo"];
+
+/** Items newly available in M-B (mega stones + general items). */
+const M_B_ADDED_ITEMS: string[] = [
+  // New mega stones (canonical)
+  "Sceptilite", "Blazikenite", "Swampertite", "Mawilite", "Metagrossite",
+  "Raichunite X", "Raichunite Y",
+  // New mega stones (invented Z-A — from Bulbapedia/Mega_Stone)
+  "Staraptite", "Scolipite", "Scraftinite", "Eelektrossite", "Pyroarite",
+  "Malamarite", "Barbaracite", "Dragalgite", "Falinksite",
+  // General held items added in M-B (Serebii "newly added")
+  "Life Orb", "Wide Lens", "Muscle Band", "Wise Glasses", "Expert Belt",
+  "Light Clay", "Zoom Lens", "Metronome", "Iron Ball", "Icy Rock",
+  "Smooth Rock", "Heat Rock", "Damp Rock", "Shed Shell", "Big Root",
+];
+
+/** Items that were banned in M-A but are LEGAL in M-B. */
+const M_B_UNBANNED_ITEMS: string[] = [
+  "Life Orb", "Wide Lens", "Muscle Band", "Light Clay",
+  "Damp Rock", "Heat Rock", "Smooth Rock", "Icy Rock",
+];
+
+/** 14 new Mega Evolutions in M-B (Raichu megas already exist in M-A). */
+const M_B_ADDED_MEGAS: Record<string, ChampionsMegaInfo> = {
+  "Sceptile-Mega": { baseSpecies: "Sceptile", stone: "Sceptilite", confirmed: true },
+  "Blaziken-Mega": { baseSpecies: "Blaziken", stone: "Blazikenite", confirmed: true },
+  "Swampert-Mega": { baseSpecies: "Swampert", stone: "Swampertite", confirmed: true },
+  "Mawile-Mega": { baseSpecies: "Mawile", stone: "Mawilite", confirmed: true },
+  "Metagross-Mega": { baseSpecies: "Metagross", stone: "Metagrossite", confirmed: true },
+  "Staraptor-Mega": { baseSpecies: "Staraptor", stone: "Staraptite", confirmed: true },
+  "Scolipede-Mega": { baseSpecies: "Scolipede", stone: "Scolipite", confirmed: true },
+  "Scrafty-Mega": { baseSpecies: "Scrafty", stone: "Scraftinite", confirmed: true },
+  "Eelektross-Mega": { baseSpecies: "Eelektross", stone: "Eelektrossite", confirmed: true },
+  "Pyroar-Mega": { baseSpecies: "Pyroar", stone: "Pyroarite", confirmed: true },
+  "Malamar-Mega": { baseSpecies: "Malamar", stone: "Malamarite", confirmed: true },
+  "Barbaracle-Mega": { baseSpecies: "Barbaracle", stone: "Barbaracite", confirmed: true },
+  "Dragalge-Mega": { baseSpecies: "Dragalge", stone: "Dragalgite", confirmed: true },
+  "Falinks-Mega": { baseSpecies: "Falinks", stone: "Falinksite", confirmed: true },
+};
+
+const M_B: Regulation = {
+  id: "m-b",
+  label: "Champions Reg M-B",
+  formatId: "champions-reg-m-b",
+  rules: { ...M_A_RULES, period: "June 17 - September 2, 2026" },
+  points: POINTS,
+  pokemon: [...M_A_POKEMON, ...M_B_ADDED_POKEMON],
+  notInPokemon: M_A_NOT_IN.filter((p) => !M_B_UNBANNED_SPECIES.includes(p)),
+  itemsConfirmed: [...M_A_ITEMS_CONFIRMED, ...M_B_ADDED_ITEMS],
+  itemsUncertain: [],
+  itemsBanned: M_A_ITEMS_BANNED.filter((i) => !M_B_UNBANNED_ITEMS.includes(i)),
+  megas: { ...M_A_MEGAS, ...M_B_ADDED_MEGAS },
+  unavailableMoves: UNAVAILABLE_MOVES,
+};
+
+// ---------------------------------------------------------------------------
+// Mega signature abilities
+// ---------------------------------------------------------------------------
+
 /**
- * Pokemon that exist in Champions but CANNOT Mega Evolve
- * (their Mega Stone is not in the game).
+ * The in-game Ability a Mega Evolution has in Champions, keyed by canonical
+ * mega form name. Needed because @pkmn/dex only knows the BASE form's
+ * ability for the invented Z-A megas (e.g. it reports Eelektross-Mega as
+ * "Levitate" — its real Champions ability is "Eelevate").
  *
- * NOTE: Metagross and Salamence are NOT in Champions at all — see
- * NOT_IN_CHAMPIONS above.
+ * Real Gen-6 ORAS megas are intentionally omitted — @pkmn/dex already has
+ * their abilities correct (Sceptile-Mega → Lightning Rod, etc.).
+ *
+ * Source of truth: serebii.net/pokemonchampions/megaabilities.shtml
+ * (synced 2026-06-17). Reg-independent — a mega's ability is the same in
+ * every regulation it appears in.
+ */
+export const CHAMPIONS_MEGA_ABILITIES: Record<string, string> = {
+  // Signature megas available since M-A
+  "Raichu-Mega-X": "Electric Surge",
+  "Raichu-Mega-Y": "No Guard",
+  "Clefable-Mega": "Magic Bounce",
+  "Victreebel-Mega": "Innards Out",
+  "Starmie-Mega": "Huge Power",
+  "Dragonite-Mega": "Multiscale",
+  "Meganium-Mega": "Mega Sol",
+  "Feraligatr-Mega": "Dragonize",
+  "Skarmory-Mega": "Stalwart",
+  "Chimecho-Mega": "Levitate",
+  "Froslass-Mega": "Snow Warning",
+  "Emboar-Mega": "Mold Breaker",
+  "Excadrill-Mega": "Piercing Drill",
+  "Chandelure-Mega": "Infiltrator",
+  "Golurk-Mega": "Unseen Fist",
+  "Chesnaught-Mega": "Bulletproof",
+  "Delphox-Mega": "Levitate",
+  "Greninja-Mega": "Protean",
+  "Floette-Mega": "Fairy Aura",
+  "Meowstic-M-Mega": "Trace",
+  "Meowstic-F-Mega": "Trace",
+  "Hawlucha-Mega": "No Guard",
+  "Crabominable-Mega": "Iron Fist",
+  "Drampa-Mega": "Berserk",
+  "Scovillain-Mega": "Spicy Spray",
+  "Glimmora-Mega": "Adaptability",
+  // Signature megas new in M-B
+  "Staraptor-Mega": "Contrary",
+  "Scolipede-Mega": "Shell Armor",
+  "Scrafty-Mega": "Intimidate",
+  "Eelektross-Mega": "Eelevate",
+  "Pyroar-Mega": "Fire Mane",
+  "Malamar-Mega": "Contrary",
+  "Barbaracle-Mega": "Tough Claws",
+  "Dragalge-Mega": "Regenerator",
+  "Falinks-Mega": "Defiant",
+  // Real Gen-6/7 ORAS megas — the dex KNOWS these abilities, but getMegaAbility
+  // can't reach @pkmn from client components, so the post-mega ability is listed
+  // statically here too (e.g. Mawile's base Intimidate/Sheer Force becomes Huge
+  // Power on Mega Evolution). Keeps the team builder + agents correct everywhere.
+  "Venusaur-Mega": "Thick Fat",
+  "Charizard-Mega-X": "Tough Claws",
+  "Charizard-Mega-Y": "Drought",
+  "Blastoise-Mega": "Mega Launcher",
+  "Beedrill-Mega": "Adaptability",
+  "Pidgeot-Mega": "No Guard",
+  "Alakazam-Mega": "Trace",
+  "Slowbro-Mega": "Shell Armor",
+  "Gengar-Mega": "Shadow Tag",
+  "Kangaskhan-Mega": "Parental Bond",
+  "Pinsir-Mega": "Aerilate",
+  "Gyarados-Mega": "Mold Breaker",
+  "Aerodactyl-Mega": "Tough Claws",
+  "Ampharos-Mega": "Mold Breaker",
+  "Steelix-Mega": "Sand Force",
+  "Scizor-Mega": "Technician",
+  "Heracross-Mega": "Skill Link",
+  "Houndoom-Mega": "Solar Power",
+  "Tyranitar-Mega": "Sand Stream",
+  "Gardevoir-Mega": "Pixilate",
+  "Sableye-Mega": "Magic Bounce",
+  "Aggron-Mega": "Filter",
+  "Medicham-Mega": "Pure Power",
+  "Manectric-Mega": "Intimidate",
+  "Sharpedo-Mega": "Strong Jaw",
+  "Camerupt-Mega": "Sheer Force",
+  "Altaria-Mega": "Pixilate",
+  "Banette-Mega": "Prankster",
+  "Absol-Mega": "Magic Bounce",
+  "Glalie-Mega": "Refrigerate",
+  "Lopunny-Mega": "Scrappy",
+  "Garchomp-Mega": "Sand Force",
+  "Lucario-Mega": "Adaptability",
+  "Abomasnow-Mega": "Snow Warning",
+  "Gallade-Mega": "Inner Focus",
+  "Audino-Mega": "Healer",
+  "Sceptile-Mega": "Lightning Rod",
+  "Blaziken-Mega": "Speed Boost",
+  "Swampert-Mega": "Swift Swim",
+  "Mawile-Mega": "Huge Power",
+  "Metagross-Mega": "Tough Claws",
+};
+
+// ===========================================================================
+// Registry + active regulation
+// ===========================================================================
+
+export const REGULATIONS: Record<RegulationId, Regulation> = {
+  "m-a": M_A,
+  "m-b": M_B,
+};
+
+/** The current season. All format-less helper calls resolve to this. */
+export const ACTIVE_REGULATION: RegulationId = "m-b";
+
+/**
+ * Human-facing label for the active regulation, e.g. "Champions Reg M-B".
+ * Prefer interpolating this into prompts / UI / tool descriptions over
+ * hardcoding the regulation name, so a season change is a one-line update.
+ */
+export const ACTIVE_REGULATION_LABEL: string = REGULATIONS[ACTIVE_REGULATION].label;
+
+/** Canonical format id for the active regulation, e.g. "champions-reg-m-b". */
+export const ACTIVE_REGULATION_FORMAT_ID: string =
+  REGULATIONS[ACTIVE_REGULATION].formatId;
+
+/** All selectable regulations, newest first — for UI format dropdowns. */
+export const REGULATION_OPTIONS: ReadonlyArray<{
+  id: RegulationId;
+  label: string;
+  formatId: string;
+}> = [M_B, M_A].map((r) => ({ id: r.id, label: r.label, formatId: r.formatId }));
+
+/**
+ * Map a free-form format string (e.g. "Champions Reg M-A",
+ * "champions-reg-m-b") to a regulation id. Falls back to ACTIVE_REGULATION
+ * when the format is missing or unrecognised.
+ */
+export function resolveRegulationId(format?: string | null): RegulationId {
+  if (format) {
+    const f = format.toLowerCase();
+    if (f.includes("m-b")) return "m-b";
+    if (f.includes("m-a")) return "m-a";
+  }
+  return ACTIVE_REGULATION;
+}
+
+/** Resolve a full Regulation object from a format string (or the active one). */
+export function getRegulation(format?: string | null): Regulation {
+  return REGULATIONS[resolveRegulationId(format)];
+}
+
+// ---------------------------------------------------------------------------
+// Back-compat exports — resolve to the ACTIVE regulation. Existing callers
+// that don't care about a specific regulation keep working unchanged.
+// ---------------------------------------------------------------------------
+const ACTIVE = REGULATIONS[ACTIVE_REGULATION];
+export const CHAMPIONS_RULES = ACTIVE.rules;
+export const CHAMPIONS_POINTS = ACTIVE.points;
+export const CHAMPIONS_POKEMON = ACTIVE.pokemon;
+export const NOT_IN_CHAMPIONS = ACTIVE.notInPokemon;
+export const CHAMPIONS_ITEMS_CONFIRMED = ACTIVE.itemsConfirmed;
+export const CHAMPIONS_ITEMS_UNCERTAIN = ACTIVE.itemsUncertain;
+export const CHAMPIONS_ITEMS_BANNED = ACTIVE.itemsBanned;
+export const CHAMPIONS_MEGAS = ACTIVE.megas;
+export const CHAMPIONS_UNAVAILABLE_MOVES = ACTIVE.unavailableMoves;
+
+/**
+ * Pokemon that exist in Champions but CANNOT Mega Evolve.
+ * (Currently empty — every roster Pokemon with a stone can mega.)
  */
 export const NO_MEGA_DESPITE_BASE: string[] = [];
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers — all accept an optional `format` to target a specific regulation.
 // ---------------------------------------------------------------------------
 
 const CHAMPIONS_SPECIES_ALIASES: Record<string, string> = {
@@ -404,36 +637,40 @@ function normalizeChampionsSpeciesName(species: string): string {
   return CHAMPIONS_SPECIES_ALIASES[normalized] ?? normalized;
 }
 
-export function isChampionsPokemon(species: string): boolean {
+export function isChampionsPokemon(species: string, format?: string | null): boolean {
   const normalized = normalizeChampionsSpeciesName(species);
-  return CHAMPIONS_POKEMON.some(
+  return getRegulation(format).pokemon.some(
     (p) => normalizeChampionsSpeciesName(p) === normalized,
   );
 }
 
-export function isChampionsItem(item: string): boolean {
+export function isChampionsItem(item: string, format?: string | null): boolean {
+  const reg = getRegulation(format);
+  const itemLc = item.toLowerCase();
   return (
-    CHAMPIONS_ITEMS_CONFIRMED.some(
-      (i) => i.toLowerCase() === item.toLowerCase(),
-    ) ||
-    CHAMPIONS_ITEMS_UNCERTAIN.some(
-      (i) => i.toLowerCase() === item.toLowerCase(),
-    )
+    reg.itemsConfirmed.some((i) => i.toLowerCase() === itemLc) ||
+    reg.itemsUncertain.some((i) => i.toLowerCase() === itemLc)
   );
 }
 
-export function isConfirmedNotInChampions(species: string): boolean {
+export function isConfirmedNotInChampions(
+  species: string,
+  format?: string | null,
+): boolean {
   const normalized = normalizeChampionsSpeciesName(species);
-  return NOT_IN_CHAMPIONS.some(
+  return getRegulation(format).notInPokemon.some(
     (p) => normalizeChampionsSpeciesName(p) === normalized,
   );
 }
 
-export function canMegaEvolve(species: string): boolean {
-  return getChampionsMegaEntriesForSpecies(species).length > 0;
+export function canMegaEvolve(species: string, format?: string | null): boolean {
+  return getChampionsMegaEntriesForSpecies(species, format).length > 0;
 }
 
-export function getChampionsMegaEntriesForSpecies(species: string): Array<{
+export function getChampionsMegaEntriesForSpecies(
+  species: string,
+  format?: string | null,
+): Array<{
   megaSpecies: string;
   baseSpecies: string;
   stone: string;
@@ -442,7 +679,7 @@ export function getChampionsMegaEntriesForSpecies(species: string): Array<{
   const normalized = normalizeChampionsSpeciesName(species);
   if (!normalized) return [];
 
-  return Object.entries(CHAMPIONS_MEGAS)
+  return Object.entries(getRegulation(format).megas)
     .filter(
       ([, info]) =>
         normalizeChampionsSpeciesName(info.baseSpecies) === normalized,
@@ -456,25 +693,83 @@ export function getChampionsMegaEntriesForSpecies(species: string): Array<{
 }
 
 /**
- * Look up the Mega Stone → mega species name mapping.
+ * Look up the Mega Stone → mega species name mapping for a regulation.
  * Returns the @pkmn-canonical Mega form name when the held item triggers
- * Mega Evolution for the given base species in Champions; otherwise null.
+ * Mega Evolution for the given base species; otherwise null.
  *
  * Examples:
  *   getMegaFormFor("Garchomp", "Garchompite")    → "Garchomp-Mega"
- *   getMegaFormFor("Charizard", "Charizardite X") → "Charizard-Mega-X"
- *   getMegaFormFor("Starmie", "Starminite")      → "Starmie-Mega"
- *   getMegaFormFor("Pikachu", "Focus Sash")      → null
+ *   getMegaFormFor("Metagross", "Metagrossite", "champions-reg-m-b") → "Metagross-Mega"
+ *   getMegaFormFor("Metagross", "Metagrossite", "champions-reg-m-a") → null
  */
 export function getMegaFormFor(
   species: string,
   item: string | undefined | null,
+  format?: string | null,
 ): string | null {
   if (!species || !item) return null;
   const itemLc = item.trim().toLowerCase();
   return (
-    getChampionsMegaEntriesForSpecies(species).find(
+    getChampionsMegaEntriesForSpecies(species, format).find(
       (entry) => entry.stone.toLowerCase() === itemLc,
     )?.megaSpecies ?? null
   );
+}
+
+/**
+ * The Champions in-battle Ability for a canonical mega form name — the ability
+ * the Pokemon has AFTER Mega Evolving (e.g. "Eelektross-Mega" → "Eelevate",
+ * "Mawile-Mega" → "Huge Power"). Covers both the invented Z-A megas and the
+ * real Gen-6 megas, so callers (including client components) never need @pkmn.
+ * Returns null when the form isn't a known mega.
+ */
+export function getMegaAbility(megaSpecies: string | null | undefined): string | null {
+  if (!megaSpecies) return null;
+  return CHAMPIONS_MEGA_ABILITIES[megaSpecies] ?? null;
+}
+
+/**
+ * Convenience for the team builder: given a base species + held item, the
+ * Mega's signature ability if the held stone triggers a mega that has one.
+ *
+ * Example: getMegaAbilityFor("Eelektross", "Eelektrossite") → "Eelevate"
+ */
+export function getMegaAbilityFor(
+  species: string,
+  item: string | undefined | null,
+  format?: string | null,
+): string | null {
+  return getMegaAbility(getMegaFormFor(species, item, format));
+}
+
+/**
+ * Case-insensitive lookup for a regulation's unavailable-moves table.
+ * Returns the canonical-cased blocked list for a species (empty if none).
+ */
+export function getUnavailableMovesFor(
+  species: string,
+  format?: string | null,
+): string[] {
+  const table = getRegulation(format).unavailableMoves;
+  const base = species.replace(/-Mega(-[XY])?$/i, "").trim();
+  const direct = table[base];
+  if (direct) return direct;
+  const ci = Object.entries(table).find(
+    ([k]) => k.toLowerCase() === base.toLowerCase(),
+  );
+  return ci ? ci[1] : [];
+}
+
+/**
+ * Returns true if `move` is explicitly blocked for `species`.
+ * Case/whitespace-insensitive.
+ */
+export function isMoveBlockedForSpecies(
+  species: string,
+  move: string,
+  format?: string | null,
+): boolean {
+  const blocked = getUnavailableMovesFor(species, format);
+  const needle = move.trim().toLowerCase();
+  return blocked.some((m) => m.toLowerCase() === needle);
 }

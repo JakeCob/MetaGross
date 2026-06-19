@@ -1,7 +1,7 @@
 import {
   getPikalyticsTopUsage,
   getPikalyticsPokemonDetail,
-  DEFAULT_PIKALYTICS_FORMAT,
+  resolvePikalyticsFormat,
 } from "@/lib/pokemon/pikalytics";
 import {
   generateTeamSuggestions,
@@ -21,7 +21,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const team: string[] = body.team ?? [];
-    const format: string = body.format ?? DEFAULT_PIKALYTICS_FORMAT;
+    // The team builder passes its display format (e.g. "Champions Reg M-B").
+    // Map it to a real Pikalytics endpoint id, else the fetch 404s and we
+    // get zero meta data → zero suggestions.
+    const format: string = resolvePikalyticsFormat(body.format);
 
     if (!Array.isArray(team) || team.length === 0) {
       return Response.json(

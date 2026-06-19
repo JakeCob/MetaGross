@@ -7,6 +7,7 @@ import { PokemonSprite } from "@/components/pokemon-sprite";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSetValidation } from "@/hooks/use-set-validation";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export interface PokemonBlock {
   name: string;
@@ -964,7 +965,7 @@ function PokemonCard({ data, actions }: { data: PokemonBlock; actions?: CardActi
     renderedPokemon.spriteSpecies,
     cleanAbilityName || undefined,
     moveList,
-    "champions-reg-m-a",
+    ACTIVE_REGULATION_FORMAT_ID,
   );
 
   const handleCopy = () => {

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -399,7 +400,7 @@ export function TournamentList() {
           Champions Tournaments
         </h1>
         <p className="text-sm text-muted-foreground">
-          Recent VGC Champions Reg M-A tournament results from Limitless VGC.
+          Recent VGC {ACTIVE_REGULATION_LABEL} tournament results from Limitless VGC.
           Click a tournament to view standings and full team lists.
         </p>
         <div className="flex items-center gap-2 mt-1">

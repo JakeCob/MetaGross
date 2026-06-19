@@ -1,6 +1,7 @@
 import { calculateBenchmarks } from "@/lib/ev/benchmark";
 import { getMetaThreats } from "@/lib/ev/meta-lookup";
 import type { TeamPokemon } from "@/lib/types/pokemon";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export async function POST(request: Request) {
   try {
@@ -8,7 +9,7 @@ export async function POST(request: Request) {
 
     const {
       pokemon,
-      format = "champions-reg-m-a",
+      format = ACTIVE_REGULATION_FORMAT_ID,
     } = body as {
       pokemon: TeamPokemon;
       format?: string;

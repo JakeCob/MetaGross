@@ -18,6 +18,8 @@ export async function GET() {
     passcodeLength: (process.env.METAGROSS_PASSCODE ?? "").length,
     hasAuthSecret: Boolean(process.env.METAGROSS_AUTH_SECRET),
     authSecretLength: (process.env.METAGROSS_AUTH_SECRET ?? "").length,
+    hasCronSecret: Boolean(process.env.CRON_SECRET),
+    cronSecretLength: (process.env.CRON_SECRET ?? "").length,
     nodeEnv: process.env.NODE_ENV,
     runtime: "nodejs",
   });

@@ -123,10 +123,19 @@ export function AgentComposer({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
-      }
+      if (e.key !== "Enter") return;
+      // Never send mid-IME-composition (mobile / Asian keyboards).
+      if (e.nativeEvent.isComposing) return;
+      // On touch devices there is no Shift+Enter, so Enter must insert a
+      // newline — sending is done with the Send button. Only desktop /
+      // hardware-keyboard users get Enter-to-send (Shift+Enter = newline).
+      const coarsePointer =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(pointer: coarse)").matches;
+      if (coarsePointer || e.shiftKey) return; // allow the newline
+      e.preventDefault();
+      handleSend();
     },
     [handleSend],
   );

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { optimizeEVSpread } from "@/lib/ai/ev-debate";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
 import type { TeamPokemon } from "@/lib/types/pokemon";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export const optimizeEVSpreadTool = new DynamicStructuredTool({
   name: "optimize_ev_spread",
@@ -41,7 +42,7 @@ export const optimizeEVSpreadTool = new DynamicStructuredTool({
         ivs: { ...DEFAULT_IVS },
       }));
 
-      const result = await optimizeEVSpread(pokemon, team, "champions-reg-m-a");
+      const result = await optimizeEVSpread(pokemon, team, ACTIVE_REGULATION_FORMAT_ID);
 
       return JSON.stringify({
         species,

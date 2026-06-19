@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PokemonSprite } from "@/components/pokemon-sprite";
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 // ---------------------------------------------------------------------------
 // Types (mirrors /api/champions/roster response)
@@ -502,7 +503,7 @@ export function ChampionsRoster() {
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
             Pokemon Champions —{" "}
-            <span className="text-primary">Regulation M-A Roster</span>
+            <span className="text-primary">{ACTIVE_REGULATION_LABEL} Roster</span>
           </h1>
           <p className="text-sm text-muted-foreground">
             {data.totalCount} Pokemon confirmed available ·{" "}

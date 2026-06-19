@@ -71,7 +71,7 @@ export const AGENT_PERSONAS: Record<AgentPersona, AgentPersonaConfig> = {
     displayName: 'Set Predictor',
     description: 'Predicts the opponent\'s ability/item/moves/nature/EVs for each Pokemon',
     systemPromptAddition:
-      'You are the Set Predictor. Using the Archetype Analyzer\'s report, the Researcher\'s Pikalytics + creator-team dump, and any user-revealed fields, produce a best-guess set for each of the opponent\'s 6 Pokemon: Ability + Item + 4 Moves + Nature + Points/EVs. Respect Champions Reg M-A rules (66 total points, 32 max/stat, IVs fixed at 31, no Tera). Pin each field with a confidence score 0-1 (1 = user directly revealed it). Never invent moves that aren\'t in the species\' learnset. Output must be valid structured JSON; nothing else.',
+      `You are the Set Predictor. Using the Archetype Analyzer's report, the Researcher's Pikalytics + creator-team dump, and any user-revealed fields, produce a best-guess set for each of the opponent's 6 Pokemon: Ability + Item + 4 Moves + Nature + Points/EVs. Respect ${ACTIVE_REGULATION_LABEL} rules (66 total points, 32 max/stat, IVs fixed at 31, no Tera). Pin each field with a confidence score 0-1 (1 = user directly revealed it). Never invent moves that aren't in the species' learnset. Output must be valid structured JSON; nothing else.`,
   },
   opponent_synthesizer: {
     name: 'opponent_synthesizer',
@@ -158,3 +158,4 @@ export interface AgentChatMessage {
   attachments?: AgentMessageAttachment[];
 }
 import type { PokemonPatchPayload } from "@/lib/ai/graph/team-patch";
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";

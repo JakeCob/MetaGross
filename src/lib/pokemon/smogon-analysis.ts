@@ -17,6 +17,8 @@
  */
 import "server-only";
 
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
+
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
@@ -305,7 +307,7 @@ function pickStrategy(
     return {
       strategy: pick,
       reason: `${tier.reasonPrefix} — ${pick.format}${
-        isVgcReg(pick) ? " (Champions Reg M-A has no dedicated Smogon writeup)" : ""
+        isVgcReg(pick) ? ` (${ACTIVE_REGULATION_LABEL} has no dedicated Smogon writeup)` : ""
       }`,
     };
   }

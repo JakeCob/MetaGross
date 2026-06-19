@@ -7,6 +7,7 @@
  */
 
 import { Annotation } from "@langchain/langgraph";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import type { DamageObservation, SpeedObservation } from "@/lib/types/ev";
 import type { MechanicalFacts } from "./mechanical-facts";
@@ -90,7 +91,7 @@ export const ScoutingState = Annotation.Root({
   }),
   format: Annotation<string>({
     reducer: (_prev, next) => next,
-    default: () => "champions-reg-m-a",
+    default: () => ACTIVE_REGULATION_FORMAT_ID,
   }),
   /** Hash the caller computed — used for cache invalidation downstream. */
   scoutingHash: Annotation<string>({

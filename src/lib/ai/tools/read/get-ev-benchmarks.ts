@@ -3,6 +3,7 @@ import { z } from "zod";
 import { calculateBenchmarks } from "@/lib/ev/benchmark";
 import { getMetaThreats } from "@/lib/ev/meta-lookup";
 import type { TeamPokemon } from "@/lib/types/pokemon";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 const evSpreadSchema = z.object({
   hp: z.number().int().min(0).max(252),
@@ -39,7 +40,7 @@ export const getEvBenchmarksTool = new DynamicStructuredTool({
         ivs: ivSpreadSchema,
       })
       .describe("The Pokemon to benchmark"),
-    format: z.string().optional().default("champions-reg-m-a"),
+    format: z.string().optional().default(ACTIVE_REGULATION_FORMAT_ID),
   }),
   func: async ({ pokemon, format }) => {
     const threats = getMetaThreats(format);

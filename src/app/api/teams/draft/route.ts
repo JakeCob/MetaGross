@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { teams, teamPokemon } from "@/lib/db/schema";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export const runtime = "nodejs";
 
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const format = parsed.data.format ?? "champions-reg-m-a";
+    const format = parsed.data.format ?? ACTIVE_REGULATION_FORMAT_ID;
     const userId = parsed.data.userId ?? "00000000-0000-0000-0000-000000000001";
     const now = Date.now();
     const insertedIds: string[] = [];

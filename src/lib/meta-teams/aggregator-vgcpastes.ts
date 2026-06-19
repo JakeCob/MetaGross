@@ -19,6 +19,7 @@ import {
   parsePokepaste,
 } from "./scrapers/pokepaste";
 import { upsertMetaTeam } from "./queries";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export const VGCPASTES_SHEET_ID = "1axlwmzPA49rYkqXh7zHvAtSP-TKbM0ijGYBPRflLSWw";
 export const VGCPASTES_CHAMPIONS_GID = "791705272";
@@ -247,7 +248,7 @@ export async function aggregateFromVgcPastes(
   const maxAgeMs = opts.maxAgeDays
     ? opts.maxAgeDays * 24 * 60 * 60 * 1000
     : null;
-  const internalFormat = opts.internalFormat ?? "champions-reg-m-a";
+  const internalFormat = opts.internalFormat ?? ACTIVE_REGULATION_FORMAT_ID;
   const pasteTimeoutMs = opts.pasteTimeoutMs ?? 5000;
 
   const result: AggregateVgcPastesResult = {

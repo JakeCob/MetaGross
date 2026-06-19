@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { streamEVDebate } from "@/lib/ai/ev-debate";
 import type { TeamPokemon } from "@/lib/types/pokemon";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 /**
  * POST /api/ev-debate
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
 
     const pokemon: TeamPokemon | undefined = body.pokemon;
     const team: TeamPokemon[] = body.team ?? [];
-    const format: string = body.format ?? "champions-reg-m-a";
+    const format: string = body.format ?? ACTIVE_REGULATION_FORMAT_ID;
 
     if (!pokemon || !pokemon.species) {
       return NextResponse.json(

@@ -1,16 +1,20 @@
 import { searchSpecies, getSpecies } from "@/lib/pokemon/species";
 import type { SpeciesData } from "@/lib/pokemon/species";
 import { matchArchetype } from "@/lib/data/archetype-keywords";
-import { CHAMPIONS_POKEMON } from "@/lib/data/champions";
+import { getRegulation } from "@/lib/data/champions";
 
-function searchChampionsSpecies(query: string, limit: number): SpeciesData[] {
+function searchChampionsSpecies(
+  query: string,
+  limit: number,
+  format: string,
+): SpeciesData[] {
   if (!query.trim()) return [];
 
   const lowerQuery = query.toLowerCase();
   const results: SpeciesData[] = [];
   const seen = new Set<string>();
 
-  for (const name of CHAMPIONS_POKEMON) {
+  for (const name of getRegulation(format).pokemon) {
     if (results.length >= limit) break;
 
     const data = getSpecies(name);
@@ -39,7 +43,9 @@ export async function GET(request: Request) {
       50,
     );
     const isChampionsFormat = format.toLowerCase().startsWith("champions");
-    const championsSet = new Set(CHAMPIONS_POKEMON.map((name) => name.toLowerCase()));
+    const championsSet = new Set(
+      getRegulation(format).pokemon.map((name) => name.toLowerCase()),
+    );
 
     if (!q.trim()) {
       return Response.json([]);
@@ -47,7 +53,7 @@ export async function GET(request: Request) {
 
     // 1) Name-based species search (handles "meta", "garchom", etc.)
     const nameResults = isChampionsFormat
-      ? searchChampionsSpecies(q, limit)
+      ? searchChampionsSpecies(q, limit, format)
       : searchSpecies(q, limit);
 
     // 2) Archetype/keyword match (handles "rain", "bulky", "tailwind", etc.)

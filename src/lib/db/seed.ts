@@ -1,5 +1,6 @@
 import { db } from './index';
 import { users, teams, teamPokemon } from './schema';
+import { ACTIVE_REGULATION_FORMAT_ID } from '@/lib/data/champions';
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 const SAMPLE_TEAM_ID = '11111111-1111-1111-1111-111111111111';
@@ -26,7 +27,7 @@ db.insert(teams)
     id: SAMPLE_TEAM_ID,
     userId: DEFAULT_USER_ID,
     name: 'Sample Meta Team',
-    format: 'champions-reg-m-a',
+    format: ACTIVE_REGULATION_FORMAT_ID,
     isActive: 1,
     createdAt: now,
     updatedAt: now,

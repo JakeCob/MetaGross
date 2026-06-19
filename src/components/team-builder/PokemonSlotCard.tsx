@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PokemonSprite } from "@/components/pokemon-sprite";
-import { getMegaFormFor } from "@/lib/data/champions";
+import { getMegaAbility, getMegaFormFor } from "@/lib/data/champions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 
 export interface PokemonSlotCardProps {
@@ -13,6 +13,8 @@ export interface PokemonSlotCardProps {
   isSelected: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  /** Team format — scopes mega detection to the right regulation (M-A vs M-B). */
+  format?: string;
 }
 
 export function PokemonSlotCard({
@@ -21,6 +23,7 @@ export function PokemonSlotCard({
   isSelected,
   onSelect,
   onRemove,
+  format,
 }: PokemonSlotCardProps) {
   const hasPokemon = Boolean(pokemon.species?.trim());
 
@@ -67,9 +70,12 @@ export function PokemonSlotCard({
   }
 
   const moves = (pokemon.moves ?? ["", "", "", ""]).filter(Boolean);
-  const megaForm = getMegaFormFor(pokemon.species ?? "", pokemon.item);
+  const megaForm = getMegaFormFor(pokemon.species ?? "", pokemon.item, format);
   const displaySpecies = megaForm ?? pokemon.species!;
   const isMega = Boolean(megaForm);
+  // When mega-evolved, show the Mega's signature ability instead of the
+  // base ability (e.g. Mega Eelektross → "Eelevate", not "Levitate").
+  const displayAbility = (isMega && getMegaAbility(megaForm)) || pokemon.ability;
 
   return (
     <div
@@ -155,11 +161,11 @@ export function PokemonSlotCard({
             {pokemon.nature && pokemon.nature !== "Hardy" && (
               <span>{pokemon.nature}</span>
             )}
-            {pokemon.nature && pokemon.nature !== "Hardy" && pokemon.ability && (
+            {pokemon.nature && pokemon.nature !== "Hardy" && displayAbility && (
               <span className="text-border">|</span>
             )}
-            {pokemon.ability && (
-              <span className="truncate max-w-[100px]">{pokemon.ability}</span>
+            {displayAbility && (
+              <span className="truncate max-w-[100px]">{displayAbility}</span>
             )}
           </div>
 

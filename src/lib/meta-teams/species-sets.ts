@@ -10,6 +10,7 @@
 import "server-only";
 
 import { listMetaTeams } from "./queries";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 import type { MetaTeam, MetaTeamPokemon, MetaTeamSource } from "./types";
 
 export interface ReferenceSet {
@@ -46,7 +47,7 @@ function speciesEquals(a: string, b: string): boolean {
  */
 export async function getReferenceSetsForSpecies(
   species: string,
-  format: string = "champions-reg-m-a",
+  format: string = ACTIVE_REGULATION_FORMAT_ID,
   limit: number = 6,
 ): Promise<ReferenceSet[]> {
   const teams = await listMetaTeams(format, 500);

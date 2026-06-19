@@ -17,6 +17,7 @@ import {
   type LimitlessTournament,
 } from "@/lib/pokemon/limitless";
 import { upsertMetaTeam } from "./queries";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export interface AggregateLimitlessOptions {
   /** How many recent tournaments to walk. Default 25 (~2 months). */
@@ -50,7 +51,7 @@ export async function aggregateFromLimitless(
   const topTournaments = opts.topTournaments ?? 25;
   const topCut = opts.topCut ?? 16;
   const minPlayers = opts.minPlayers ?? 16;
-  const internalFormat = opts.internalFormat ?? "champions-reg-m-a";
+  const internalFormat = opts.internalFormat ?? ACTIVE_REGULATION_FORMAT_ID;
 
   const result: AggregateLimitlessResult = {
     tournamentsScanned: 0,

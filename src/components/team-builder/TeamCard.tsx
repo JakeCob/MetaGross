@@ -51,7 +51,7 @@ export function TeamCard({ team, onDelete, onSetActive }: TeamCardProps) {
           <div className="flex flex-wrap gap-2">
             {team.pokemon.length > 0 ? (
               team.pokemon.map((mon, i) => {
-                const megaForm = getMegaFormFor(mon.species, mon.item);
+                const megaForm = getMegaFormFor(mon.species, mon.item, team.format);
                 const displaySpecies = megaForm ?? mon.species;
                 const isMega = Boolean(megaForm);
                 return (

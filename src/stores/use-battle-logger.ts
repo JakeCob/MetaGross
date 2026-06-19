@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import type {
   BattleMode,
@@ -165,7 +166,7 @@ const initialState = {
   opponentLeads: [] as string[],
   turns: [] as Turn[],
   result: null as BattleResult | null,
-  format: "champions-reg-m-a",
+  format: ACTIVE_REGULATION_FORMAT_ID,
   opponentName: "",
   notes: "",
   // Turn management initial state

@@ -24,6 +24,7 @@ import type { SpeciesData } from "@/lib/pokemon/species";
 import type { AbilityData } from "@/lib/pokemon/abilities";
 import type { TeamPokemon, EVSpread, IVSpread, StatName } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
+import { ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 
 const TYPE_COLORS: Record<string, string> = {
   Normal: "bg-gray-500 text-white",
@@ -286,6 +287,7 @@ export function PokemonForm({ value, onChange, slot, format = "", team = [] }: P
                 value={value.item ?? ""}
                 onChange={(item) => update({ item })}
                 championsOnly={isChampions}
+                format={format}
                 placeholder="e.g., Choice Band"
               />
               {isChampions && (
@@ -413,7 +415,7 @@ export function PokemonForm({ value, onChange, slot, format = "", team = [] }: P
           {isChampions ? (
             <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
               <span className="text-[11px] text-muted-foreground">
-                IVs are fixed at 31 in Champions Reg M-A — no manual editing required.
+                IVs are fixed at 31 in {ACTIVE_REGULATION_LABEL} — no manual editing required.
               </span>
             </div>
           ) : (

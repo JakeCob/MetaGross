@@ -177,7 +177,7 @@ export async function getTopUsage(
 export const DEFAULT_VGC_FORMAT = "gen9vgc2026";
 
 export const VGC_FORMATS = [
-  { id: "gen9vgc2026", label: "VGC 2026 (Champions / Reg M-A)" },
+  { id: "gen9vgc2026", label: "VGC 2026 (Champions)" },
   { id: "gen9vgc2025", label: "VGC 2025 (Reg I)" },
   { id: "gen9vgc2024", label: "VGC 2024" },
   { id: "gen9vgc2023", label: "VGC 2023" },

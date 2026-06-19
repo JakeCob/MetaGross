@@ -1,5 +1,6 @@
 import { Annotation } from "@langchain/langgraph";
 import type { TeamPokemon, EVSpread } from "@/lib/types/pokemon";
+import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 // ---------------------------------------------------------------------------
 // Simulation result (one row per meta threat check)
@@ -49,7 +50,7 @@ export const EVDebateState = Annotation.Root({
   }),
   format: Annotation<string>({
     reducer: (_prev, next) => next,
-    default: () => "champions-reg-m-a",
+    default: () => ACTIVE_REGULATION_FORMAT_ID,
   }),
 
   // Debate state — full set (moves/ability/item included, not just EVs)

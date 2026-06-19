@@ -11,6 +11,8 @@
 import { getSpecies } from "./species";
 import { getMove } from "./moves";
 import {
+  getMegaAbility,
+  getRegulation,
   isChampionsPokemon,
   isConfirmedNotInChampions,
 } from "@/lib/data/champions";
@@ -120,26 +122,6 @@ export function normalizeSpeciesName(raw: string): string[] {
 }
 
 /**
- * Champions-specific Mega abilities that differ from @pkmn/dex's
- * defaults. Sourced from Jacob's in-game verification + Bulbapedia's
- * Z-A Mega roster. These are ADDITIVE — we accept the dex abilities
- * too, but ALSO accept any of these Champions-only Mega abilities as
- * valid without warning.
- */
-const CHAMPIONS_MEGA_ABILITY_OVERRIDES: Record<string, string[]> = {
-  "Scovillain-Mega": ["Spicy Spray"],
-  "Delphox-Mega": ["Levitate"],
-  "Froslass-Mega": ["Snow Warning"],
-  "Starmie-Mega": ["Huge Power"],
-  "Skarmory-Mega": ["Stalwart"],
-  "Excadrill-Mega": ["Piercing Drill"],
-  "Emboar-Mega": ["Mold Breaker"],
-  "Chesnaught-Mega": ["Bulletproof"],
-  "Chimecho-Mega": ["Levitate"],
-  "Victreebel-Mega": ["Innards Out"],
-};
-
-/**
  * Validate a proposed build. Returns the resolved species + list of
  * warnings — empty warnings means the build looks clean.
  */
@@ -196,23 +178,28 @@ export function validateSet(input: ValidateSetInput): ValidateSetResult {
         ? "Floette-Eternal"
         : baseSpecies;
 
-    if (isConfirmedNotInChampions(candidate)) {
+    const regLabel = getRegulation(input.format).label;
+    if (isConfirmedNotInChampions(candidate, input.format)) {
       warnings.push({
         kind: "not-in-format",
-        message: `${candidate} is CONFIRMED not in Pokemon Champions. Do not use this Pokemon for Champions Reg M-A.`,
+        message: `${candidate} is CONFIRMED not in Pokemon Champions. Do not use this Pokemon for ${regLabel}.`,
       });
-    } else if (!isChampionsPokemon(candidate)) {
+    } else if (!isChampionsPokemon(candidate, input.format)) {
       warnings.push({
         kind: "not-in-format",
-        message: `${candidate} is not on our confirmed Champions roster. Verify via Bulbapedia's Champions page before building with it.`,
+        message: `${candidate} is not on our confirmed ${regLabel} roster. Verify via Bulbapedia's Champions page before building with it.`,
       });
     }
   }
 
   const dexAbilities = resolved.abilities ?? [];
-  const championsOverrides =
-    (resolvedName && CHAMPIONS_MEGA_ABILITY_OVERRIDES[resolvedName]) ?? [];
-  const allValidAbilities = [...dexAbilities, ...championsOverrides];
+  // Champions Mega signature ability (centralised in champions.ts) — the
+  // dex only knows the base form's ability for invented Z-A megas.
+  const megaAbility = getMegaAbility(resolvedName);
+  const allValidAbilities = [
+    ...dexAbilities,
+    ...(megaAbility ? [megaAbility] : []),
+  ];
 
   // Ability check — case-insensitive. Accepts "X or Y" / "X / Y" /
   // "X, Y" strings (the agent sometimes lists alternatives). Passes

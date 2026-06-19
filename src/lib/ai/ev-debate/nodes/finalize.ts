@@ -1,7 +1,7 @@
 import type { EVDebateStateType, EVDebateStateUpdate } from "../state";
 import { createModel, detectProvider } from "@/lib/ai/graph/model";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { CHAMPIONS_POINTS } from "@/lib/data/champions";
+import { CHAMPIONS_POINTS, ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 import type { EVSpread } from "@/lib/types/pokemon";
 
 interface ParsedFinal {
@@ -99,7 +99,7 @@ export async function finalizeNode(
     )
     .join("\n");
 
-  const systemPrompt = `You are the Final Decision synthesizer${isChampions ? " for Pokemon Champions Reg M-A" : ""}. Merge the two expert opinions and the final simulation data into ONE complete optimized set — Ability + Item + Moves + Nature + ${label}. Total ${label} MUST equal exactly ${totalMax}, max ${perStatMax} per stat. The Nature must match the move categories. Exactly 4 unique moves.`;
+  const systemPrompt = `You are the Final Decision synthesizer${isChampions ? ` for Pokemon ${ACTIVE_REGULATION_LABEL}` : ""}. Merge the two expert opinions and the final simulation data into ONE complete optimized set — Ability + Item + Moves + Nature + ${label}. Total ${label} MUST equal exactly ${totalMax}, max ${perStatMax} per stat. The Nature must match the move categories. Exactly 4 unique moves.`;
 
   const userPrompt = `Pokemon: ${pokemon.species}
 Current proposed set after debate:
