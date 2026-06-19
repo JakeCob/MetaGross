@@ -24,6 +24,7 @@ import {
 import { getSpecies } from "@/lib/pokemon/species";
 import { getMove } from "@/lib/pokemon/moves";
 import { getTypeEffectiveness, getAllTypes } from "@/lib/pokemon/types";
+import { defaultGen } from "@/lib/pokemon/generations";
 
 /** A team member as the AI tools pass it around. Moves are optional because
  *  the suggester works from partial teams; the debate works from full sets. */
@@ -509,6 +510,70 @@ export function auditTeam(
 /** Convenience: just the blocking errors. */
 export function teamErrors(team: AITeamMember[], format: string): TeamViolation[] {
   return auditTeam(team, format).filter((v) => v.severity === "error");
+}
+
+const toID = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * Whether a species can learn a move, walking the pre-evolution chain (so a
+ * move inherited from a pre-evo, e.g. Incineroar's Fake Out via Litten, counts).
+ * Mega forms have no learnset of their own — pass the BASE species.
+ * Returns true / false, or null when @pkmn has NO learnset for the line at all
+ * (e.g. invented Champions species) so callers can stay lenient.
+ */
+async function speciesCanLearn(
+  species: string,
+  moveId: string,
+): Promise<boolean | null> {
+  let cur: string | undefined = species;
+  let sawData = false;
+  let guard = 0;
+  while (cur && guard++ < 4) {
+    const ls = await defaultGen.learnsets.get(toID(cur)).catch(() => null);
+    if (ls?.learnset) {
+      sawData = true;
+      if (moveId in ls.learnset) return true;
+    }
+    const sp = defaultGen.species.get(cur);
+    cur = sp?.prevo ? String(sp.prevo) : undefined;
+  }
+  return sawData ? false : null;
+}
+
+/**
+ * Async learnset audit — flags real moves a member's species can't actually
+ * learn (on top of the sync move-EXISTENCE check in auditTeam). Kept separate
+ * and async because @pkmn learnsets load lazily; kept a WARNING (not a loop-
+ * forcing error) because learnset data is incomplete for invented Champions
+ * mons/megas and event/transfer moves — better to surface than to wrongly
+ * force a revision.
+ */
+export async function auditLearnsets(
+  team: AITeamMember[],
+  format: string,
+): Promise<TeamViolation[]> {
+  const out: TeamViolation[] = [];
+  for (const m of team) {
+    if (!m.species || !isChampionsPokemon(m.species, format)) continue;
+    const bad: string[] = [];
+    for (const raw of m.moves ?? []) {
+      const mv = raw.trim();
+      if (!mv) continue;
+      const rec = getMove(mv);
+      if (!rec || !rec.type) continue; // nonexistent → handled by move-legality
+      const can = await speciesCanLearn(m.species, toID(mv));
+      if (can === false) bad.push(mv);
+    }
+    if (bad.length) {
+      out.push({
+        rule: "learnset",
+        severity: "warning",
+        subject: m.species,
+        message: `${m.species} may not legally learn: ${bad.join(", ")} (not in its @pkmn learnset, incl. pre-evolutions).`,
+      });
+    }
+  }
+  return out;
 }
 
 /**

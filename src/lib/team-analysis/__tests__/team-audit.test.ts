@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   analyzeTeam,
   auditTeam,
+  auditLearnsets,
   teamErrors,
   megaAbilityFor,
   type AITeamMember,
@@ -69,6 +70,32 @@ describe("megaAbilityFor — post-mega ability", () => {
     expect(
       megaAbilityFor({ species: "Incineroar", item: "Sitrus Berry", ability: "Intimidate" }, FORMAT),
     ).toBe("Intimidate");
+  });
+});
+
+describe("auditLearnsets — move learnset legality", () => {
+  it("flags a move the species can't learn (Garchomp / Hydro Pump)", async () => {
+    const team: AITeamMember[] = [
+      { species: "Garchomp", ability: "Rough Skin", moves: ["Earthquake", "Hydro Pump"] },
+    ];
+    const v = await auditLearnsets(team, FORMAT);
+    expect(v.some((x) => x.rule === "learnset" && /Hydro Pump/.test(x.message))).toBe(true);
+  });
+
+  it("accepts a move inherited from a pre-evolution (Incineroar / Fake Out via Litten)", async () => {
+    const team: AITeamMember[] = [
+      { species: "Incineroar", ability: "Intimidate", moves: ["Fake Out", "Flare Blitz", "Parting Shot", "Knock Off"] },
+    ];
+    const v = await auditLearnsets(team, FORMAT);
+    expect(v).toHaveLength(0);
+  });
+
+  it("accepts a clean legal moveset (Garchomp)", async () => {
+    const team: AITeamMember[] = [
+      { species: "Garchomp", ability: "Rough Skin", moves: ["Earthquake", "Stone Edge", "Dragon Claw", "Protect"] },
+    ];
+    const v = await auditLearnsets(team, FORMAT);
+    expect(v).toHaveLength(0);
   });
 });
 

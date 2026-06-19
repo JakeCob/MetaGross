@@ -7,6 +7,7 @@ import { runModel, parseDraftJson, renderDraft } from "../llm";
 import { getRegulation } from "@/lib/data/champions";
 import {
   auditTeam,
+  auditLearnsets,
   withMegaAbilities,
   type AITeamMember,
 } from "@/lib/team-analysis/team-context";
@@ -96,7 +97,10 @@ export async function finalizeNode(
   const summary = (await runModel(summarySystem, summaryUser)).trim();
 
   // Honest residual warnings on whatever we shipped.
-  const residual = auditTeam(toMembers(finalTeam), format);
+  const residual = [
+    ...auditTeam(toMembers(finalTeam), format),
+    ...(await auditLearnsets(toMembers(finalTeam), format)),
+  ];
   const warnNote = residual.length
     ? `\n\nRemaining notes: ${residual.map((v) => v.message).join(" ")}`
     : "";

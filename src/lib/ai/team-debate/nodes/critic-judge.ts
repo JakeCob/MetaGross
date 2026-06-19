@@ -1,7 +1,11 @@
 import type { TeamDebateStateType, TeamDebateStateUpdate } from "../state";
 import { runModel, renderDraft } from "../llm";
 import { getRegulation } from "@/lib/data/champions";
-import { auditTeam, type AITeamMember } from "@/lib/team-analysis/team-context";
+import {
+  auditTeam,
+  auditLearnsets,
+  type AITeamMember,
+} from "@/lib/team-analysis/team-context";
 
 /**
  * Node: the Critic / Judge. It runs the DETERMINISTIC auditor (the reliable
@@ -23,7 +27,10 @@ export async function criticJudgeNode(
     ability: m.ability,
     moves: m.moves,
   }));
-  const violations = auditTeam(members, format);
+  const violations = [
+    ...auditTeam(members, format),
+    ...(await auditLearnsets(members, format)),
+  ];
   const errors = violations.filter((v) => v.severity === "error");
 
   const violationBlock = violations.length
