@@ -342,15 +342,18 @@ export function auditTeam(
     }
   }
 
-  // 3. Mega clause — at most one mega stone on the team.
+  // 3. Mega stones — carrying MULTIPLE is legal (the Gen-6 mega system Champions
+  //    revives lets you bring several stones and Mega-Evolve ONE per battle).
+  //    A dual-mega core (e.g. Mega Mawile + Mega Blastoise sharing rain support,
+  //    pick per matchup) is a real strategy, so this is informational only.
   if (analysis.megaCount > 1) {
     const stones = team
       .filter((m) => getMegaFormFor(m.species, m.item, format))
       .map((m) => `${m.species} @ ${m.item}`);
     out.push({
-      rule: "mega-clause",
-      severity: "error",
-      message: `Two mega stones on the team (${stones.join(", ")}). Champions allows only one Mega per team.`,
+      rule: "mega-stones",
+      severity: "warning",
+      message: `Carrying ${analysis.megaCount} mega stones (${stones.join(", ")}) — legal, but only ONE Mega-Evolves per battle; bring the matchup-appropriate one. Make sure both fit the same support (e.g. weather, redirection).`,
     });
   }
 
@@ -502,6 +505,26 @@ export function auditTeam(
         message: `${m.species} has unknown move${bad.length > 1 ? "s" : ""}: ${bad.join(", ")}.`,
       });
     }
+
+    // Ability ↔ attacking-category fit: Lightning Rod / Storm Drain grant +1
+    // SpA on absorb — wasted on a purely PHYSICAL attacker (the redirect still
+    // works, but the offensive upside is dead). Only flag when the mon has
+    // damaging moves and NONE are special.
+    const ability = norm(m.ability);
+    if (ability === "lightning rod" || ability === "storm drain") {
+      const dmg = (m.moves ?? [])
+        .map((mv) => getMove(mv.trim()))
+        .filter((rec): rec is NonNullable<typeof rec> => !!rec && !!rec.type)
+        .filter((rec) => rec.category === "Physical" || rec.category === "Special");
+      if (dmg.length > 0 && dmg.every((rec) => rec.category === "Physical")) {
+        out.push({
+          rule: "ability-fit",
+          severity: "warning",
+          subject: m.species,
+          message: `${m.species}'s ${m.ability} gives a Special-Attack boost on absorb, but ${m.species} runs only physical attacks — the boost is wasted (it still redirects). Use it on a special attacker, or pick an ability that helps a physical mon.`,
+        });
+      }
+    }
   }
 
   return out;
@@ -617,11 +640,23 @@ export function withMegaAbilities<T extends AITeamMember>(
 /** Mega-aware ability label for prompts/transcripts. */
 export function describeMember(m: AITeamMember, format: string): string {
   const mega = getMegaFormFor(m.species, m.item, format);
-  const ability = megaAbilityFor(m, format) || m.ability;
   const head = m.item ? `${m.species} @ ${m.item}` : m.species;
   const tags: string[] = [];
-  if (mega) tags.push(`Mega → ${mega}`);
-  if (ability) tags.push(`ability: ${ability}`);
+  if (mega) {
+    tags.push(`Mega → ${mega}`);
+    // Surface BOTH abilities: the base ability is live until you Mega-Evolve
+    // (and you can delay the mega to keep it — e.g. Mawile Intimidates on entry,
+    // then megas for Huge Power), so the agent must weigh both.
+    const baseAb = m.ability;
+    const megaAb = megaAbilityFor(m, format);
+    if (baseAb && megaAb && baseAb.toLowerCase() !== megaAb.toLowerCase()) {
+      tags.push(`ability: ${baseAb} (base) → ${megaAb} (after Mega)`);
+    } else if (megaAb || baseAb) {
+      tags.push(`ability: ${megaAb || baseAb}`);
+    }
+  } else if (m.ability) {
+    tags.push(`ability: ${m.ability}`);
+  }
   const moves = memberMoves(m);
   if (moves.length) tags.push(`moves: ${(m.moves ?? []).filter(Boolean).join("/")}`);
   return tags.length ? `${head} (${tags.join(", ")})` : head;

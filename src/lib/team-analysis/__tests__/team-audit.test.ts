@@ -5,6 +5,7 @@ import {
   auditLearnsets,
   teamErrors,
   megaAbilityFor,
+  describeMember,
   type AITeamMember,
 } from "../team-context";
 
@@ -50,6 +51,25 @@ describe("analyzeTeam", () => {
         a.weaknesses[1].members.length,
       );
     }
+  });
+});
+
+describe("describeMember — surfaces base + mega ability", () => {
+  it("shows both base and post-mega ability for a mega (Mawile: Intimidate → Huge Power)", () => {
+    const s = describeMember(
+      { species: "Mawile", item: "Mawilite", ability: "Intimidate" },
+      FORMAT,
+    );
+    expect(s).toMatch(/Intimidate \(base\) → Huge Power \(after Mega\)/);
+  });
+
+  it("shows a single ability for a non-mega member", () => {
+    const s = describeMember(
+      { species: "Incineroar", item: "Sitrus Berry", ability: "Intimidate" },
+      FORMAT,
+    );
+    expect(s).toContain("ability: Intimidate");
+    expect(s).not.toContain("after Mega");
   });
 });
 
@@ -180,13 +200,14 @@ describe("auditTeam — speed identity", () => {
 });
 
 describe("auditTeam — legality", () => {
-  it("flags two mega stones", () => {
+  it("does NOT error on two mega stones — legal (only one megas per battle), warns instead", () => {
     const team: AITeamMember[] = [
       { species: "Staraptor", item: "Staraptite", ability: "Reckless" },
       { species: "Charizard", item: "Charizardite Y", ability: "Blaze" },
     ];
     const v = auditTeam(team, FORMAT);
-    expect(v.some((x) => x.rule === "mega-clause" && x.severity === "error")).toBe(true);
+    expect(v.some((x) => x.rule === "mega-stones" && x.severity === "warning")).toBe(true);
+    expect(v.some((x) => x.severity === "error")).toBe(false);
   });
 
   it("flags an illegal roster pick (Miraidon)", () => {
@@ -224,6 +245,22 @@ describe("auditTeam — legality", () => {
     ];
     const v = auditTeam(team, FORMAT);
     expect(v.some((x) => x.rule === "ability-legality")).toBe(false);
+  });
+
+  it("flags Lightning Rod's SpA boost wasted on a physical attacker (Rhyperior)", () => {
+    const team: AITeamMember[] = [
+      { species: "Rhyperior", ability: "Lightning Rod", moves: ["Rock Slide", "High Horsepower", "Ice Punch", "Protect"] },
+    ];
+    const v = auditTeam(team, FORMAT);
+    expect(v.some((x) => x.rule === "ability-fit" && x.subject === "Rhyperior")).toBe(true);
+  });
+
+  it("does NOT flag Lightning Rod on a special attacker (Raichu)", () => {
+    const team: AITeamMember[] = [
+      { species: "Raichu", ability: "Lightning Rod", moves: ["Thunderbolt", "Volt Switch", "Protect"] },
+    ];
+    const v = auditTeam(team, FORMAT);
+    expect(v.some((x) => x.rule === "ability-fit")).toBe(false);
   });
 
   it("warns on a made-up move name", () => {
