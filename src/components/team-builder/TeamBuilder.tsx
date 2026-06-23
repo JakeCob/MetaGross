@@ -340,20 +340,25 @@ export function TeamBuilder({
     setEditingSlot(null);
   }, []);
 
-  /** Replace the team with a debated build (full sets, EVs left at defaults). */
+  /** Replace the team with a debated build (full sets, incl. optimized EVs/nature). */
   const handleDebateApply = useCallback((members: TeamDebateMember[]) => {
-    const imported: Partial<TeamPokemon>[] = members.slice(0, 6).map((m) => ({
-      ...emptyPokemon(),
-      species: m.species,
-      item: m.item ?? "",
-      ability: m.ability ?? "",
-      moves: [
-        m.moves?.[0] ?? "",
-        m.moves?.[1] ?? "",
-        m.moves?.[2] ?? "",
-        m.moves?.[3] ?? "",
-      ] as [string, string, string, string],
-    }));
+    const imported: Partial<TeamPokemon>[] = members.slice(0, 6).map((m) => {
+      const base = emptyPokemon();
+      return {
+        ...base,
+        species: m.species,
+        item: m.item ?? "",
+        ability: m.ability ?? "",
+        moves: [
+          m.moves?.[0] ?? "",
+          m.moves?.[1] ?? "",
+          m.moves?.[2] ?? "",
+          m.moves?.[3] ?? "",
+        ] as [string, string, string, string],
+        ...(m.nature ? { nature: m.nature } : {}),
+        ...(m.evs ? { evs: m.evs } : {}),
+      };
+    });
     handleImport(imported as TeamPokemon[]);
   }, [handleImport]);
 

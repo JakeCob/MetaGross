@@ -4,7 +4,9 @@ import type { AITeamMember } from "@/lib/team-analysis/team-context";
 import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// Full-team build + EV optimization on all 6 is long-running. 300s is the
+// platform max; very large builds may still need a background job in prod.
+export const maxDuration = 300;
 
 /**
  * POST /api/teams/debate

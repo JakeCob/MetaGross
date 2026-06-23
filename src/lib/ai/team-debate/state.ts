@@ -1,6 +1,7 @@
 import { Annotation } from "@langchain/langgraph";
 import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 import type { AITeamMember, TeamViolation } from "@/lib/team-analysis/team-context";
+import type { EVSpread } from "@/lib/types/pokemon";
 
 /** A Pokemon in the proposed team. Full set is optional until finalize. */
 export interface DraftMember {
@@ -10,6 +11,10 @@ export interface DraftMember {
   ability?: string;
   moves?: string[];
   note?: string;
+  /** Filled in by finalize's EV-optimization pass. */
+  nature?: string;
+  /** Champions-point spread (0-32/stat) from the EV optimizer. */
+  evs?: EVSpread;
 }
 
 /** One line in the debate transcript surfaced to the user. */
