@@ -35,6 +35,8 @@ export async function POST(request: Request) {
       meta_analyst: "analyst",
       critic_judge: "critic",
       finalize: "finalize",
+      ev_progress: "ev_progress",
+      ev_done: "ev_done",
     };
 
     const stream = new ReadableStream({
@@ -69,6 +71,7 @@ export async function POST(request: Request) {
                 round: s.round ?? undefined,
                 finalTeam: s.finalTeam ?? undefined,
                 finalSummary: s.finalSummary ?? undefined,
+                evProgress: s.evProgress ?? undefined,
               },
             });
           }

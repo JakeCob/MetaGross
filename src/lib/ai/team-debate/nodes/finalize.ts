@@ -11,78 +11,6 @@ import {
   withMegaAbilities,
   type AITeamMember,
 } from "@/lib/team-analysis/team-context";
-import { optimizeEVSpread } from "@/lib/ai/ev-debate";
-import type { TeamPokemon } from "@/lib/types/pokemon";
-
-const FLAT_IVS = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
-const ZERO_EVS = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
-
-/** Build a TeamPokemon (the EV optimizer's input shape) from a draft member. */
-function draftToTeamPokemon(m: DraftMember): TeamPokemon {
-  return {
-    species: m.species,
-    ability: m.ability ?? "",
-    item: m.item ?? "",
-    nature: m.nature ?? "Hardy",
-    level: 50,
-    moves: [
-      m.moves?.[0] ?? "",
-      m.moves?.[1] ?? "",
-      m.moves?.[2] ?? "",
-      m.moves?.[3] ?? "",
-    ],
-    evs: m.evs ?? ZERO_EVS,
-    ivs: FLAT_IVS,
-  };
-}
-
-/** Optimize one member's EVs, retrying once on a transient failure (rate
- *  limit / abort). Falls back to the un-optimized member if both attempts fail. */
-async function optimizeOne(
-  m: DraftMember,
-  others: TeamPokemon[],
-  format: string,
-): Promise<DraftMember> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const res = await optimizeEVSpread(draftToTeamPokemon(m), others, format);
-      return { ...m, nature: res.nature, evs: res.spread };
-    } catch {
-      // retry once, then give up and keep the member as-is
-    }
-  }
-  return m;
-}
-
-/**
- * Run the full multi-agent EV optimizer on every member, merging the
- * benchmarked spread + nature back onto each draft member. Heavy (6× the EV
- * debate) — that's the intended trade-off — but capped at EV_CONCURRENCY at a
- * time so 6 simultaneous debates (~30 LLM calls) don't stampede provider rate
- * limits (which earlier left half the team un-optimized). Per-member failures
- * fall back to the un-optimized member so one bad run can't sink the team.
- */
-const EV_CONCURRENCY = 2;
-async function optimizeTeamEVs(
-  team: DraftMember[],
-  format: string,
-): Promise<DraftMember[]> {
-  const out = [...team];
-  for (let start = 0; start < team.length; start += EV_CONCURRENCY) {
-    const end = Math.min(start + EV_CONCURRENCY, team.length);
-    const batch: Promise<void>[] = [];
-    for (let i = start; i < end; i++) {
-      const others = team.filter((_, j) => j !== i).map(draftToTeamPokemon);
-      batch.push(
-        optimizeOne(team[i], others, format).then((r) => {
-          out[i] = r;
-        }),
-      );
-    }
-    await Promise.all(batch);
-  }
-  return out;
-}
 
 /** Pull the first {...} object out of a possibly fenced reply. */
 function extractJsonObject(text: string): string {
@@ -152,11 +80,9 @@ export async function finalizeNode(
   }
   // Correct each mega member's ability to its real post-mega ability
   // (Mega Mawile → Huge Power), regardless of what the LLM wrote.
+  // EV optimization happens AFTER the graph, in streamTeamDebate, so its
+  // long per-member progress can stream to the UI (this node returns fast).
   finalTeam = withMegaAbilities(finalTeam, format);
-
-  // Benchmark-optimize every member's EVs + nature so the team ships
-  // battle-ready (the full EV debate, run on all 6 in parallel).
-  finalTeam = await optimizeTeamEVs(finalTeam, format);
 
   // Summarise in a SEPARATE pass that ONLY sees the finished team — so the
   // prose can't drift onto Pokemon from an earlier draft (the model has no
@@ -181,18 +107,23 @@ export async function finalizeNode(
     ? `\n\nRemaining notes: ${residual.map((v) => v.message).join(" ")}`
     : "";
 
+  // Summary stays clean (no appended notes) — the panel renders `violations`
+  // as a separate list, so appending here would double-print them.
   const finalSummary =
-    (summary || "Final team synthesized from the multi-agent debate.") + warnNote;
+    summary || "Final team synthesized from the multi-agent debate.";
 
   return {
     finalTeam,
     finalSummary,
+    // Overwrite the round-1 critic's audit with the FINAL team's audit so the
+    // streamed violations match what actually shipped (not a swapped-out draft).
+    violations: residual,
     transcript: [
       {
         agent: "finalize",
         label: "Final Synthesizer",
         round: state.round,
-        text: `Final team:\n${renderDraft(finalTeam, format)}\n\n${finalSummary}`,
+        text: `Final team:\n${renderDraft(finalTeam, format)}\n\n${finalSummary}${warnNote}`,
       },
     ],
   };
