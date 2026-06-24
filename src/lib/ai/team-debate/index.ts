@@ -12,7 +12,12 @@
  * fix within the round budget.
  */
 import { StateGraph, START, END } from "@langchain/langgraph";
-import { TeamDebateState, type TeamDebateStateType } from "./state";
+import {
+  TeamDebateState,
+  type TeamDebateStateType,
+  type DraftMember,
+} from "./state";
+import { optimizeTeamEVsStream, type EvProgress } from "./ev-pass";
 import { proposeTeamNode } from "./nodes/propose-team";
 import { offenseArchitectNode } from "./nodes/offense-architect";
 import { defenseArchitectNode } from "./nodes/defense-architect";
@@ -89,15 +94,44 @@ function buildInput(opts: TeamDebateOptions) {
  */
 export async function* streamTeamDebate(
   opts: TeamDebateOptions,
-): AsyncGenerator<{ node: string; state: TeamDebateStateType }> {
+): AsyncGenerator<{
+  node: string;
+  state: Partial<TeamDebateStateType> & { evProgress?: EvProgress };
+}> {
   if (!isAIAvailable()) throw new Error("AI_UNAVAILABLE");
-  const stream = await getGraph().stream(buildInput(opts), {
-    streamMode: "updates",
-  });
+  const input = buildInput(opts);
+  const stream = await getGraph().stream(input, { streamMode: "updates" });
+
+  // Stream the graph nodes (propose → … → finalize) and capture the composed
+  // team. finalize now returns the team WITHOUT evs so the graph completes fast.
+  let finalTeam: DraftMember[] | null = null;
   for await (const chunk of stream) {
     for (const [node, output] of Object.entries(chunk)) {
-      yield { node, state: output as TeamDebateStateType };
+      const state = output as Partial<TeamDebateStateType>;
+      yield { node, state };
+      if (state.finalTeam) finalTeam = state.finalTeam;
     }
+  }
+
+  // EV-optimization phase — streamed AFTER the graph so its long, previously
+  // silent per-batch progress is visible in the UI. Each step updates finalTeam
+  // (so the final `done` carries the EV-optimized team).
+  if (finalTeam && finalTeam.length > 0) {
+    let members = finalTeam;
+    for await (const step of optimizeTeamEVsStream(finalTeam, input.format)) {
+      members = step.members;
+      yield {
+        node: "ev_progress",
+        state: { finalTeam: members, evProgress: step.progress },
+      };
+    }
+    yield {
+      node: "ev_done",
+      state: {
+        finalTeam: members,
+        evProgress: { done: members.length, total: members.length, optimizing: [] },
+      },
+    };
   }
 }
 
@@ -115,16 +149,26 @@ export async function runTeamDebate(opts: TeamDebateOptions) {
     format: opts.format,
   });
 
-  const final = await getGraph().invoke(buildInput(opts));
+  const input = buildInput(opts);
+  const final = await getGraph().invoke(input);
+
+  // EV-optimize the composed team (same phase as the streaming path, collected
+  // to completion here since this non-streaming entry point has no UI).
+  let team: DraftMember[] = final.finalTeam ?? final.draft;
+  if (team.length > 0) {
+    for await (const step of optimizeTeamEVsStream(team, input.format)) {
+      team = step.members;
+    }
+  }
 
   logger.end({
     rounds: final.round,
-    team: (final.finalTeam ?? final.draft).map((m) => m.species),
+    team: team.map((m) => m.species),
     violations: final.violations.length,
   });
 
   return {
-    team: final.finalTeam ?? final.draft,
+    team,
     summary: final.finalSummary ?? "",
     transcript: final.transcript,
     violations: final.violations,

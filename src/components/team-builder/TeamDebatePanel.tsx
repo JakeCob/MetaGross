@@ -35,6 +35,12 @@ interface Violation {
   message: string;
 }
 
+interface EvProgress {
+  done: number;
+  total: number;
+  optimizing: string[];
+}
+
 export interface TeamDebateMember {
   species: string;
   item?: string;
@@ -75,6 +81,9 @@ export function TeamDebatePanel({
   const [violations, setViolations] = useState<Violation[]>([]);
   const [rounds, setRounds] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Live EV-optimization progress (the long phase after the 6 agents post).
+  const [evProgress, setEvProgress] = useState<EvProgress | null>(null);
+  const [evMembers, setEvMembers] = useState<DraftMember[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
   const run = useCallback(async () => {
@@ -84,6 +93,8 @@ export function TeamDebatePanel({
     setSummary("");
     setViolations([]);
     setError(null);
+    setEvProgress(null);
+    setEvMembers([]);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -124,11 +135,19 @@ export function TeamDebatePanel({
             const nd = (data.data ?? {}) as Record<string, unknown>;
             const entries = (nd.transcript as TranscriptEntry[]) ?? [];
             if (entries.length) setTranscript((prev) => [...prev, ...entries]);
+            // EV-optimization progress (the long phase after the agents post).
+            const evp = nd.evProgress as EvProgress | undefined;
+            if (evp) {
+              setEvProgress(evp);
+              const fm = nd.finalTeam as DraftMember[] | undefined;
+              if (fm) setEvMembers(fm);
+            }
           } else if (ev === "done") {
             setTeam((data.team as DraftMember[]) ?? []);
             setSummary((data.summary as string) ?? "");
             setViolations((data.violations as Violation[]) ?? []);
             setRounds((data.rounds as number) ?? 1);
+            setEvProgress(null);
           } else if (ev === "error") {
             setError((data.message as string) ?? "Unknown error");
           }
@@ -226,6 +245,61 @@ export function TeamDebatePanel({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Live EV-optimization progress (the long post-debate phase) */}
+        {evProgress && !team && (
+          <div className="flex flex-col gap-2 border-t border-border pt-3 animate-in fade-in">
+            <div className="flex items-center gap-2 text-xs font-medium">
+              <span className="text-green-400">🧠</span>
+              <span>Optimizing EVs (benchmark sims)</span>
+              <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+                {evProgress.done}/{evProgress.total}
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-green-500 transition-all duration-500"
+                style={{
+                  width: `${evProgress.total ? (evProgress.done / evProgress.total) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            {evMembers.length > 0 && (
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 sm:grid-cols-3">
+                {evMembers.map((m) => {
+                  const isDone = !!m.evs;
+                  const isOpt = evProgress.optimizing.includes(m.species);
+                  return (
+                    <span
+                      key={m.species}
+                      className="flex items-center gap-1 text-[10px] text-muted-foreground"
+                    >
+                      <span
+                        className={
+                          isDone
+                            ? "text-green-400"
+                            : isOpt
+                              ? "animate-pulse text-amber-400"
+                              : "text-muted-foreground/40"
+                        }
+                      >
+                        {isDone ? "✓" : isOpt ? "⏳" : "·"}
+                      </span>
+                      <span className="truncate">
+                        {m.species}
+                        {m.nature ? ` ${m.nature}` : ""}
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-[9px] text-muted-foreground/60">
+              Each Pokémon is benchmarked by the full EV debate — the slow part
+              (~10–15 min). 2 run at a time.
+            </p>
           </div>
         )}
 
