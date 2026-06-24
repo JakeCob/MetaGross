@@ -14,6 +14,10 @@ interface TranscriptEntry {
   text: string;
 }
 
+interface EVSpread {
+  hp: number; atk: number; def: number; spa: number; spd: number; spe: number;
+}
+
 interface DraftMember {
   species: string;
   role?: string;
@@ -21,6 +25,8 @@ interface DraftMember {
   ability?: string;
   moves?: string[];
   note?: string;
+  nature?: string;
+  evs?: EVSpread;
 }
 
 interface Violation {
@@ -34,6 +40,8 @@ export interface TeamDebateMember {
   item?: string;
   ability?: string;
   moves?: string[];
+  nature?: string;
+  evs?: EVSpread;
 }
 
 export interface TeamDebatePanelProps {
@@ -146,6 +154,8 @@ export function TeamDebatePanel({
           item: m.item,
           ability: m.ability,
           moves: m.moves,
+          nature: m.nature,
+          evs: m.evs,
         })),
       );
     }
@@ -248,6 +258,11 @@ export function TeamDebatePanel({
                     <span className="truncate text-[9px] text-muted-foreground">
                       {[m.item, m.ability].filter(Boolean).join(" · ") || m.role}
                     </span>
+                    {m.nature && (
+                      <span className="truncate text-[9px] text-muted-foreground/80">
+                        {m.nature} (EVs optimized)
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -278,8 +293,9 @@ export function TeamDebatePanel({
               </Button>
             </div>
             <p className="text-[9px] text-muted-foreground/60">
-              Applying replaces the current slots. EVs/natures are left at
-              defaults — run the AI EV Optimizer per Pokemon after.
+              Applying replaces the current slots. EVs + natures are
+              benchmark-optimized by the EV debate; fine-tune any slot with the
+              per-Pokemon AI EV Optimizer.
             </p>
           </div>
         )}
