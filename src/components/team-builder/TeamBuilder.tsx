@@ -25,7 +25,7 @@ import { TeamImport } from "./TeamImport";
 import { AITeamSuggestions } from "./AITeamSuggestions";
 import { TeamDebatePanel, type TeamDebateMember } from "./TeamDebatePanel";
 import { MetaTeamBrowser } from "./MetaTeamBrowser";
-import type { MetaTeamPokemon } from "@/lib/meta-teams/types";
+import type { MetaTeam, MetaTeamPokemon } from "@/lib/meta-teams/types";
 import { SlotAISuggestions } from "./SlotAISuggestions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
@@ -364,14 +364,17 @@ export function TeamBuilder({
     handleImport(imported as TeamPokemon[]);
   }, [handleImport]);
 
-  /** Import a proven tournament team (skeleton sets) into the builder slots. */
-  const handleUseMetaTeam = useCallback(
-    (pokemon: MetaTeamPokemon[], species: string[]) => {
-      const source =
-        pokemon.length > 0
-          ? pokemon
-          : species.map((s) => ({ species: s }) as MetaTeamPokemon);
-      const imported: Partial<TeamPokemon>[] = source.slice(0, 6).map((p) => ({
+  /**
+   * Import a proven tournament team into the builder slots. Prefers full sets:
+   * if the team carries parsed sets, use them; if it's a species-only skeleton
+   * but has a pokepaste link (Labmaus/VGCPastes/VR), pull the FULL set from the
+   * paste server-side (ability/item/moves/EVs/tera) so the result is saveable
+   * and tournament-ready, not a bare skeleton. Falls back to species-only if no
+   * paste is available or the fetch fails.
+   */
+  const metaToSlots = useCallback(
+    (source: MetaTeamPokemon[]): TeamPokemon[] =>
+      source.slice(0, 6).map((p) => ({
         ...emptyPokemon(),
         species: p.species,
         item: p.item ?? "",
@@ -383,10 +386,40 @@ export function TeamBuilder({
           p.moves?.[2] ?? "",
           p.moves?.[3] ?? "",
         ] as [string, string, string, string],
-      }));
-      handleImport(imported as TeamPokemon[]);
+      })) as TeamPokemon[],
+    [],
+  );
+
+  const handleUseMetaTeam = useCallback(
+    async (team: MetaTeam) => {
+      // 1) Team already carries full sets — use them directly.
+      if (team.pokemon && team.pokemon.length > 0) {
+        handleImport(metaToSlots(team.pokemon));
+        return;
+      }
+      // 2) Species-only skeleton + a pokepaste link → pull the full set.
+      if (team.sourceUrl && /pokepast\.es/i.test(team.sourceUrl)) {
+        try {
+          const res = await fetch("/api/pokemon/parse-paste", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: team.sourceUrl }),
+          });
+          if (res.ok) {
+            const full = (await res.json()) as TeamPokemon[];
+            if (Array.isArray(full) && full.length > 0) {
+              handleImport(full.slice(0, 6));
+              return;
+            }
+          }
+        } catch {
+          // fall through to the species-only skeleton
+        }
+      }
+      // 3) Fallback: bare species skeleton (user completes via EV optimizer/debate).
+      handleImport(metaToSlots(team.species.map((s) => ({ species: s }))));
     },
-    [handleImport],
+    [handleImport, metaToSlots],
   );
 
   const handleSuggestionAdd = useCallback((species: string) => {
