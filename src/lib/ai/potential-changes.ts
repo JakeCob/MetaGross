@@ -24,7 +24,26 @@ export async function generatePotentialChanges(
   }
   return {
     swaps: parsed.swaps.slice(0, 6),
-    setTweaks: parsed.setTweaks.slice(0, 8),
+    setTweaks: parsed.setTweaks.slice(0, 8).map((t) => ({
+      species: t.species,
+      suggestion: t.suggestion,
+      apply: sanitizeApply(t.apply),
+    })),
     note: parsed.note,
   };
+}
+
+/** Keep only the structured fields the UI can act on; drop empties so the
+ *  "Apply" button only shows when there's a real change to make. */
+function sanitizeApply(
+  apply: PotentialChangeAnalysis["setTweaks"][number]["apply"],
+): PotentialChangeAnalysis["setTweaks"][number]["apply"] {
+  if (!apply || typeof apply !== "object") return undefined;
+  const out: NonNullable<typeof apply> = {};
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  if (str(apply.item)) out.item = str(apply.item);
+  if (str(apply.ability)) out.ability = str(apply.ability);
+  if (str(apply.nature)) out.nature = str(apply.nature);
+  if (str(apply.addMove)) out.addMove = str(apply.addMove);
+  return Object.keys(out).length > 0 ? out : undefined;
 }

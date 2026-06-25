@@ -441,6 +441,36 @@ export function TeamBuilder({
     });
   }, []);
 
+  /** Apply a structured "Potential changes" set tweak onto the matching slot. */
+  const handleApplyTweak = useCallback(
+    (
+      species: string,
+      apply: { item?: string; ability?: string; nature?: string; addMove?: string },
+    ) => {
+      const norm = (s: string) =>
+        s.trim().toLowerCase().replace(/^mega\s+/, "").replace(/[-\s]mega(?:-[xy])?$/, "");
+      setPokemon((prev) =>
+        prev.map((p) => {
+          if (!p.species || norm(p.species) !== norm(species)) return p;
+          const next = { ...p };
+          if (apply.item) next.item = apply.item;
+          if (apply.ability) next.ability = apply.ability;
+          if (apply.nature) next.nature = apply.nature;
+          if (apply.addMove) {
+            const moves = [...((p.moves as string[]) ?? [])];
+            while (moves.length < 4) moves.push("");
+            const empty = moves.findIndex((m) => !m?.trim());
+            if (empty !== -1) moves[empty] = apply.addMove;
+            else moves[3] = apply.addMove;
+            next.moves = moves as [string, string, string, string];
+          }
+          return next;
+        }),
+      );
+    },
+    [],
+  );
+
   // Derive current filled species for suggestions
   const filledSpecies = pokemon
     .filter((p) => p.species?.trim())
@@ -858,7 +888,11 @@ export function TeamBuilder({
       />
 
       {/* AI-generated improvement ideas for the current team. */}
-      <PotentialChangesPanel team={pokemon} format={format} />
+      <PotentialChangesPanel
+        team={pokemon}
+        format={format}
+        onApplyTweak={handleApplyTweak}
+      />
 
       {/* AI-generated lead + back combinations for the current team. */}
       <CommonCombinationsPanel team={pokemon} format={format} />

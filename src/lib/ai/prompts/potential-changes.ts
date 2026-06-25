@@ -15,13 +15,18 @@ Respond with ONLY valid JSON matching this exact schema (no prose, no markdown f
     { "title": "<short roster idea, e.g. 'Add a Steel-type'>", "reasoning": "<why — the threat it answers or coverage it adds, 1 sentence>" }
   ],
   "setTweaks": [
-    { "species": "<a Pokémon already on the team>", "suggestion": "<a specific move/item/EV/ability change + why, 1 sentence>" }
+    {
+      "species": "<a Pokémon already on the team>",
+      "suggestion": "<a specific move/item/EV/ability change + why, 1 sentence>",
+      "apply": { "item": "<new item>", "ability": "<new ability>", "nature": "<new nature>", "addMove": "<one move to add>" }
+    }
   ],
   "note": "<optional 1-sentence overall direction>"
 }
 
 Guidelines:
 - 3-5 swaps, 3-6 setTweaks. Each setTweaks.species MUST be a Pokémon currently on the team.
+- Include "apply" ONLY when the tweak is a concrete, directly-applicable change, and put ONLY the field(s) that change there (a legal item / ability / nature / single move). OMIT "apply" entirely for vague advice ("consider more coverage"). Never invent illegal items/abilities/moves.
 - Prefer fixes for the listed shared weaknesses and any missing speed control / disruption.
 - Keep each string to one tight sentence.`;
 

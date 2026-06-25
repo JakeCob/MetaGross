@@ -57,7 +57,19 @@ export interface PotentialChangeAnalysis {
   /** Roster-level ideas ("Add a Steel-type to threaten Fairies"). */
   swaps: { title: string; reasoning: string }[];
   /** Per-Pokémon set tweaks ("Garchomp: add Protect for survivability"). */
-  setTweaks: { species: string; suggestion: string }[];
+  setTweaks: {
+    species: string;
+    suggestion: string;
+    /** When the tweak is a concrete swap, the structured change so the UI can
+     *  one-click apply it to the slot. Omitted for vague advice. */
+    apply?: {
+      item?: string;
+      ability?: string;
+      nature?: string;
+      /** A move to add (fills the first empty move slot, else replaces the last). */
+      addMove?: string;
+    };
+  }[];
   /** Optional closing note / overall direction. */
   note?: string;
 }

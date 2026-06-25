@@ -6,12 +6,16 @@ import { Button } from "@/components/ui/button";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import type { PotentialChangeAnalysis } from "@/lib/types/analysis";
 
+type ApplyChange = NonNullable<PotentialChangeAnalysis["setTweaks"][number]["apply"]>;
+
 export interface PotentialChangesPanelProps {
   team: Partial<TeamPokemon>[];
   format: string;
+  /** One-click apply a structured set tweak to the matching slot. */
+  onApplyTweak?: (species: string, apply: ApplyChange) => void;
 }
 
-export function PotentialChangesPanel({ team, format }: PotentialChangesPanelProps) {
+export function PotentialChangesPanel({ team, format, onApplyTweak }: PotentialChangesPanelProps) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<PotentialChangeAnalysis | null>(null);
   const [cached, setCached] = useState(false);
@@ -107,12 +111,26 @@ export function PotentialChangesPanel({ team, format }: PotentialChangesPanelPro
                   <p className="text-[10px] text-muted-foreground">No set tweaks suggested.</p>
                 ) : (
                   <ul className="flex flex-col gap-1.5">
-                    {data.setTweaks.map((s, i) => (
-                      <li key={i} className="text-[11px] leading-snug">
-                        <span className="font-semibold text-foreground">• {s.species}:</span>{" "}
-                        <span className="text-muted-foreground">{s.suggestion}</span>
-                      </li>
-                    ))}
+                    {data.setTweaks.map((s, i) => {
+                      const onTeam = team.some(
+                        (p) => p.species?.trim().toLowerCase() === s.species.trim().toLowerCase(),
+                      );
+                      return (
+                        <li key={i} className="text-[11px] leading-snug">
+                          <span className="font-semibold text-foreground">• {s.species}:</span>{" "}
+                          <span className="text-muted-foreground">{s.suggestion}</span>
+                          {s.apply && onApplyTweak && onTeam && (
+                            <button
+                              type="button"
+                              onClick={() => onApplyTweak(s.species, s.apply!)}
+                              className="ml-1.5 rounded border border-primary/40 px-1 py-0 text-[9px] text-primary hover:bg-primary/10"
+                            >
+                              Apply
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
