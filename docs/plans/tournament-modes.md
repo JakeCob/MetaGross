@@ -18,8 +18,13 @@ mostly **wiring + UX**, not building from scratch.
 | Source | Gives | Access | Trust | Status |
 |---|---|---|---|---|
 | **Limitless** (`limitless.ts`) | full movesets (no EVs), standings | integrated | 0.95 | ✅ |
-| **Labmaus** (labmaus.net) | tournament team lists + usage, `/tournaments/{id}` (official + unofficial, huge coverage) | no public JSON API found → inspect SPA's internal data call, else HTML scrape. **Incomplete TLS cert chain** → lenient cert handling; verify data shape from a real env first | ~0.85 | adapter TBD |
-| **Victory Road** (`victoryroad.pro`) | curated rental teams + champion team reports + rules, per event page (`/2026-naic/`, …) | article/HTML, no API → bespoke per-event scrape; start with the Rental Teams index | ~0.9 | adapter TBD |
+| **Labmaus** (labmaus.net) | tournament team lists + usage, `/tournaments/{id}` (official + unofficial, huge coverage) | no public JSON API found → inspect SPA's internal data call, else HTML scrape. **Incomplete TLS cert chain** → lenient cert handling; verify data shape from a real env first | ~0.85 | **scaffold drafted** (`aggregator-labmaus.ts`), NOT functional — see TODOs below |
+| **Victory Road** (`victoryroad.pro`) | the **`/champions-replica/`** page = curated, creator-credited proven *Champions* teams (player, record, 6 species via `gen9-champions/<sp>.png` sprites, rental code). SV rental pages are cartridge VGC, not Champions. | scrape the HTML table | ~0.9 | ✅ **DONE** (`aggregator-victoryroad.ts`) — wired into cron + POST; verified live |
+
+### Phase 5 status
+- ✅ **Victory Road** (`aggregator-victoryroad.ts`): DONE + verified live — `POST {source:"victoryroad"}` scraped + inserted **122 teams** (113 for M-B), with author / record / species / HOME rental code; they surface in the Browse view with a "Victory Road" badge. In the daily cron.
+- **Labmaus** (`aggregator-labmaus.ts`): blocked on (1) the incomplete TLS cert chain (fetch failed from the dev env — wire the lenient `undici` `Agent({connect:{rejectUnauthorized:false}})` path), and (2) its SPA data shape — open a `/tournaments/{id}` page, capture the internal data request (REST JSON or `__NEXT_DATA__`), and implement `parseLabmaus` against it. Currently POST-only (`source:"labmaus"` + `tournamentIds`), returns `notImplemented:true`.
+- Registration done: `MetaTeamSource` += `victoryroad`/`labmaus`; aggregate route GET/POST; `MetaTeamBrowser` source badges.
 | Pikalytics / VGCPastes | usage / paste dumps | in aggregator | varies | ✅ |
 
 All sources flow through the existing **aggregator → `meta_teams` → `listMetaTeams`** path (daily cron

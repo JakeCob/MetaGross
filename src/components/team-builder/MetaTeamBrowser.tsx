@@ -18,6 +18,8 @@ const SOURCE_BADGE: Record<string, { label: string; variant: "default" | "second
   vgcpastes: { label: "VGCPastes", variant: "secondary" },
   pikalytics: { label: "Pikalytics", variant: "success" },
   creator: { label: "Creator", variant: "warning" },
+  victoryroad: { label: "Victory Road", variant: "warning" },
+  labmaus: { label: "Labmaus", variant: "info" },
   smogon: { label: "Smogon", variant: "secondary" },
   reddit: { label: "Reddit", variant: "secondary" },
   user: { label: "User", variant: "default" },

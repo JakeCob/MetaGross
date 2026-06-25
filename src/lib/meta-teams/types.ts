@@ -11,7 +11,9 @@ export type MetaTeamSource =
   | "reddit"
   | "user"
   | "creator"
-  | "vgcpastes";
+  | "vgcpastes"
+  | "victoryroad"
+  | "labmaus";
 
 export interface MetaTeamPokemon {
   species: string;

@@ -2,6 +2,8 @@ import { aggregateFromPikalytics } from "@/lib/meta-teams/aggregator-pikalytics"
 import { aggregateFromLimitless } from "@/lib/meta-teams/aggregator-limitless";
 import { aggregateFromCreators } from "@/lib/meta-teams/aggregator-creators";
 import { aggregateFromVgcPastes } from "@/lib/meta-teams/aggregator-vgcpastes";
+import { aggregateFromVictoryRoad } from "@/lib/meta-teams/aggregator-victoryroad";
+import { aggregateFromLabmaus } from "@/lib/meta-teams/aggregator-labmaus";
 import { isCronRequest } from "@/lib/auth/cron";
 
 export const runtime = "nodejs";
@@ -20,12 +22,16 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const [creators, limitless, pikalytics, vgcpastes] = await Promise.all([
-      aggregateFromCreators({}),
-      aggregateFromLimitless({}),
-      aggregateFromPikalytics({}),
-      aggregateFromVgcPastes({}),
-    ]);
+    const [creators, limitless, pikalytics, vgcpastes, victoryroad] =
+      await Promise.all([
+        aggregateFromCreators({}),
+        aggregateFromLimitless({}),
+        aggregateFromPikalytics({}),
+        aggregateFromVgcPastes({}),
+        aggregateFromVictoryRoad({}),
+      ]);
+    // Labmaus is excluded from the cron — it needs explicit tournament ids and
+    // its parser isn't implemented yet (POST source="labmaus" to invoke it).
     return Response.json({
       source: "all",
       trigger: "cron",
@@ -33,6 +39,7 @@ export async function GET(request: Request) {
       limitless,
       pikalytics,
       vgcpastes,
+      victoryroad,
     });
   } catch (err) {
     console.error("GET /api/meta-teams/aggregate (cron) error:", err);
@@ -46,7 +53,14 @@ export async function GET(request: Request) {
   }
 }
 
-type Source = "all" | "limitless" | "pikalytics" | "creators" | "vgcpastes";
+type Source =
+  | "all"
+  | "limitless"
+  | "pikalytics"
+  | "creators"
+  | "vgcpastes"
+  | "victoryroad"
+  | "labmaus";
 
 /**
  * POST /api/meta-teams/aggregate
@@ -68,7 +82,9 @@ export async function POST(request: Request) {
       body?.source === "limitless" ||
       body?.source === "pikalytics" ||
       body?.source === "creators" ||
-      body?.source === "vgcpastes"
+      body?.source === "vgcpastes" ||
+      body?.source === "victoryroad" ||
+      body?.source === "labmaus"
         ? body.source
         : "all";
     const vgcPastesLimit: number | undefined =
@@ -118,6 +134,24 @@ export async function POST(request: Request) {
         internalFormat,
         limit: vgcPastesLimit,
         maxAgeDays: vgcPastesMaxAgeDays,
+      });
+    }
+
+    if (source === "victoryroad" || source === "all") {
+      output.victoryroad = await aggregateFromVictoryRoad({
+        internalFormat,
+        url: typeof body?.victoryRoadUrl === "string" ? body.victoryRoadUrl : undefined,
+      });
+    }
+
+    // Labmaus is opt-in only (needs explicit tournament ids; parser is a stub).
+    if (source === "labmaus") {
+      const tournamentIds: string[] = Array.isArray(body?.tournamentIds)
+        ? body.tournamentIds.filter((t: unknown): t is string => typeof t === "string")
+        : [];
+      output.labmaus = await aggregateFromLabmaus({
+        internalFormat,
+        tournamentIds,
       });
     }
 

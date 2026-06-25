@@ -10,6 +10,8 @@ const SOURCE_LABEL: Record<MetaTeam["source"], string> = {
   user: "Community",
   creator: "Creator",
   vgcpastes: "VGCPastes",
+  victoryroad: "Victory Road",
+  labmaus: "Labmaus",
 };
 
 const SOURCE_VARIANT: Record<
@@ -23,6 +25,8 @@ const SOURCE_VARIANT: Record<
   user: "outline",
   creator: "success",
   vgcpastes: "info",
+  victoryroad: "warning",
+  labmaus: "info",
 };
 
 /** Compact card showing a known meta team. Used on match lists, browse, etc. */
