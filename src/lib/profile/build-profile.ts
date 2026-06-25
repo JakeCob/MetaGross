@@ -10,30 +10,21 @@ import { eq, desc } from "drizzle-orm";
 import { getAllTeams } from "@/lib/db/queries/teams";
 import {
   classifyArchetype,
-  type AITeamMember,
+  classifyArchetypeFromSnapshot,
+  membersFromSnapshot,
+  isKnownArchetype,
 } from "@/lib/team-analysis/team-context";
-import { calculatePokemonUsage, type PokemonUsageStat } from "@/lib/utils/stats";
+import {
+  calculatePokemonUsage,
+  calculateArchetypeMatchups,
+  type PokemonUsageStat,
+  type ArchetypeMatchup,
+} from "@/lib/utils/stats";
 import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
 const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
 
-function toMembers(pokemon: unknown): AITeamMember[] {
-  if (!Array.isArray(pokemon)) return [];
-  return pokemon
-    .map((p) => {
-      const o = (p ?? {}) as Record<string, unknown>;
-      const moves = Array.isArray(o.moves)
-        ? (o.moves as unknown[]).filter((x): x is string => typeof x === "string")
-        : undefined;
-      return {
-        species: typeof o.species === "string" ? o.species : "",
-        ability: typeof o.ability === "string" ? o.ability : undefined,
-        item: typeof o.item === "string" ? o.item : undefined,
-        moves,
-      };
-    })
-    .filter((m) => m.species);
-}
+const toMembers = membersFromSnapshot;
 
 function asStringArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
@@ -63,6 +54,58 @@ export interface PlayerProfile {
   /** Win-rate when YOU play each archetype — your strengths/weaknesses. */
   archetypeStrengths: ArchetypeRecord[];
   mostUsedPokemon: PokemonUsageStat[];
+  /** Your win-rate vs each OPPONENT archetype — where you're soft (auto-tagged). */
+  opponentArchetypes: ArchetypeMatchup[];
+  /** Pokémon opponents bring against you most, with your win-rate when faced. */
+  mostFacedPokemon: PokemonUsageStat[];
+}
+
+/**
+ * Your win-rate vs each opponent archetype, derived from match history. Opponent
+ * archetypes are auto-classified on save (archetypeOpponent); for older rows
+ * that predate tagging we classify on the fly from the brought species. Shared
+ * by the profile view and the team-debate meta-analyst (your weak matchups).
+ */
+export async function getOpponentMatchups(
+  userId: string = DEFAULT_USER_ID,
+): Promise<ArchetypeMatchup[]> {
+  const rows = await db
+    .select({
+      result: matches.result,
+      format: matches.format,
+      archetypeOpponent: matches.archetypeOpponent,
+      opponentBrought: matches.opponentBrought,
+    })
+    .from(matches)
+    .where(eq(matches.userId, userId))
+    .all();
+
+  return calculateArchetypeMatchups(
+    rows.map((m) => ({
+      result: m.result ?? "",
+      archetypeOpponent: resolveOpponentArchetype(
+        m.archetypeOpponent,
+        m.opponentBrought,
+        m.format,
+      ),
+    })),
+  ).sort((a, b) => b.wins + b.losses - (a.wins + a.losses));
+}
+
+/** Trust a stored opponent archetype only when it's a recognized tag; else
+ *  classify on the fly from the brought species (legacy/untagged rows). */
+function resolveOpponentArchetype(
+  stored: unknown,
+  opponentBrought: unknown,
+  format: string | null,
+): string | undefined {
+  if (isKnownArchetype(stored)) return stored;
+  const arche = classifyArchetypeFromSnapshot(
+    null,
+    opponentBrought,
+    format ?? ACTIVE_REGULATION_FORMAT_ID,
+  );
+  return arche && arche !== "Unknown" ? arche : undefined;
 }
 
 export async function buildPlayerProfile(
@@ -73,8 +116,12 @@ export async function buildPlayerProfile(
     .select({
       result: matches.result,
       teamId: matches.teamId,
+      format: matches.format,
       myBrought: matches.myBrought,
       myLeads: matches.myLeads,
+      archetypeOpponent: matches.archetypeOpponent,
+      opponentBrought: matches.opponentBrought,
+      opponentLeads: matches.opponentLeads,
     })
     .from(matches)
     .where(eq(matches.userId, userId))
@@ -161,6 +208,29 @@ export async function buildPlayerProfile(
     })),
   ).slice(0, 10);
 
+  // Your win-rate vs each opponent archetype (auto-tag, with fly-classify
+  // fallback for untagged rows) — where you're soft.
+  const opponentArchetypes = calculateArchetypeMatchups(
+    matchRows.map((m) => ({
+      result: m.result ?? "",
+      archetypeOpponent: resolveOpponentArchetype(
+        m.archetypeOpponent,
+        m.opponentBrought,
+        m.format,
+      ),
+    })),
+  ).sort((a, b) => b.wins + b.losses - (a.wins + a.losses));
+
+  // Pokémon opponents bring most + your win-rate when facing them. Reuses the
+  // usage aggregator: "brought"/"led" are the OPPONENT's, win-rate is YOURS.
+  const mostFacedPokemon = calculatePokemonUsage(
+    matchRows.map((m) => ({
+      myBrought: asStringArray(m.opponentBrought),
+      myLeads: asStringArray(m.opponentLeads),
+      result: m.result ?? "",
+    })),
+  ).slice(0, 10);
+
   return {
     matchCount: matchRows.length,
     teamCount: teams.length,
@@ -169,5 +239,7 @@ export async function buildPlayerProfile(
     preferredArchetypes,
     archetypeStrengths,
     mostUsedPokemon,
+    opponentArchetypes,
+    mostFacedPokemon,
   };
 }
