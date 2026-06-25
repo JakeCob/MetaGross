@@ -32,6 +32,7 @@ import { MetaTeamBrowser } from "./MetaTeamBrowser";
 import { TeamSuggestions } from "./TeamSuggestions";
 import { PotentialChangesPanel } from "./PotentialChangesPanel";
 import { CommonCombinationsPanel } from "./CommonCombinationsPanel";
+import { DefensiveCoveragePanel } from "./DefensiveCoveragePanel";
 import { SimulationPanel } from "./SimulationPanel";
 import type { MetaTeam, MetaTeamPokemon } from "@/lib/meta-teams/types";
 import { SlotAISuggestions } from "./SlotAISuggestions";
@@ -534,7 +535,7 @@ export function TeamBuilder({
 
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
   // Markdown sections reported by the analysis panels (for "Export analysis").
-  const [analysisMd, setAnalysisMd] = useState<{ pc?: string; combos?: string; sim?: string }>({});
+  const [analysisMd, setAnalysisMd] = useState<{ pc?: string; combos?: string; sim?: string; cov?: string }>({});
 
   const handleExportAnalysis = useCallback(async () => {
     const filled = pokemon.filter((p) => p.species?.trim());
@@ -548,10 +549,11 @@ export function TeamBuilder({
       "## Team",
       ...(teamLines.length ? teamLines : ["_(no Pokémon yet)_"]),
     ];
+    if (analysisMd.cov) parts.push("", analysisMd.cov);
     if (analysisMd.pc) parts.push("", analysisMd.pc);
     if (analysisMd.combos) parts.push("", analysisMd.combos);
     if (analysisMd.sim) parts.push("", analysisMd.sim);
-    if (!analysisMd.pc && !analysisMd.combos && !analysisMd.sim) {
+    if (!analysisMd.cov && !analysisMd.pc && !analysisMd.combos && !analysisMd.sim) {
       parts.push(
         "",
         "_Run the Potential changes / Common combinations / Tournament simulation panels to include analysis._",
@@ -945,6 +947,14 @@ export function TeamBuilder({
           />
         ))}
       </div>
+
+      {/* Defensive type coverage — shared weaknesses across the team. */}
+      {filledSpecies.length >= 1 && (
+        <DefensiveCoveragePanel
+          team={pokemon}
+          onMarkdown={(md) => setAnalysisMd((s) => ({ ...s, cov: md ?? undefined }))}
+        />
+      )}
 
       {/* AI Team Suggestions */}
       {filledSpecies.length >= 1 && hasEmptySlots && (
