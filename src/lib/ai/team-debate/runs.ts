@@ -1,21 +1,34 @@
 /**
- * Backgrounded team-debate runs.
+ * Backgrounded team-debate runs (Phase 2 — durable, resumable).
  *
- * The build is ~15-20 min — too long to hold a single SSE request (it times out
- * on serverless and drops on any network blip). Instead the start endpoint
- * creates a `debate_runs` row, processes the run OUT OF BAND (persisting progress
- * after each node + EV batch), and the UI polls the run row. Works on any
- * long-lived Node host; true serverless durability (checkpointing / a queue
- * worker) is a later phase.
+ * The build is ~15-20 min — too long for one SSE/serverless request. The start
+ * endpoint creates a `debate_runs` row and processes it OUT OF BAND, persisting
+ * after EVERY step (one graph node or one EV batch — see stepper.ts) along with
+ * the full resumable State + a `nextStep` cursor. The UI polls the run row.
+ *
+ * Because each step is durably checkpointed, a run that's interrupted (a
+ * serverless timeout, a host restart, a crashed task) can be RESUMED exactly
+ * where it stopped: `resumeStaleRuns` (driven by the /advance cron) picks up any
+ * `running` row that's gone quiet and advances it. On a long-lived host the
+ * initial `processRun` simply drives to completion in-process, same UX as before.
  */
 import { db } from "@/lib/db";
 import { debateRuns } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { streamTeamDebate, type TeamDebateOptions } from ".";
-import type { DraftMember, TranscriptEntry } from "./state";
+import { and, eq, lt } from "drizzle-orm";
+import { type TeamDebateOptions } from ".";
+import type { DraftMember, TranscriptEntry, TeamDebateStateType } from "./state";
 import type { EvProgress } from "./ev-pass";
+import { initRunState, runStep, type StepCursor } from "./stepper";
 
 const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
+
+/** Run to completion in-process on a long-lived host; on serverless the function
+ *  is capped earlier and the /advance sweep continues the run. */
+const PROCESS_BUDGET_MS = 30 * 60 * 1000;
+/** A `running` run untouched for this long is presumed interrupted → resumable. */
+export const STALE_MS = 90 * 1000;
+/** Per-invocation work budget for the recovery sweep (well under maxDuration). */
+export const ADVANCE_BUDGET_MS = 240 * 1000;
 
 export type DebateRunStatus = "running" | "done" | "error" | "cancelled";
 
@@ -38,37 +51,49 @@ export interface DebateRunRecord {
   updatedAt: number;
 }
 
-/** Cancellation flags — process-scoped (the run lives in this process). */
+/** Process-scoped fast-cancel flags. Cross-process cancel is durable via the
+ *  persisted status (the loop re-reads it each step). */
 const cancelled = new Set<string>();
-export function cancelRun(id: string): void {
+export async function cancelRun(id: string): Promise<void> {
   cancelled.add(id);
+  await db
+    .update(debateRuns)
+    .set({ status: "cancelled", phase: "cancelled", updatedAt: Date.now() })
+    .where(and(eq(debateRuns.id, id), eq(debateRuns.status, "running")))
+    .run();
 }
 
-function emptyProgress(opts: TeamDebateOptions): DebateRunProgress {
+function progressFromState(
+  state: TeamDebateStateType,
+  evProgress: EvProgress | null,
+): DebateRunProgress {
   return {
     input: {
-      seedSpecies: (opts.seed ?? []).map((m) => m.species),
-      brief: opts.brief ?? "",
-      format: opts.format ?? "",
-      mode: opts.mode ?? "ladder",
+      seedSpecies: state.seed.map((m) => m.species),
+      brief: state.brief,
+      format: state.format,
+      mode: state.mode,
     },
-    transcript: [],
-    evProgress: null,
-    team: null,
-    summary: "",
-    violations: [],
-    rounds: 0,
+    transcript: state.transcript,
+    evProgress,
+    team: state.finalTeam ?? (state.draft.length ? state.draft : null),
+    summary: state.finalSummary ?? "",
+    violations: state.violations,
+    rounds: state.round,
   };
 }
 
 export async function createRun(opts: TeamDebateOptions): Promise<string> {
+  const state = initRunState(opts);
   const rows = await db
     .insert(debateRuns)
     .values({
       userId: DEFAULT_USER_ID,
       status: "running",
       phase: "queued",
-      resultJson: emptyProgress(opts) as unknown as string,
+      resultJson: progressFromState(state, null) as unknown as string,
+      stateJson: state as unknown as string,
+      nextStep: "propose_team",
     })
     .returning()
     .all();
@@ -77,7 +102,14 @@ export async function createRun(opts: TeamDebateOptions): Promise<string> {
 
 export async function getRun(id: string): Promise<DebateRunRecord | null> {
   const row = await db
-    .select()
+    .select({
+      id: debateRuns.id,
+      status: debateRuns.status,
+      phase: debateRuns.phase,
+      resultJson: debateRuns.resultJson,
+      error: debateRuns.error,
+      updatedAt: debateRuns.updatedAt,
+    })
     .from(debateRuns)
     .where(eq(debateRuns.id, id))
     .get();
@@ -92,61 +124,158 @@ export async function getRun(id: string): Promise<DebateRunRecord | null> {
   };
 }
 
-async function persist(
-  id: string,
-  fields: Partial<{
-    status: DebateRunStatus;
-    phase: string;
-    resultJson: DebateRunProgress;
-    error: string;
-  }>,
-): Promise<void> {
-  await db
-    .update(debateRuns)
-    .set({
-      ...(fields as Record<string, unknown>),
-      updatedAt: Date.now(),
+interface RunCheckpoint {
+  status: DebateRunStatus;
+  state: TeamDebateStateType | null;
+  nextStep: StepCursor | null;
+  evProgress: EvProgress | null;
+}
+
+async function loadCheckpoint(id: string): Promise<RunCheckpoint | null> {
+  const row = await db
+    .select({
+      status: debateRuns.status,
+      stateJson: debateRuns.stateJson,
+      nextStep: debateRuns.nextStep,
+      resultJson: debateRuns.resultJson,
     })
+    .from(debateRuns)
     .where(eq(debateRuns.id, id))
-    .run();
+    .get();
+  if (!row) return null;
+  return {
+    status: row.status as DebateRunStatus,
+    state: (row.stateJson as TeamDebateStateType | null) ?? null,
+    nextStep: (row.nextStep as StepCursor | null) ?? null,
+    evProgress: (row.resultJson as DebateRunProgress | null)?.evProgress ?? null,
+  };
 }
 
 /**
- * Drive a debate to completion in the background, persisting progress after each
- * streamed node / EV batch. NOT awaited by the caller — fire-and-forget.
+ * Advance a run from its persisted checkpoint, one step at a time, persisting
+ * after each, until it finishes / errors / is cancelled / the time budget runs
+ * out. Safe to call repeatedly and from any process — that's what makes a run
+ * durable. Returns the terminal/last cursor reached.
  */
-export async function processRun(
+export async function advanceRun(
   id: string,
-  opts: TeamDebateOptions,
-): Promise<void> {
-  const progress = emptyProgress(opts);
-  let lastDraft: DraftMember[] | null = null;
+  budgetMs: number = ADVANCE_BUDGET_MS,
+): Promise<{ status: DebateRunStatus; nextStep: StepCursor | null }> {
+  const startedAt = Date.now();
+  const cp = await loadCheckpoint(id);
+  if (!cp) return { status: "error", nextStep: null };
+  if (cp.status !== "running") return { status: cp.status, nextStep: cp.nextStep };
+  if (!cp.state || !cp.nextStep) {
+    // Legacy / Phase-1 row with no checkpoint — can't resume.
+    await db
+      .update(debateRuns)
+      .set({ status: "error", error: "No resumable checkpoint", updatedAt: Date.now() })
+      .where(eq(debateRuns.id, id))
+      .run();
+    return { status: "error", nextStep: null };
+  }
+
+  let state = cp.state;
+  let cursor = cp.nextStep;
+  let evProgress = cp.evProgress;
+
   try {
-    for await (const { node, state } of streamTeamDebate(opts)) {
-      if (cancelled.has(id)) {
-        await persist(id, { status: "cancelled", phase: "cancelled" });
-        return;
+    while (cursor !== "done") {
+      // Durable + cross-process cancel: re-read status each step.
+      if (cancelled.has(id)) return { status: "cancelled", nextStep: cursor };
+      const fresh = await db
+        .select({ status: debateRuns.status })
+        .from(debateRuns)
+        .where(eq(debateRuns.id, id))
+        .get();
+      if (!fresh || fresh.status !== "running") {
+        return { status: (fresh?.status as DebateRunStatus) ?? "error", nextStep: cursor };
       }
-      const s = state as Record<string, unknown>;
-      const entries = s.transcript as TranscriptEntry[] | undefined;
-      if (entries?.length) progress.transcript.push(...entries);
-      if (s.evProgress) progress.evProgress = s.evProgress as EvProgress;
-      if (s.draft) lastDraft = s.draft as DraftMember[];
-      if (s.finalTeam) progress.team = s.finalTeam as DraftMember[];
-      if (typeof s.finalSummary === "string") progress.summary = s.finalSummary;
-      if (s.violations) progress.violations = s.violations as unknown[];
-      if (typeof s.round === "number") progress.rounds = s.round;
-      await persist(id, { status: "running", phase: node, resultJson: progress });
+
+      const res = await runStep(state, cursor, {});
+      state = res.state;
+      cursor = res.nextStep;
+      if (res.evProgress) evProgress = res.evProgress;
+
+      await db
+        .update(debateRuns)
+        .set({
+          status: res.done ? "done" : "running",
+          phase: res.done ? "done" : res.node,
+          resultJson: progressFromState(state, evProgress) as unknown as string,
+          stateJson: state as unknown as string,
+          nextStep: cursor,
+          updatedAt: Date.now(),
+        })
+        .where(eq(debateRuns.id, id))
+        .run();
+
+      if (Date.now() - startedAt > budgetMs) {
+        // Out of time for this slice — leave it `running`; the sweep continues.
+        return { status: "running", nextStep: cursor };
+      }
     }
-    if (!progress.team) progress.team = lastDraft;
-    await persist(id, { status: "done", phase: "done", resultJson: progress });
+    return { status: "done", nextStep: "done" };
   } catch (err) {
-    await persist(id, {
-      status: "error",
-      error: (err as Error).message ?? "Unknown error",
-      resultJson: progress,
-    });
+    await db
+      .update(debateRuns)
+      .set({
+        status: "error",
+        error: (err as Error).message ?? "Unknown error",
+        resultJson: progressFromState(state, evProgress) as unknown as string,
+        stateJson: state as unknown as string,
+        nextStep: cursor,
+        updatedAt: Date.now(),
+      })
+      .where(eq(debateRuns.id, id))
+      .run();
+    return { status: "error", nextStep: cursor };
   } finally {
     cancelled.delete(id);
   }
+}
+
+/**
+ * Drive a freshly-created run to completion in the background. NOT awaited by the
+ * caller — fire-and-forget. On a long-lived host this finishes the run; on
+ * serverless it advances until the function is reclaimed, after which the
+ * /advance sweep resumes it.
+ */
+export async function processRun(
+  id: string,
+  _opts?: TeamDebateOptions,
+): Promise<void> {
+  await advanceRun(id, PROCESS_BUDGET_MS);
+}
+
+/**
+ * Recovery sweep: resume every `running` run that's gone quiet (interrupted by a
+ * timeout/restart). Claims each by bumping updatedAt first so concurrent sweeps
+ * don't double-drive the same run. Returns how many it advanced.
+ */
+export async function resumeStaleRuns(
+  budgetMs: number = ADVANCE_BUDGET_MS,
+): Promise<{ resumed: string[] }> {
+  const cutoff = Date.now() - STALE_MS;
+  const stale = await db
+    .select({ id: debateRuns.id })
+    .from(debateRuns)
+    .where(and(eq(debateRuns.status, "running"), lt(debateRuns.updatedAt, cutoff)))
+    .all();
+
+  const resumed: string[] = [];
+  const deadline = Date.now() + budgetMs;
+  for (const { id } of stale) {
+    if (Date.now() >= deadline) break;
+    // Claim: bump updatedAt so another concurrent sweep sees it as fresh.
+    const claim = await db
+      .update(debateRuns)
+      .set({ updatedAt: Date.now() })
+      .where(and(eq(debateRuns.id, id), eq(debateRuns.status, "running"), lt(debateRuns.updatedAt, cutoff)))
+      .run();
+    if (claim.rowsAffected === 0) continue; // someone else claimed it
+    resumed.push(id);
+    await advanceRun(id, Math.max(0, deadline - Date.now()));
+  }
+  return { resumed };
 }

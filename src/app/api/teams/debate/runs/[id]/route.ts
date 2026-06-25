@@ -23,6 +23,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  cancelRun(id);
+  await cancelRun(id);
   return NextResponse.json({ ok: true });
 }

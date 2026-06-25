@@ -4,6 +4,10 @@
     {
       "path": "/api/meta-teams/aggregate",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/teams/debate/advance",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
