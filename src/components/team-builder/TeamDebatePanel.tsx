@@ -85,7 +85,9 @@ export function TeamDebatePanel({
   // Live EV-optimization progress (the long phase after the 6 agents post).
   const [evProgress, setEvProgress] = useState<EvProgress | null>(null);
   const [evMembers, setEvMembers] = useState<DraftMember[]>([]);
-  const abortRef = useRef<AbortController | null>(null);
+  // Backgrounded run: a DB-persisted run id we poll (no long-held request).
+  const runIdRef = useRef<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const run = useCallback(async () => {
     setIsRunning(true);
@@ -97,74 +99,82 @@ export function TeamDebatePanel({
     setEvProgress(null);
     setEvMembers([]);
 
-    const controller = new AbortController();
-    abortRef.current = controller;
-
+    let runId: string;
     try {
-      const res = await fetch("/api/teams/debate", {
+      const res = await fetch("/api/teams/debate/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seed, brief, format, mode }),
-        signal: controller.signal,
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
-      }
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("No response body");
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const chunks = buffer.split("\n\n");
-        buffer = chunks.pop() ?? "";
-        for (const chunk of chunks) {
-          const ev = chunk.match(/event: (.*)/)?.[1]?.trim();
-          const dataStr = chunk.match(/data: ([\s\S]*)/)?.[1];
-          if (!ev || !dataStr) continue;
-          let data: Record<string, unknown>;
-          try {
-            data = JSON.parse(dataStr);
-          } catch {
-            continue;
-          }
-          if (ev === "node") {
-            const nd = (data.data ?? {}) as Record<string, unknown>;
-            const entries = (nd.transcript as TranscriptEntry[]) ?? [];
-            if (entries.length) setTranscript((prev) => [...prev, ...entries]);
-            // EV-optimization progress (the long phase after the agents post).
-            const evp = nd.evProgress as EvProgress | undefined;
-            if (evp) {
-              setEvProgress(evp);
-              const fm = nd.finalTeam as DraftMember[] | undefined;
-              if (fm) setEvMembers(fm);
-            }
-          } else if (ev === "done") {
-            setTeam((data.team as DraftMember[]) ?? []);
-            setSummary((data.summary as string) ?? "");
-            setViolations((data.violations as Violation[]) ?? []);
-            setRounds((data.rounds as number) ?? 1);
-            setEvProgress(null);
-          } else if (ev === "error") {
-            setError((data.message as string) ?? "Unknown error");
-          }
-        }
-      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+      runId = (data as { runId: string }).runId;
+      runIdRef.current = runId;
     } catch (err) {
-      if ((err as Error).name !== "AbortError") {
-        setError((err as Error).message ?? "Unknown error");
-      }
-    } finally {
+      setError((err as Error).message ?? "Failed to start");
       setIsRunning(false);
-      abortRef.current = null;
+      return;
     }
+
+    const poll = async () => {
+      if (runIdRef.current !== runId) return; // cancelled / superseded
+      try {
+        const r = await fetch(`/api/teams/debate/runs/${runId}`);
+        const run = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error((run as { error?: string }).error ?? `HTTP ${r.status}`);
+        const p = (run.progress ?? {}) as {
+          transcript?: TranscriptEntry[];
+          evProgress?: EvProgress | null;
+          team?: DraftMember[];
+          summary?: string;
+          violations?: Violation[];
+          rounds?: number;
+        };
+        if (Array.isArray(p.transcript)) setTranscript(p.transcript);
+        if (p.evProgress) {
+          setEvProgress(p.evProgress);
+          if (Array.isArray(p.team)) setEvMembers(p.team);
+        }
+        if (run.status === "done") {
+          setTeam(p.team ?? []);
+          setSummary(p.summary ?? "");
+          setViolations(p.violations ?? []);
+          setRounds(p.rounds ?? 1);
+          setEvProgress(null);
+          setIsRunning(false);
+          runIdRef.current = null;
+          return;
+        }
+        if (run.status === "error") {
+          setError(run.error ?? "Run failed");
+          setIsRunning(false);
+          runIdRef.current = null;
+          return;
+        }
+        if (run.status === "cancelled") {
+          setIsRunning(false);
+          runIdRef.current = null;
+          return;
+        }
+        pollTimerRef.current = setTimeout(poll, 2500);
+      } catch (err) {
+        setError((err as Error).message ?? "Polling error");
+        setIsRunning(false);
+        runIdRef.current = null;
+      }
+    };
+    pollTimerRef.current = setTimeout(poll, 1500);
   }, [seed, brief, format, mode]);
 
-  const cancel = useCallback(() => abortRef.current?.abort(), []);
+  const cancel = useCallback(() => {
+    const id = runIdRef.current;
+    if (id) {
+      fetch(`/api/teams/debate/runs/${id}`, { method: "DELETE" }).catch(() => {});
+    }
+    runIdRef.current = null;
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    setIsRunning(false);
+  }, []);
 
   const apply = useCallback(() => {
     if (team) {

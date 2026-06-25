@@ -267,6 +267,30 @@ export const analysisCache = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
+// debate_runs — a backgrounded team-debate run (the ~15-20 min build). The
+// start endpoint creates a row and processes the run out-of-band, persisting
+// progress; the UI polls instead of holding one long SSE request.
+// ---------------------------------------------------------------------------
+export const debateRuns = sqliteTable(
+  'debate_runs',
+  {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text('user_id'),
+    // 'running' | 'done' | 'error' | 'cancelled'
+    status: text('status').notNull(),
+    // last node/label reached, e.g. 'analyst' | 'ev_progress' | 'finalize'
+    phase: text('phase'),
+    // { input:{seed,brief,format,mode}, transcript, evProgress, team,
+    //   summary, violations, rounds }
+    resultJson: text('result_json', { mode: 'json' }).notNull(),
+    error: text('error'),
+    createdAt: integer('created_at').$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at').$defaultFn(() => Date.now()),
+  },
+  (table) => [index('debate_runs_status_idx').on(table.status)],
+);
+
+// ---------------------------------------------------------------------------
 // agent_threads
 // ---------------------------------------------------------------------------
 export const agentThreads = sqliteTable(
