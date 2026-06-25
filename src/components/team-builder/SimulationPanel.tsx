@@ -47,6 +47,7 @@ export function SimulationPanel({ team, format }: SimulationPanelProps) {
   const [open, setOpen] = useState(false);
   const [matchups, setMatchups] = useState<SimMatchup[] | null>(null);
   const [considered, setConsidered] = useState(0);
+  const [field, setField] = useState<{ weather: string | null; tailwind: boolean; trickRoom: boolean } | null>(null);
   const [cached, setCached] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export function SimulationPanel({ team, format }: SimulationPanelProps) {
       if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
       setMatchups(j.matchups as SimMatchup[]);
       setConsidered(j.opponentsConsidered ?? 0);
+      setField(j.field ?? null);
       setCached(!!j.cached);
     } catch (e) {
       setError((e as Error).message ?? "Failed to simulate");
@@ -104,7 +106,17 @@ export function SimulationPanel({ team, format }: SimulationPanelProps) {
             )}
             {matchups && (
               <span className="text-[9px] text-muted-foreground/60">
-                vs {considered} proven teams{cached ? " · cached" : ""}
+                vs {considered} proven teams
+                {field && (field.weather || field.tailwind || field.trickRoom)
+                  ? ` · field: ${[
+                      field.weather,
+                      field.tailwind ? "Tailwind" : null,
+                      field.trickRoom ? "Trick Room" : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" + ")}`
+                  : ""}
+                {cached ? " · cached" : ""}
               </span>
             )}
           </div>
@@ -189,9 +201,9 @@ export function SimulationPanel({ team, format }: SimulationPanelProps) {
 
           {matchups && matchups.length > 0 && (
             <p className="text-[9px] text-muted-foreground/60">
-              Worst matchups first. Approximate — opponent EVs default where their list
-              omits them; weather/Tailwind not applied. Run the EV optimizer to harden
-              your soft matchups.
+              Worst matchups first. Your team&apos;s weather + Tailwind/Trick Room are
+              applied; opponent EVs default where their list omits them. Run the EV
+              optimizer to harden your soft matchups.
             </p>
           )}
         </CardContent>
