@@ -18,6 +18,16 @@ interface SimThreat {
   target: string;
   percent: number;
 }
+interface SimCell {
+  target: string;
+  move: string;
+  percent: number;
+  ohko: boolean;
+}
+interface SimAttackerRow {
+  attacker: string;
+  vs: SimCell[];
+}
 interface SimMatchup {
   team: {
     id: string;
@@ -34,6 +44,36 @@ interface SimMatchup {
   theyThreaten: number;
   speedNote: string;
   worstThreat: SimThreat | null;
+  detail: { yourHits: SimAttackerRow[]; theirHits: SimAttackerRow[] };
+}
+
+function pctColor(percent: number): string {
+  if (percent >= 100) return "text-rose-400";
+  if (percent >= 75) return "text-orange-400";
+  if (percent >= 45) return "text-amber-400";
+  return "text-muted-foreground";
+}
+
+function DamageMatrix({ title, rows }: { title: string; rows: SimAttackerRow[] }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</div>
+      {rows.map((r) => (
+        <div key={r.attacker} className="flex flex-wrap items-baseline gap-x-1.5 text-[9px]">
+          <span className="font-semibold text-foreground">{r.attacker}:</span>
+          {r.vs.map((c, i) => (
+            <span key={i} className="text-muted-foreground">
+              {c.target}{" "}
+              <span className={pctColor(c.percent)}>
+                {c.percent}%{c.ohko ? " KO" : ""}
+              </span>
+              {i < r.vs.length - 1 ? " ·" : ""}
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 const LABEL_STYLE: Record<SimMatchup["label"], { bar: string; text: string }> = {
@@ -51,6 +91,16 @@ export function SimulationPanel({ team, format }: SimulationPanelProps) {
   const [cached, setCached] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpand = useCallback((id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const filledCount = team.filter((p) => p.species?.trim()).length;
 
@@ -194,6 +244,22 @@ export function SimulationPanel({ team, format }: SimulationPanelProps) {
                       ({m.worstThreat.percent}%)
                     </span>
                   </p>
+                )}
+
+                {m.detail?.yourHits && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(m.team.id)}
+                    className="self-start text-[9px] text-primary hover:underline"
+                  >
+                    {expanded.has(m.team.id) ? "▴ Hide damage detail" : "▾ Show damage detail"}
+                  </button>
+                )}
+                {expanded.has(m.team.id) && m.detail?.yourHits && (
+                  <div className="flex flex-col gap-2 rounded-md border border-border/40 bg-background/60 p-2">
+                    <DamageMatrix title="You → them (best hit)" rows={m.detail.yourHits} />
+                    <DamageMatrix title="Them → you (best hit)" rows={m.detail.theirHits} />
+                  </div>
                 )}
               </div>
             );

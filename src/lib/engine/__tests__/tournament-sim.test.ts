@@ -63,6 +63,12 @@ describe("scoreMatchup", () => {
     expect(m.worstThreat).not.toBeNull();
     expect(m.worstThreat?.target).toBe("Garchomp");
     expect(m.speedNote).toMatch(/outspeed/);
+
+    // Detail matrix: one row per attacker, one cell per defender, both directions.
+    expect(m.detail.yourHits).toHaveLength(user.length);
+    expect(m.detail.yourHits[0].vs).toHaveLength(opp.length);
+    expect(m.detail.theirHits).toHaveLength(opp.length);
+    expect(m.detail.theirHits[0].vs[0]).toMatchObject({ target: "Garchomp" });
   });
 
   it("favors a team that OHKOs the opponent while outspeeding it", () => {
