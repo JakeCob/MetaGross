@@ -22,16 +22,15 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const [creators, limitless, pikalytics, vgcpastes, victoryroad] =
+    const [creators, limitless, pikalytics, vgcpastes, victoryroad, labmaus] =
       await Promise.all([
         aggregateFromCreators({}),
         aggregateFromLimitless({}),
         aggregateFromPikalytics({}),
         aggregateFromVgcPastes({}),
         aggregateFromVictoryRoad({}),
+        aggregateFromLabmaus({}),
       ]);
-    // Labmaus is excluded from the cron — it needs explicit tournament ids and
-    // its parser isn't implemented yet (POST source="labmaus" to invoke it).
     return Response.json({
       source: "all",
       trigger: "cron",
@@ -40,6 +39,7 @@ export async function GET(request: Request) {
       pikalytics,
       vgcpastes,
       victoryroad,
+      labmaus,
     });
   } catch (err) {
     console.error("GET /api/meta-teams/aggregate (cron) error:", err);
@@ -144,14 +144,15 @@ export async function POST(request: Request) {
       });
     }
 
-    // Labmaus is opt-in only (needs explicit tournament ids; parser is a stub).
-    if (source === "labmaus") {
-      const tournamentIds: string[] = Array.isArray(body?.tournamentIds)
-        ? body.tournamentIds.filter((t: unknown): t is string => typeof t === "string")
-        : [];
+    if (source === "labmaus" || source === "all") {
       output.labmaus = await aggregateFromLabmaus({
         internalFormat,
-        tournamentIds,
+        regulation:
+          typeof body?.labmausRegulation === "string" ? body.labmausRegulation : undefined,
+        days: typeof body?.labmausDays === "number" ? body.labmausDays : undefined,
+        dateRange:
+          typeof body?.labmausDateRange === "string" ? body.labmausDateRange : undefined,
+        limit: typeof body?.labmausLimit === "number" ? body.labmausLimit : undefined,
       });
     }
 

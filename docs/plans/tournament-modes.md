@@ -18,12 +18,12 @@ mostly **wiring + UX**, not building from scratch.
 | Source | Gives | Access | Trust | Status |
 |---|---|---|---|---|
 | **Limitless** (`limitless.ts`) | full movesets (no EVs), standings | integrated | 0.95 | ✅ |
-| **Labmaus** (labmaus.net) | tournament team lists + usage, `/tournaments/{id}` (official + unofficial, huge coverage) | no public JSON API found → inspect SPA's internal data call, else HTML scrape. **Incomplete TLS cert chain** → lenient cert handling; verify data shape from a real env first | ~0.85 | **scaffold drafted** (`aggregator-labmaus.ts`), NOT functional — see TODOs below |
+| **Labmaus** (labmaus.net) | top tournament teams per regulation, each with player/placement/record/tournament + a **pokepaste link to the full set** | REST: `GET /api/top_teams?regulation=Regulation Set M-B&date_range=…&language=en`. Needs **lenient TLS** (incomplete cert chain) + an **`Origin` header** (else 403). | ~0.9 | ✅ **DONE** (`aggregator-labmaus.ts`) — wired into cron + POST; verified live (741 M-B teams) |
 | **Victory Road** (`victoryroad.pro`) | the **`/champions-replica/`** page = curated, creator-credited proven *Champions* teams (player, record, 6 species via `gen9-champions/<sp>.png` sprites, rental code). SV rental pages are cartridge VGC, not Champions. | scrape the HTML table | ~0.9 | ✅ **DONE** (`aggregator-victoryroad.ts`) — wired into cron + POST; verified live |
 
 ### Phase 5 status
 - ✅ **Victory Road** (`aggregator-victoryroad.ts`): DONE + verified live — `POST {source:"victoryroad"}` scraped + inserted **122 teams** (113 for M-B), with author / record / species / HOME rental code; they surface in the Browse view with a "Victory Road" badge. In the daily cron.
-- **Labmaus** (`aggregator-labmaus.ts`): blocked on (1) the incomplete TLS cert chain (fetch failed from the dev env — wire the lenient `undici` `Agent({connect:{rejectUnauthorized:false}})` path), and (2) its SPA data shape — open a `/tournaments/{id}` page, capture the internal data request (REST JSON or `__NEXT_DATA__`), and implement `parseLabmaus` against it. Currently POST-only (`source:"labmaus"` + `tournamentIds`), returns `notImplemented:true`.
+- ✅ **Labmaus** (`aggregator-labmaus.ts`): DONE + verified live — `POST {source:"labmaus"}` inserted **741 Reg M-B teams**, 0 errors, each with player/record/tournament + a **pokepaste link** (full set) as the source URL. Uses the `/api/top_teams` REST endpoint with the `regulation` filter (NB: Labmaus also tracks cartridge VGC — Miraidon/Lunala etc. — which we exclude by passing `Regulation Set M-B`). Fetch goes through a lenient `undici` `Agent({connect:{rejectUnauthorized:false}})` (incomplete cert chain) + an `Origin` header (the API 403s without it). In the daily cron + `source:"all"`.
 - Registration done: `MetaTeamSource` += `victoryroad`/`labmaus`; aggregate route GET/POST; `MetaTeamBrowser` source badges.
 | Pikalytics / VGCPastes | usage / paste dumps | in aggregator | varies | ✅ |
 
