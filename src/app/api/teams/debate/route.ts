@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { streamTeamDebate } from "@/lib/ai/team-debate";
+import { normalizeMode } from "@/lib/ai/team-debate/modes";
 import type { AITeamMember } from "@/lib/team-analysis/team-context";
 import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const seed: AITeamMember[] = Array.isArray(body?.seed) ? body.seed : [];
     const brief: string = typeof body?.brief === "string" ? body.brief : "";
+    const mode = normalizeMode(body?.mode);
     const format: string =
       typeof body?.format === "string" && body.format.trim()
         ? body.format
@@ -55,6 +57,7 @@ export async function POST(request: Request) {
             seed,
             brief,
             format,
+            mode,
           })) {
             const s = state as Record<string, unknown>;
             last = { ...last, ...s };

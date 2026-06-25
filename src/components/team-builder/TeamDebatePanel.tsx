@@ -74,6 +74,7 @@ export function TeamDebatePanel({
   onApplyTeam,
 }: TeamDebatePanelProps) {
   const [brief, setBrief] = useState("");
+  const [mode, setMode] = useState<"ladder" | "tournament">("ladder");
   const [isRunning, setIsRunning] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [team, setTeam] = useState<DraftMember[] | null>(null);
@@ -103,7 +104,7 @@ export function TeamDebatePanel({
       const res = await fetch("/api/teams/debate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seed, brief, format }),
+        body: JSON.stringify({ seed, brief, format, mode }),
         signal: controller.signal,
       });
       if (!res.ok) {
@@ -161,7 +162,7 @@ export function TeamDebatePanel({
       setIsRunning(false);
       abortRef.current = null;
     }
-  }, [seed, brief, format]);
+  }, [seed, brief, format, mode]);
 
   const cancel = useCallback(() => abortRef.current?.abort(), []);
 
@@ -206,12 +207,36 @@ export function TeamDebatePanel({
 
       <CardContent className="flex flex-col gap-3 pt-0">
         {!isRunning && !team && (
-          <input
-            value={brief}
-            onChange={(e) => setBrief(e.target.value)}
-            placeholder="Optional: describe your win condition (e.g. rain hyper offense around Archaludon)"
-            className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs outline-none focus-visible:border-ring"
-          />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">Building for:</span>
+              {(["ladder", "tournament"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium capitalize transition-colors ${
+                    mode === m
+                      ? "bg-primary text-primary-foreground"
+                      : "border border-border text-muted-foreground hover:bg-accent/40"
+                  }`}
+                >
+                  {m === "ladder" ? "🪜 Ladder" : "🏆 Tournament"}
+                </button>
+              ))}
+              <span className="ml-auto text-[9px] text-muted-foreground/70">
+                {mode === "tournament"
+                  ? "open sheet → proven teams"
+                  : "closed sheet → surprise OK"}
+              </span>
+            </div>
+            <input
+              value={brief}
+              onChange={(e) => setBrief(e.target.value)}
+              placeholder="Optional: describe your win condition (e.g. rain hyper offense around Archaludon)"
+              className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs outline-none focus-visible:border-ring"
+            />
+          </div>
         )}
 
         {isRunning && transcript.length === 0 && (
