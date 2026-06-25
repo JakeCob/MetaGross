@@ -56,6 +56,16 @@ export interface SimThreat {
   percent: number;
 }
 
+/** One attacker's best hit on each defender (for the expandable detail view). */
+export interface SimAttackerRow {
+  attacker: string;
+  vs: { target: string; move: string; percent: number; ohko: boolean }[];
+}
+export interface SimDetail {
+  yourHits: SimAttackerRow[]; // your mons → each of theirs
+  theirHits: SimAttackerRow[]; // their mons → each of yours
+}
+
 export interface SimMatchup {
   team: {
     id: string;
@@ -75,6 +85,8 @@ export interface SimMatchup {
   theyThreaten: number;
   speedNote: string;
   worstThreat: SimThreat | null;
+  /** Full per-Pokémon best-hit matrix (both directions) for the expand view. */
+  detail: SimDetail;
 }
 
 export interface SimResult {
@@ -158,25 +170,31 @@ export function scoreMatchup(
   // Your weather is applied to both directions (it's up on the field).
   const weather = field.weather;
 
-  // Offense: opp mons the user can OHKO.
-  let youThreaten = 0;
-  for (const d of opp) {
-    if (user.some((a) => bestHit(a, d, weather).canOHKO)) youThreaten++;
-  }
+  // Full best-hit matrices (both directions) — computed once, reused for the
+  // scores AND the expandable detail view.
+  const matrix = (attackers: TeamPokemon[], defenders: TeamPokemon[]): SimAttackerRow[] =>
+    attackers.map((a) => ({
+      attacker: a.species,
+      vs: defenders.map((d) => {
+        const b = bestHit(a, d, weather);
+        return { target: d.species, move: b.move, percent: Math.round(b.maxPercent), ohko: b.canOHKO };
+      }),
+    }));
+  const yourHits = matrix(user, opp);
+  const theirHits = matrix(opp, user);
 
-  // Defense: user mons the opp can OHKO + the single biggest incoming hit.
-  let theyThreaten = 0;
+  // Offense: opp mons (columns) the user can OHKO.
+  const youThreaten = opp.filter((_, j) => yourHits.some((r) => r.vs[j]?.ohko)).length;
+
+  // Defense: user mons (columns) the opp can OHKO + the single biggest incoming hit.
+  const theyThreaten = user.filter((_, j) => theirHits.some((r) => r.vs[j]?.ohko)).length;
   let worst: SimThreat | null = null;
-  for (const d of user) {
-    let koed = false;
-    for (const a of opp) {
-      const b = bestHit(a, d, weather);
-      if (b.canOHKO) koed = true;
-      if (!worst || b.maxPercent > worst.percent) {
-        worst = { attacker: a.species, move: b.move, target: d.species, percent: Math.round(b.maxPercent) };
+  for (const r of theirHits) {
+    for (const cell of r.vs) {
+      if (!worst || cell.percent > worst.percent) {
+        worst = { attacker: r.attacker, move: cell.move, target: cell.target, percent: cell.percent };
       }
     }
-    if (koed) theyThreaten++;
   }
 
   // Speed: apply your weather + Tailwind (your side) + Trick Room.
@@ -224,6 +242,7 @@ export function scoreMatchup(
     theyThreaten,
     speedNote,
     worstThreat: worst,
+    detail: { yourHits, theirHits },
   };
 }
 
