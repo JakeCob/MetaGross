@@ -51,6 +51,28 @@ export interface PreMatchStrategy {
   winCondition: string;
 }
 
+/** AI-suggested improvements for a team-in-progress: roster swaps + per-mon set
+ *  tweaks. Rendered as the builder's "Potential changes" panel. */
+export interface PotentialChangeAnalysis {
+  /** Roster-level ideas ("Add a Steel-type to threaten Fairies"). */
+  swaps: { title: string; reasoning: string }[];
+  /** Per-Pokémon set tweaks ("Garchomp: add Protect for survivability"). */
+  setTweaks: { species: string; suggestion: string }[];
+  /** Optional closing note / overall direction. */
+  note?: string;
+}
+
+/** AI-suggested lead+back combinations with a gameplan blurb each. Rendered as
+ *  the builder's "Common combinations" panel. */
+export interface CommonCombinationsAnalysis {
+  combos: {
+    leads: string[]; // usually 2
+    back: string[]; // usually 2
+    strategy: string;
+  }[];
+  note?: string;
+}
+
 // Damage calculation result
 export interface DamageResult {
   minDamage: number;
