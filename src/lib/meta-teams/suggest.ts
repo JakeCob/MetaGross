@@ -70,34 +70,52 @@ function dedupeByFingerprint(teams: MetaTeam[]): MetaTeam[] {
 
 /** Mode: proven teams that run `species`. */
 async function suggestFeatured(
-  species: string,
+  speciesRaw: string,
   format: string,
   limit: number,
 ): Promise<SuggestResult> {
+  // Accept one mon OR a comma-separated core (the "use my locked slots" shortcut
+  // passes the whole locked roster). One mon → teams that run it; a core → teams
+  // ranked by how much of the core they share.
+  const list = speciesRaw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (list.length === 0) {
+    return { mode: "featured", suggestions: [], context: { species: null } };
+  }
+  const lowerList = list.map((s) => s.toLowerCase());
   const matches = await matchMetaTeams({
-    species: [species],
+    species: list,
     format,
-    minOverlap: 1,
-    limit: limit * 3,
+    minOverlap: list.length >= 2 ? 2 : 1,
+    limit: limit * 4,
   });
-  const deduped = dedupeByFingerprint(matches.map((m) => m.team)).slice(0, limit);
-  const suggestions: TeamSuggestion[] = deduped.map((team) => {
+
+  const seen = new Set<string>();
+  const suggestions: TeamSuggestion[] = [];
+  for (const m of matches) {
+    const key = buildFingerprint(m.team.species);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const team = m.team;
     const archetype = archetypeOf(team, format);
-    const others = team.species.filter(
-      (s) => s.toLowerCase() !== species.toLowerCase(),
-    );
-    return {
-      team,
-      archetype,
-      reason: `${archetype} build around ${species}${
-        team.record ? ` — ${team.record}` : ""
-      }. Pairs it with ${others.slice(0, 3).join(", ")}.`,
-    };
-  });
+    const record = team.record ? ` — ${team.record}` : "";
+    const reason =
+      list.length >= 2
+        ? `${archetype} — shares ${m.overlap}/${list.length} of your core${record}.`
+        : `${archetype} build around ${list[0]}${record}. Pairs it with ${team.species
+            .filter((s) => !lowerList.includes(s.toLowerCase()))
+            .slice(0, 3)
+            .join(", ")}.`;
+    suggestions.push({ team, archetype, reason });
+    if (suggestions.length >= limit) break;
+  }
+
   return {
     mode: "featured",
     suggestions,
-    context: { species, found: suggestions.length },
+    context: { species: list, count: list.length, found: suggestions.length },
   };
 }
 

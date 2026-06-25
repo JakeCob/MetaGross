@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import {
+  useState,
+  useCallback,
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,12 +56,20 @@ export interface TeamDebateMember {
   evs?: EVSpread;
 }
 
+type DebateSeed = { species: string; item?: string; ability?: string };
+
 export interface TeamDebatePanelProps {
   /** Filled slots to build around (may be empty → AI picks the whole team). */
-  seed: { species: string; item?: string; ability?: string }[];
+  seed: DebateSeed[];
   format: string;
   /** Replace the builder's team with the debated 6. */
   onApplyTeam: (members: TeamDebateMember[]) => void;
+}
+
+/** Imperative handle so other panels (e.g. Suggestions' "AI Build") can START
+ *  a debate directly, passing the seed explicitly to avoid a stale-prop race. */
+export interface TeamDebateHandle {
+  start: (opts?: { seed?: DebateSeed[]; brief?: string; mode?: "ladder" | "tournament" }) => void;
 }
 
 /** Per-agent accent so the debate reads like a conversation. */
@@ -68,11 +82,9 @@ const AGENT_STYLE: Record<string, { icon: string; color: string }> = {
   finalize: { icon: "✅", color: "text-green-400" },
 };
 
-export function TeamDebatePanel({
-  seed,
-  format,
-  onApplyTeam,
-}: TeamDebatePanelProps) {
+export const TeamDebatePanel = forwardRef<TeamDebateHandle, TeamDebatePanelProps>(
+  function TeamDebatePanel({ seed, format, onApplyTeam }, ref) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const [brief, setBrief] = useState("");
   const [mode, setMode] = useState<"ladder" | "tournament">("ladder");
   const [isRunning, setIsRunning] = useState(false);
@@ -89,7 +101,17 @@ export function TeamDebatePanel({
   const runIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const run = useCallback(async () => {
+  const run = useCallback(async (overrides?: {
+    seed?: DebateSeed[];
+    brief?: string;
+    mode?: "ladder" | "tournament";
+  }) => {
+    const useSeed = overrides?.seed ?? seed;
+    const useBrief = overrides?.brief ?? brief;
+    const useMode = overrides?.mode ?? mode;
+    if (overrides?.brief !== undefined) setBrief(overrides.brief);
+    if (overrides?.mode) setMode(overrides.mode);
+
     setIsRunning(true);
     setTranscript([]);
     setTeam(null);
@@ -104,7 +126,7 @@ export function TeamDebatePanel({
       const res = await fetch("/api/teams/debate/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seed, brief, format, mode }),
+        body: JSON.stringify({ seed: useSeed, brief: useBrief, format, mode: useMode }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
@@ -191,10 +213,21 @@ export function TeamDebatePanel({
     }
   }, [team, onApplyTeam]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      start: (opts) => {
+        cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        void run(opts);
+      },
+    }),
+    [run],
+  );
+
   const warnings = violations.filter((v) => v.severity === "warning");
 
   return (
-    <Card size="sm" className="bg-card/60">
+    <Card ref={cardRef} size="sm" className="bg-card/60">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center justify-between text-sm">
           <span className="flex items-center gap-2">
@@ -208,7 +241,7 @@ export function TeamDebatePanel({
               Cancel
             </Button>
           ) : (
-            <Button size="xs" onClick={run}>
+            <Button size="xs" onClick={() => run()}>
               {team ? "Re-run" : seed.length ? "Build around my team" : "Build a team"}
             </Button>
           )}
@@ -397,7 +430,7 @@ export function TeamDebatePanel({
               <Button size="xs" onClick={apply}>
                 Apply team to builder
               </Button>
-              <Button size="xs" variant="outline" onClick={run}>
+              <Button size="xs" variant="outline" onClick={() => run()}>
                 Re-run
               </Button>
             </div>
@@ -411,4 +444,4 @@ export function TeamDebatePanel({
       </CardContent>
     </Card>
   );
-}
+});
