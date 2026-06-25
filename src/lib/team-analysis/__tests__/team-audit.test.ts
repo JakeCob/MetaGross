@@ -6,6 +6,7 @@ import {
   teamErrors,
   megaAbilityFor,
   describeMember,
+  classifyArchetype,
   type AITeamMember,
 } from "../team-context";
 
@@ -70,6 +71,42 @@ describe("describeMember — surfaces base + mega ability", () => {
     );
     expect(s).toContain("ability: Intimidate");
     expect(s).not.toContain("after Mega");
+  });
+});
+
+describe("classifyArchetype", () => {
+  it("classifies rain from a Drizzle ability", () => {
+    expect(classifyArchetype([{ species: "Pelipper", ability: "Drizzle" }], FORMAT)).toBe("Rain");
+  });
+
+  it("classifies rain from a known setter species (no ability/moves)", () => {
+    expect(classifyArchetype([{ species: "Pelipper" }, { species: "Archaludon" }], FORMAT)).toBe("Rain");
+  });
+
+  it("classifies Trick Room from a Trick Room move", () => {
+    expect(
+      classifyArchetype([{ species: "Farigiraf", ability: "Armor Tail", moves: ["Trick Room", "Psychic"] }], FORMAT),
+    ).toBe("Trick Room");
+  });
+
+  it("classifies Tailwind", () => {
+    expect(
+      classifyArchetype([{ species: "Whimsicott", ability: "Prankster", moves: ["Tailwind", "Moonblast"] }], FORMAT),
+    ).toBe("Tailwind");
+  });
+
+  it("classifies Snow from Alolan Ninetales", () => {
+    expect(classifyArchetype([{ species: "Ninetales-Alola" }], FORMAT)).toBe("Snow");
+  });
+
+  it("falls back to Balance with no weather/speed signal", () => {
+    expect(
+      classifyArchetype([{ species: "Incineroar", ability: "Intimidate", moves: ["Fake Out", "Flare Blitz"] }], FORMAT),
+    ).toBe("Balance");
+  });
+
+  it("returns Unknown for an empty team", () => {
+    expect(classifyArchetype([], FORMAT)).toBe("Unknown");
   });
 });
 

@@ -230,6 +230,54 @@ export function computeCoreWeaknesses(
     .join("\n");
 }
 
+/** Known weather-setter species, used to classify archetype when a team
+ *  snapshot lacks abilities/moves (analyzeTeam can't see the Drizzle etc.). */
+const WEATHER_SETTER_SPECIES: Record<string, string> = {
+  pelipper: "rain",
+  politoed: "rain",
+  torkoal: "sun",
+  ninetales: "sun",
+  tyranitar: "sandstorm",
+  "tyranitar-mega": "sandstorm",
+  hippowdon: "sandstorm",
+  gigalith: "sandstorm",
+  "ninetales-alola": "snow",
+  abomasnow: "snow",
+  "abomasnow-mega": "snow",
+};
+
+/**
+ * Classify a team's archetype (Rain / Sun / Sand / Snow / Trick Room / Tailwind
+ * / Balance) from its composition — so strengths/weaknesses and "preferred
+ * archetypes" can be derived without manual tags. Uses analyzeTeam's weather/
+ * speed detection (abilities + moves) and falls back to known weather-setter
+ * species when a snapshot only has species names.
+ */
+export function classifyArchetype(
+  team: AITeamMember[],
+  format: string,
+): string {
+  if (team.length === 0) return "Unknown";
+  const a = analyzeTeam(team, format);
+  let weather = a.weather;
+  if (!weather) {
+    for (const m of team) {
+      const w = WEATHER_SETTER_SPECIES[norm(m.species)];
+      if (w) {
+        weather = w;
+        break;
+      }
+    }
+  }
+  if (weather === "rain") return "Rain";
+  if (weather === "sun") return "Sun";
+  if (weather === "sandstorm") return "Sand";
+  if (weather === "snow") return "Snow";
+  if (a.hasTrickRoom) return "Trick Room";
+  if (a.hasTailwind) return "Tailwind";
+  return "Balance";
+}
+
 /** Per-member base Speed list — the data a Trick Room / fast plan turns on. */
 export function formatSpeedProfile(
   team: AITeamMember[],

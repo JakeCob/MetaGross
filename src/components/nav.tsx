@@ -22,6 +22,7 @@ function isGroup(e: NavEntry): e is NavGroup {
 // Grouped navigation — collapses the long flat list into a few dropdowns.
 const NAV: NavEntry[] = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/profile", label: "Profile" },
   {
     label: "Teams",
     items: [
