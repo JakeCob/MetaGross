@@ -30,6 +30,7 @@ import {
 } from "./TeamDebatePanel";
 import { MetaTeamBrowser } from "./MetaTeamBrowser";
 import { TeamSuggestions } from "./TeamSuggestions";
+import { PotentialChangesPanel } from "./PotentialChangesPanel";
 import type { MetaTeam, MetaTeamPokemon } from "@/lib/meta-teams/types";
 import { SlotAISuggestions } from "./SlotAISuggestions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
@@ -853,6 +854,9 @@ export function TeamBuilder({
         format={format}
         onApplyTeam={handleDebateApply}
       />
+
+      {/* AI-generated improvement ideas for the current team. */}
+      <PotentialChangesPanel team={pokemon} format={format} />
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
