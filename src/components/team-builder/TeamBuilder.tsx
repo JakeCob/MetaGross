@@ -23,7 +23,11 @@ import { PokemonForm } from "./PokemonForm";
 import { PokemonSlotCard } from "./PokemonSlotCard";
 import { TeamImport } from "./TeamImport";
 import { AITeamSuggestions } from "./AITeamSuggestions";
-import { TeamDebatePanel, type TeamDebateMember } from "./TeamDebatePanel";
+import {
+  TeamDebatePanel,
+  type TeamDebateMember,
+  type TeamDebateHandle,
+} from "./TeamDebatePanel";
 import { MetaTeamBrowser } from "./MetaTeamBrowser";
 import { TeamSuggestions } from "./TeamSuggestions";
 import type { MetaTeam, MetaTeamPokemon } from "@/lib/meta-teams/types";
@@ -448,6 +452,27 @@ export function TeamBuilder({
     }));
   const hasEmptySlots = pokemon.some((p) => !p.species?.trim());
 
+  // Imperative handle to the debate panel so Suggestions' "AI Build" can START
+  // a debate. The seed is passed explicitly (not via the panel's prop) so it
+  // doesn't depend on a not-yet-flushed slot setState.
+  const debateRef = useRef<TeamDebateHandle | null>(null);
+  const handleStartDebate = useCallback(
+    (species: string) => {
+      const sp = species.trim();
+      // Seed the slot for visibility (first empty) if it's new.
+      if (sp && !filledSpecies.some((s) => s.toLowerCase() === sp.toLowerCase())) {
+        handleSuggestionAdd(sp);
+      }
+      // Build around the current locked core + the picked mon (deduped).
+      const seed = [...filledDetails];
+      if (sp && !seed.some((m) => m.species.toLowerCase() === sp.toLowerCase())) {
+        seed.push({ species: sp, item: undefined, ability: undefined });
+      }
+      debateRef.current?.start({ seed });
+    },
+    [filledSpecies, filledDetails, handleSuggestionAdd],
+  );
+
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
 
   /**
@@ -812,7 +837,8 @@ export function TeamBuilder({
       <TeamSuggestions
         format={format}
         onUseTeam={handleUseMetaTeam}
-        onSeedForAI={handleSuggestionAdd}
+        onStartDebate={handleStartDebate}
+        lockedSpecies={filledSpecies}
       />
 
       {/* Browse + import proven tournament teams (open-sheet reference). */}
@@ -822,6 +848,7 @@ export function TeamBuilder({
           current core (or from scratch) with offense/defense/data/critic
           agents. */}
       <TeamDebatePanel
+        ref={debateRef}
         seed={filledDetails}
         format={format}
         onApplyTeam={handleDebateApply}

@@ -25,8 +25,10 @@ export interface TeamSuggestionsProps {
   format: string;
   /** One-click full-set import (shared with the proven-teams browser). */
   onUseTeam: (team: MetaTeam) => void | Promise<void>;
-  /** Seed a species into the builder so the AI debate can build around it. */
-  onSeedForAI: (species: string) => void;
+  /** Start the AI debate built around a species (AI Build mode auto-starts it). */
+  onStartDebate: (species: string) => void;
+  /** Currently-locked builder species — powers the "use my locked slots" shortcut. */
+  lockedSpecies?: string[];
 }
 
 const MODES: { key: Mode; label: string; hint: string }[] = [
@@ -48,7 +50,12 @@ const SOURCE_BADGE: Record<string, { label: string; variant: "default" | "second
   user: { label: "User", variant: "default" },
 };
 
-export function TeamSuggestions({ format, onUseTeam, onSeedForAI }: TeamSuggestionsProps) {
+export function TeamSuggestions({
+  format,
+  onUseTeam,
+  onStartDebate,
+  lockedSpecies = [],
+}: TeamSuggestionsProps) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("featured");
   const [species, setSpecies] = useState("");
@@ -136,34 +143,56 @@ export function TeamSuggestions({ format, onUseTeam, onSeedForAI }: TeamSuggesti
 
           {/* Featured / AI: species input */}
           {(mode === "featured" || mode === "ai") && (
-            <div className="flex gap-2">
-              <Input
-                value={species}
-                onChange={(e) => setSpecies(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && species.trim()) {
-                    if (mode === "featured") void fetchSuggestions("featured", species.trim());
-                    else onSeedForAI(species.trim());
-                  }
-                }}
-                placeholder={mode === "featured" ? "e.g. Pyroar, Archaludon, Mawile" : "e.g. Pyroar — the mon to build around"}
-                className="h-7 text-xs"
-              />
-              {mode === "featured" ? (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex gap-2">
+                <Input
+                  value={species}
+                  onChange={(e) => setSpecies(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && species.trim()) {
+                      if (mode === "featured") void fetchSuggestions("featured", species.trim());
+                      else onStartDebate(species.trim());
+                    }
+                  }}
+                  placeholder={mode === "featured" ? "e.g. Pyroar, Archaludon, Mawile" : "e.g. Pyroar — the mon to build around"}
+                  className="h-7 text-xs"
+                />
+                {mode === "featured" ? (
+                  <Button
+                    size="xs"
+                    disabled={!species.trim() || loading}
+                    onClick={() => void fetchSuggestions("featured", species.trim())}
+                  >
+                    {loading ? "…" : "Suggest"}
+                  </Button>
+                ) : (
+                  <Button
+                    size="xs"
+                    disabled={!species.trim()}
+                    onClick={() => onStartDebate(species.trim())}
+                  >
+                    Build with AI →
+                  </Button>
+                )}
+              </div>
+              {/* Shortcut: use the team you've already locked in the builder. */}
+              {lockedSpecies.length > 0 && (
                 <Button
                   size="xs"
-                  disabled={!species.trim() || loading}
-                  onClick={() => void fetchSuggestions("featured", species.trim())}
+                  variant="outline"
+                  className="self-start text-[10px]"
+                  disabled={loading}
+                  onClick={() => {
+                    if (mode === "featured") {
+                      void fetchSuggestions("featured", lockedSpecies.join(","));
+                    } else {
+                      onStartDebate(lockedSpecies[lockedSpecies.length - 1]);
+                    }
+                  }}
                 >
-                  {loading ? "…" : "Suggest"}
-                </Button>
-              ) : (
-                <Button
-                  size="xs"
-                  disabled={!species.trim()}
-                  onClick={() => onSeedForAI(species.trim())}
-                >
-                  Seed → AI debate
+                  {mode === "featured"
+                    ? `↳ Use my locked slots (${lockedSpecies.length})`
+                    : `↳ Build around my locked slots (${lockedSpecies.length})`}
                 </Button>
               )}
             </div>
@@ -171,8 +200,8 @@ export function TeamSuggestions({ format, onUseTeam, onSeedForAI }: TeamSuggesti
 
           {mode === "ai" && (
             <p className="text-[10px] text-muted-foreground">
-              Adds the Pokémon to your team, then the 🧠 AI Team Debate panel below
-              builds an original 6-mon team around it (takes a few minutes).
+              Starts the 🧠 AI Team Debate immediately, building an original 6-mon
+              team around your pick (a few minutes — watch it in the debate panel below).
             </p>
           )}
 
