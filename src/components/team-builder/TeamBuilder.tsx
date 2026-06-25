@@ -441,6 +441,27 @@ export function TeamBuilder({
     });
   }, []);
 
+  /** Reorder slots so the given species become the leads (slots 1-2). */
+  const handleSetLeads = useCallback((leads: string[]) => {
+    const norm = (s: string) =>
+      s.trim().toLowerCase().replace(/^mega\s+/, "").replace(/[-\s]mega(?:-[xy])?$/, "");
+    setPokemon((prev) => {
+      const leadIdx: number[] = [];
+      for (const lead of leads) {
+        const idx = prev.findIndex(
+          (p, i) => p.species && norm(p.species) === norm(lead) && !leadIdx.includes(i),
+        );
+        if (idx >= 0) leadIdx.push(idx);
+      }
+      if (leadIdx.length === 0) return prev;
+      const leadSlots = leadIdx.map((i) => prev[i]);
+      const rest = prev.filter((_, i) => !leadIdx.includes(i));
+      const reordered = [...leadSlots, ...rest];
+      while (reordered.length < 6) reordered.push(emptyPokemon());
+      return reordered.slice(0, 6);
+    });
+  }, []);
+
   /** Apply a structured "Potential changes" set tweak onto the matching slot. */
   const handleApplyTweak = useCallback(
     (
@@ -895,7 +916,11 @@ export function TeamBuilder({
       />
 
       {/* AI-generated lead + back combinations for the current team. */}
-      <CommonCombinationsPanel team={pokemon} format={format} />
+      <CommonCombinationsPanel
+        team={pokemon}
+        format={format}
+        onSetLeads={handleSetLeads}
+      />
 
       {/* Damage-calc simulation vs proven teams you'll likely face. */}
       <SimulationPanel team={pokemon} format={format} />
