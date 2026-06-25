@@ -2,6 +2,12 @@ import { eq, desc, inArray } from 'drizzle-orm';
 import { db } from '../index';
 import { matches, matchTurns, matchTurnActions } from '../schema';
 import type { Turn } from '@/lib/types/battle';
+import { classifyArchetypeFromSnapshot } from '@/lib/team-analysis/team-context';
+
+/** "Unknown" → null so we never persist a non-archetype as if it were one. */
+function archetypeOrNull(arche: string): string | null {
+  return arche && arche !== 'Unknown' ? arche : null;
+}
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -178,11 +184,32 @@ export interface CreateMatchInput {
   turns?: Turn[];
   opponentScoutingJson?: unknown;
   winConditionsJson?: unknown;
+  /** Overrides the auto-classified archetypes (else derived from team snapshots). */
+  archetypeSelf?: string | null;
+  archetypeOpponent?: string | null;
 }
 
 export async function createMatch(data: CreateMatchInput): Promise<MatchRow> {
   const userId = data.userId ?? DEFAULT_USER_ID;
   const now = Date.now();
+
+  // Auto-classify both archetypes from the team snapshots so opponent-matchup
+  // analytics work without manual tagging (opponent prefers the full snapshot,
+  // self the brought list since teamId already classifies the saved team).
+  const archetypeSelf =
+    data.archetypeSelf ??
+    archetypeOrNull(
+      classifyArchetypeFromSnapshot(data.myTeam, data.myBrought, data.format),
+    );
+  const archetypeOpponent =
+    data.archetypeOpponent ??
+    archetypeOrNull(
+      classifyArchetypeFromSnapshot(
+        data.opponentTeam,
+        data.opponentBrought,
+        data.format,
+      ),
+    );
 
   return db.transaction(async (tx) => {
     const match = await tx
@@ -206,6 +233,8 @@ export async function createMatch(data: CreateMatchInput): Promise<MatchRow> {
         winConditionsJson:
           (data.winConditionsJson ?? []) as unknown as string,
         opponentName: data.opponentName ?? null,
+        archetypeSelf,
+        archetypeOpponent,
         createdAt: now,
         updatedAt: now,
       })
@@ -317,6 +346,35 @@ export async function updateMatch(
     updateFields.opponentScoutingJson = data.opponentScoutingJson;
   if (data.winConditionsJson !== undefined)
     updateFields.winConditionsJson = data.winConditionsJson;
+
+  // Re-derive the opponent archetype when their team/brought changes but no
+  // explicit archetype was supplied (keeps matchup analytics current).
+  const format =
+    (data.format ?? (existing.format as string | null)) ?? "";
+  if (
+    data.archetypeOpponent === undefined &&
+    (data.opponentTeam !== undefined || data.opponentBrought !== undefined)
+  ) {
+    updateFields.archetypeOpponent = archetypeOrNull(
+      classifyArchetypeFromSnapshot(
+        data.opponentTeam ?? existing.opponentTeam,
+        data.opponentBrought ?? existing.opponentBrought,
+        format,
+      ),
+    );
+  }
+  if (
+    data.archetypeSelf === undefined &&
+    (data.myTeam !== undefined || data.myBrought !== undefined)
+  ) {
+    updateFields.archetypeSelf = archetypeOrNull(
+      classifyArchetypeFromSnapshot(
+        data.myTeam ?? existing.myTeam,
+        data.myBrought ?? existing.myBrought,
+        format,
+      ),
+    );
+  }
 
   await db.update(matches).set(updateFields).where(eq(matches.id, id)).run();
 

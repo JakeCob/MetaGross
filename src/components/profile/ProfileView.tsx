@@ -131,6 +131,51 @@ export function ProfileView({ profile }: { profile: PlayerProfile }) {
         </CardContent>
       </Card>
 
+      {/* Win-rate vs opponent archetypes — your weak matchups */}
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="text-sm">
+            Matchups vs opponents{" "}
+            <span className="text-[10px] font-normal text-muted-foreground">
+              (your win-rate vs each archetype they bring)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {profile.opponentArchetypes.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Log matches and the opponent&apos;s archetype is auto-detected from
+              what they bring — revealing which styles give you trouble.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {[...profile.opponentArchetypes]
+                .sort((a, b) => a.winRate - b.winRate)
+                .map((a) => {
+                  const total = a.wins + a.losses;
+                  return (
+                    <div key={a.archetype} className="flex items-center gap-2 text-xs">
+                      <span className="w-24 shrink-0">
+                        {ARCHETYPE_ICON[a.archetype] ?? "•"} {a.archetype}
+                      </span>
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full rounded-full ${a.winRate >= 50 ? "bg-emerald-500" : "bg-rose-500"}`}
+                          style={{ width: `${total > 0 ? a.winRate : 0}%` }}
+                        />
+                      </div>
+                      <span className={`w-28 shrink-0 text-right ${wrColor(a.winRate, total)}`}>
+                        {a.wins}–{a.losses}
+                        {total > 0 ? ` (${a.winRate}%)` : ""}
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Most-used Pokémon */}
       <Card size="sm">
         <CardHeader>
@@ -152,6 +197,43 @@ export function ProfileView({ profile }: { profile: PlayerProfile }) {
                   <div className="flex flex-col">
                     <span className="text-[11px] font-medium">{p.species}</span>
                     <span className="text-[9px] text-muted-foreground">
+                      {p.timesBrought}× · {p.winRateWhenBrought}% W
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Most-faced Pokémon — opponents' go-to picks + your win-rate vs them */}
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="text-sm">
+            Most-faced Pokémon{" "}
+            <span className="text-[10px] font-normal text-muted-foreground">
+              (opponents&apos; picks · your win-rate when faced)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {profile.mostFacedPokemon.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No opponent-Pokémon data yet — log matches (with what they brought)
+              to see the threats you face most.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {profile.mostFacedPokemon.map((p) => (
+                <div
+                  key={p.species}
+                  className="flex items-center gap-1.5 rounded-md border border-border/50 bg-background/50 px-2 py-1"
+                >
+                  <PokemonSprite species={p.species} size={28} />
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-medium">{p.species}</span>
+                    <span className={`text-[9px] ${wrColor(p.winRateWhenBrought, p.timesBrought)}`}>
                       {p.timesBrought}× · {p.winRateWhenBrought}% W
                     </span>
                   </div>

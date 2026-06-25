@@ -278,6 +278,68 @@ export function classifyArchetype(
   return "Balance";
 }
 
+/** The archetypes classifyArchetype can emit (excludes "Unknown"). Used to
+ *  validate stored archetype tags — older match rows can hold stale/garbage
+ *  values (e.g. a timestamp from a legacy positional insert), so a stored tag
+ *  is only trusted when it's one of these. */
+export const KNOWN_ARCHETYPES = [
+  "Rain",
+  "Sun",
+  "Sand",
+  "Snow",
+  "Trick Room",
+  "Tailwind",
+  "Balance",
+] as const;
+
+const KNOWN_ARCHETYPE_SET = new Set<string>(KNOWN_ARCHETYPES);
+
+/** True when a value is a recognized archetype tag (not null/garbage). */
+export function isKnownArchetype(value: unknown): value is string {
+  return typeof value === "string" && KNOWN_ARCHETYPE_SET.has(value);
+}
+
+/** Coerce a stored team snapshot (Drizzle json: array of {species, ability,
+ *  item, moves}) into AITeamMember[]. Tolerates partial/garbage rows. */
+export function membersFromSnapshot(pokemon: unknown): AITeamMember[] {
+  if (!Array.isArray(pokemon)) return [];
+  return pokemon
+    .map((p) => {
+      const o = (p ?? {}) as Record<string, unknown>;
+      const moves = Array.isArray(o.moves)
+        ? (o.moves as unknown[]).filter((x): x is string => typeof x === "string")
+        : undefined;
+      return {
+        species: typeof o.species === "string" ? o.species : "",
+        ability: typeof o.ability === "string" ? o.ability : undefined,
+        item: typeof o.item === "string" ? o.item : undefined,
+        moves,
+      };
+    })
+    .filter((m) => m.species);
+}
+
+/**
+ * Classify an OPPONENT's archetype from whatever we stored for them — the full
+ * team snapshot if available (most accurate: abilities/moves drive weather/TR
+ * detection), else the bare brought-species list (weather-setter fallback only).
+ * Returns "Unknown" when there's nothing usable to classify.
+ */
+export function classifyArchetypeFromSnapshot(
+  team: unknown,
+  fallbackSpecies: unknown,
+  format: string,
+): string {
+  let members = membersFromSnapshot(team);
+  if (members.length === 0 && Array.isArray(fallbackSpecies)) {
+    members = fallbackSpecies
+      .filter((s): s is string => typeof s === "string")
+      .map((species) => ({ species }));
+  }
+  if (members.length === 0) return "Unknown";
+  return classifyArchetype(members, format);
+}
+
 /** Per-member base Speed list — the data a Trick Room / fast plan turns on. */
 export function formatSpeedProfile(
   team: AITeamMember[],
