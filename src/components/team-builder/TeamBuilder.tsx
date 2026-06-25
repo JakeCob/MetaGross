@@ -31,6 +31,7 @@ import {
 import { MetaTeamBrowser } from "./MetaTeamBrowser";
 import { TeamSuggestions } from "./TeamSuggestions";
 import { PotentialChangesPanel } from "./PotentialChangesPanel";
+import { CommonCombinationsPanel } from "./CommonCombinationsPanel";
 import type { MetaTeam, MetaTeamPokemon } from "@/lib/meta-teams/types";
 import { SlotAISuggestions } from "./SlotAISuggestions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
@@ -857,6 +858,9 @@ export function TeamBuilder({
 
       {/* AI-generated improvement ideas for the current team. */}
       <PotentialChangesPanel team={pokemon} format={format} />
+
+      {/* AI-generated lead + back combinations for the current team. */}
+      <CommonCombinationsPanel team={pokemon} format={format} />
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
