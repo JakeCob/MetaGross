@@ -1,4 +1,4 @@
-import { eq, desc, inArray } from 'drizzle-orm';
+import { eq, desc, inArray, sql } from 'drizzle-orm';
 import { db } from '../index';
 import { matches, matchTurns, matchTurnActions } from '../schema';
 import type { Turn } from '@/lib/types/battle';
@@ -36,6 +36,73 @@ export interface MatchRow {
   archetypeOpponent: string | null;
   createdAt: number | null;
   updatedAt: number | null;
+}
+
+/** Tolerantly parse a stored JSON-column value. Legacy rows can hold a
+ *  non-JSON string in a `text({mode:'json'})` column (an old positional
+ *  insert); Drizzle's auto-parse would THROW on those. We read the column as
+ *  raw text (see selectMatchRowById) and parse here, falling back to the raw
+ *  string rather than crashing the whole request. */
+function parseJsonSafe(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Read a single match row WITHOUT Drizzle's per-column JSON auto-parse: every
+ * `text({mode:'json'})` column is selected as raw text via `sql` and parsed
+ * defensively, so one corrupt legacy cell can't 500 the request. Use this
+ * instead of `db.select().from(matches)…get()` anywhere a full row is needed.
+ */
+async function selectMatchRowById(id: string): Promise<MatchRow | null> {
+  const row = await db
+    .select({
+      id: matches.id,
+      userId: matches.userId,
+      teamId: matches.teamId,
+      format: matches.format,
+      mode: matches.mode,
+      result: matches.result,
+      playedAt: matches.playedAt,
+      notes: matches.notes,
+      myTeam: sql<string | null>`${matches.myTeam}`,
+      opponentTeam: sql<string | null>`${matches.opponentTeam}`,
+      myBrought: sql<string | null>`${matches.myBrought}`,
+      opponentBrought: sql<string | null>`${matches.opponentBrought}`,
+      myLeads: sql<string | null>`${matches.myLeads}`,
+      opponentLeads: sql<string | null>`${matches.opponentLeads}`,
+      ruleAnalysisJson: sql<string | null>`${matches.ruleAnalysisJson}`,
+      aiAnalysisJson: sql<string | null>`${matches.aiAnalysisJson}`,
+      analyzedAt: matches.analyzedAt,
+      opponentScoutingJson: sql<string | null>`${matches.opponentScoutingJson}`,
+      winConditionsJson: sql<string | null>`${matches.winConditionsJson}`,
+      opponentName: matches.opponentName,
+      archetypeSelf: matches.archetypeSelf,
+      archetypeOpponent: matches.archetypeOpponent,
+      createdAt: matches.createdAt,
+      updatedAt: matches.updatedAt,
+    })
+    .from(matches)
+    .where(eq(matches.id, id))
+    .get();
+  if (!row) return null;
+  return {
+    ...row,
+    myTeam: parseJsonSafe(row.myTeam),
+    opponentTeam: parseJsonSafe(row.opponentTeam),
+    myBrought: parseJsonSafe(row.myBrought),
+    opponentBrought: parseJsonSafe(row.opponentBrought),
+    myLeads: parseJsonSafe(row.myLeads),
+    opponentLeads: parseJsonSafe(row.opponentLeads),
+    ruleAnalysisJson: parseJsonSafe(row.ruleAnalysisJson),
+    aiAnalysisJson: parseJsonSafe(row.aiAnalysisJson),
+    opponentScoutingJson: parseJsonSafe(row.opponentScoutingJson),
+    winConditionsJson: parseJsonSafe(row.winConditionsJson),
+  };
 }
 
 export interface MatchTurnActionRow {
@@ -125,11 +192,7 @@ export async function getAllMatches(
 export async function getMatchById(
   id: string,
 ): Promise<MatchWithTurns | null> {
-  const match = await db
-    .select()
-    .from(matches)
-    .where(eq(matches.id, id))
-    .get();
+  const match = await selectMatchRowById(id);
 
   if (!match) return null;
 
@@ -315,11 +378,7 @@ export async function updateMatch(
   id: string,
   data: UpdateMatchInput,
 ): Promise<MatchRow | null> {
-  const existing = await db
-    .select()
-    .from(matches)
-    .where(eq(matches.id, id))
-    .get();
+  const existing = await selectMatchRowById(id);
   if (!existing) return null;
 
   const now = Date.now();
@@ -378,7 +437,7 @@ export async function updateMatch(
 
   await db.update(matches).set(updateFields).where(eq(matches.id, id)).run();
 
-  return (await db.select().from(matches).where(eq(matches.id, id)).get()) ?? null;
+  return await selectMatchRowById(id);
 }
 
 // ---------------------------------------------------------------------------
