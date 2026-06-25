@@ -3,6 +3,7 @@ import { createModel, detectProvider } from "@/lib/ai/graph/model";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { CHAMPIONS_POINTS, ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
 import type { EVSpread } from "@/lib/types/pokemon";
+import { evItemGuidance, lockedItem } from "../item-context";
 
 interface ParsedFinal {
   spread: EVSpread;
@@ -99,7 +100,9 @@ export async function finalizeNode(
     )
     .join("\n");
 
-  const systemPrompt = `You are the Final Decision synthesizer${isChampions ? ` for Pokemon ${ACTIVE_REGULATION_LABEL}` : ""}. Merge the two expert opinions and the final simulation data into ONE complete optimized set — Ability + Item + Moves + Nature + ${label}. Total ${label} MUST equal exactly ${totalMax}, max ${perStatMax} per stat. The Nature must match the move categories. Exactly 4 unique moves.`;
+  const systemPrompt = `You are the Final Decision synthesizer${isChampions ? ` for Pokemon ${ACTIVE_REGULATION_LABEL}` : ""}. Merge the two expert opinions and the final simulation data into ONE complete optimized set — Ability + Item + Moves + Nature + ${label}. Total ${label} MUST equal exactly ${totalMax}, max ${perStatMax} per stat. The Nature must match the move categories. Exactly 4 unique moves. If a reviewer argued for a different item but the item is locked below, IGNORE that argument and build the spread for the locked item.
+
+${evItemGuidance(pokemon.item, label)}`;
 
   const userPrompt = `Pokemon: ${pokemon.species}
 Current proposed set after debate:
@@ -145,6 +148,10 @@ Reasoning: <2-3 sentences explaining the final decision; cite specific benchmark
   const reasoningMatch = text.match(/Reasoning:\s*([\s\S]+)/i);
   const reasoning = reasoningMatch?.[1]?.trim() ?? "Synthesized from expert reviews and simulation data.";
 
+  // The user's chosen item is respected: if they set one, it's the final
+  // item no matter what the LLM/personas argued for.
+  const enforcedItem = lockedItem(pokemon.item) ?? parsed?.item ?? currentItem ?? pokemon.item;
+
   if (parsed) {
     const paddedMoves = [...parsed.moves, "", "", "", ""].slice(0, 4);
     return {
@@ -152,13 +159,13 @@ Reasoning: <2-3 sentences explaining the final decision; cite specific benchmark
       finalNature: parsed.nature,
       finalMoves: paddedMoves,
       finalAbility: parsed.ability || currentAbility || pokemon.ability,
-      finalItem: parsed.item || currentItem || pokemon.item,
+      finalItem: enforcedItem,
       finalReasoning: reasoning,
       currentSpread: parsed.spread,
       currentNature: parsed.nature,
       currentMoves: paddedMoves,
       currentAbility: parsed.ability || currentAbility || pokemon.ability,
-      currentItem: parsed.item || currentItem || pokemon.item,
+      currentItem: enforcedItem,
       spreadHistory: [
         {
           spread: parsed.spread,
@@ -173,13 +180,13 @@ Reasoning: <2-3 sentences explaining the final decision; cite specific benchmark
     };
   }
 
-  // Fallback: keep the debated set as final.
+  // Fallback: keep the debated set as final (item still respected).
   return {
     finalSpread: currentSpread,
     finalNature: currentNature,
     finalMoves: [...currentMoves],
     finalAbility: currentAbility,
-    finalItem: currentItem,
+    finalItem: enforcedItem,
     finalReasoning: `${reasoning} (used debated set as fallback)`,
   };
 }

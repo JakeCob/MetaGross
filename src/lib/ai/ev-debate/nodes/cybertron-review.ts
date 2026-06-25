@@ -7,6 +7,7 @@ import {
   getReferenceSetsForSpecies,
   formatReferenceSetsBlock,
 } from "@/lib/meta-teams/species-sets";
+import { evItemGuidance } from "../item-context";
 
 /**
  * Node: CybertronVGC (Aaron Zheng) reviews the current spread from a
@@ -57,7 +58,10 @@ export async function cybertronReviewNode(
     .map((r) => `- ${r.survives ? "OK" : "FAIL"} vs ${r.threat}: ${r.damageRange}, ${r.speedComparison}`)
     .join("\n");
 
-  const systemPrompt = `${persona.systemPromptAddition} You are reviewing the WHOLE set — Ability, Item, Moves, Nature, and ${isChampions ? "stat points" : "EVs"} — not just the numbers. Keep it to 3-5 sentences. Focus on survival benchmarks${isChampions ? ` against ${ACTIVE_REGULATION_LABEL} threats (Sneasler, Archaludon, Kingambit, Garchomp, Dragonite-Mega, Tyranitar-Mega, Charizard-Mega-Y)` : ""}, defensive calcs, and fundamental consistency. Flag Nature/moveset mismatches and weak item/ability choices explicitly.`;
+  const cyberLabel = isChampions ? "stat points" : "EVs";
+  const systemPrompt = `${persona.systemPromptAddition} You are reviewing the WHOLE set — Ability, Item, Moves, Nature, and ${cyberLabel} — not just the numbers. Keep it to 3-5 sentences. Focus on survival benchmarks${isChampions ? ` against ${ACTIVE_REGULATION_LABEL} threats (Sneasler, Archaludon, Kingambit, Garchomp, Dragonite-Mega, Tyranitar-Mega, Charizard-Mega-Y)` : ""}, defensive calcs, and fundamental consistency. Flag Nature/moveset mismatches and weak ability choices explicitly.
+
+${evItemGuidance(pokemon.item, cyberLabel)}`;
 
   const referenceSets = await getReferenceSetsForSpecies(pokemon.species, format, 6);
   const referenceBlock = formatReferenceSetsBlock(referenceSets);

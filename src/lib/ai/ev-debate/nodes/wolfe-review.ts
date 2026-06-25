@@ -7,6 +7,7 @@ import {
   getReferenceSetsForSpecies,
   formatReferenceSetsBlock,
 } from "@/lib/meta-teams/species-sets";
+import { evItemGuidance } from "../item-context";
 
 /**
  * Node: Wolfe Glick reviews the current spread from an aggressive/creative
@@ -56,7 +57,10 @@ export async function wolfeReviewNode(
     .map((r) => `- ${r.survives ? "OK" : "FAIL"} vs ${r.threat}: ${r.damageRange}, ${r.speedComparison}`)
     .join("\n");
 
-  const systemPrompt = `${persona.systemPromptAddition} You are reviewing the WHOLE set — Ability, Item, Moves, Nature, and ${isChampions ? "stat points" : "EVs"} — not just the numbers. Keep it to 3-5 sentences. Focus on speed tiers, offensive benchmarks${isChampions ? ` against ${ACTIVE_REGULATION_LABEL} threats` : ""}, role coherence (the Nature must match move categories), teammate synergy, and creative adjustments. If an ability, item, or move choice is wrong for the role, say so explicitly.`;
+  const isChampionsLabel = isChampions ? "stat points" : "EVs";
+  const systemPrompt = `${persona.systemPromptAddition} You are reviewing the WHOLE set — Ability, Item, Moves, Nature, and ${isChampionsLabel} — not just the numbers. Keep it to 3-5 sentences. Focus on speed tiers, offensive benchmarks${isChampions ? ` against ${ACTIVE_REGULATION_LABEL} threats` : ""}, role coherence (the Nature must match move categories), teammate synergy, and creative adjustments. If an ability or move choice is wrong for the role, say so explicitly.
+
+${evItemGuidance(pokemon.item, isChampionsLabel)}`;
 
   const referenceSets = await getReferenceSetsForSpecies(pokemon.species, format, 6);
   const referenceBlock = formatReferenceSetsBlock(referenceSets);
