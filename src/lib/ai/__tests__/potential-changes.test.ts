@@ -20,8 +20,10 @@ vi.mock("@/lib/ai/client", () => ({
   isAIAvailable: () => true,
   aiComplete: vi.fn(async () => ({
     text:
-      '```json\n{"swaps":[{"title":"Add a Steel-type","reasoning":"checks Fairies"}],' +
-      '"setTweaks":[{"species":"Garchomp","suggestion":"add Protect","apply":{"addMove":"Protect","item":"","nature":"Jolly"}}],' +
+      '```json\n{"swaps":[' +
+      '{"title":"Add Bronzong","reasoning":"Levitate + Trick Room","addMon":"Bronzong"},' +
+      '{"title":"Add Incineroar support","reasoning":"Intimidate + Fake Out","addMon":"Incineroar"}],' +
+      '"setTweaks":[{"species":"Garchomp","suggestion":"add AV","apply":{"item":"Assault Vest","nature":"Jolly","addMove":"Protect"}}],' +
       '"note":"Solid core; shore up the Fairy weakness."}\n```',
     inputTokens: 10,
     outputTokens: 20,
@@ -53,9 +55,11 @@ describe("generatePotentialChanges", () => {
       [mon("Garchomp"), mon("Incineroar")],
       "Champions Reg M-B",
     );
-    expect(out.swaps[0]).toMatchObject({ title: "Add a Steel-type" });
+    // Off-format swap (Bronzong) is dropped; the legal one (Incineroar) stays.
+    expect(out.swaps).toHaveLength(1);
+    expect(out.swaps[0]).toMatchObject({ title: "Add Incineroar support", addMon: "Incineroar" });
+    // The banned item (Assault Vest) is stripped from apply; legal fields stay.
     expect(out.setTweaks[0]).toMatchObject({ species: "Garchomp" });
-    // sanitizeApply keeps real fields, drops empty strings:
     expect(out.setTweaks[0].apply).toEqual({ addMove: "Protect", nature: "Jolly" });
     expect(out.note).toContain("Fairy");
   });

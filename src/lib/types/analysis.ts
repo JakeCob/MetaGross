@@ -55,7 +55,13 @@ export interface PreMatchStrategy {
  *  tweaks. Rendered as the builder's "Potential changes" panel. */
 export interface PotentialChangeAnalysis {
   /** Roster-level ideas ("Add a Steel-type to threaten Fairies"). */
-  swaps: { title: string; reasoning: string }[];
+  swaps: {
+    title: string;
+    reasoning: string;
+    /** The specific Pokémon this swap suggests adding, if it names one — used
+     *  to validate format legality (illegal picks are dropped). */
+    addMon?: string;
+  }[];
   /** Per-Pokémon set tweaks ("Garchomp: add Protect for survivability"). */
   setTweaks: {
     species: string;

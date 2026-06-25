@@ -1,4 +1,5 @@
 import type { TeamPokemon } from "@/lib/types/pokemon";
+import { getRegulation } from "@/lib/data/champions";
 import { formatTeamForPrompt, teamGrounding } from "./team-format";
 
 /** Prompt for the "Potential changes" panel: roster swaps + per-mon set tweaks
@@ -7,12 +8,26 @@ export function buildPotentialChangesPrompt(
   team: TeamPokemon[],
   format: string,
 ): { system: string; user: string } {
-  const system = `You are an elite Pokémon VGC team-builder reviewing a doubles team for ${format}. Suggest concrete, immediately-actionable improvements — both roster swaps and per-Pokémon set tweaks. Reason MECHANICALLY about type coverage, speed control, weather, redirection/Fake Out, and the team's shared weaknesses provided to you. Be specific (name actual Pokémon, items, moves, abilities). Do NOT suggest illegal or off-format options.
+  // Champions is a restricted, Z-A-era format — the AI doesn't know its legal
+  // pool, so feed it the legal held items + the banned ones (the #1 source of
+  // illegal suggestions like Assault Vest / Life-Orb-where-banned).
+  const reg = getRegulation(format);
+  const heldItems = reg.itemsConfirmed
+    .filter((i) => !/ite$|ite [XY]$/.test(i)) // drop mega stones from the list
+    .join(", ");
+  const bannedItems = (reg.itemsBanned ?? []).slice(0, 24).join(", ");
+
+  const system = `You are an elite Pokémon VGC team-builder reviewing a doubles team for ${format}. Suggest concrete, immediately-actionable improvements — both roster swaps and per-Pokémon set tweaks. Reason MECHANICALLY about type coverage, speed control, weather, redirection/Fake Out, and the team's shared weaknesses provided to you. Be specific (name actual Pokémon, items, moves, abilities).
+
+FORMAT LEGALITY (critical — this is a restricted format):
+- Held items you MAY suggest: ${heldItems}.
+- Items that are BANNED (never suggest): ${bannedItems || "—"}.
+- Every Pokémon you suggest adding MUST be legal in ${format}. This is a Legends Z-A-era Champions format with Mega Evolutions — when unsure whether a Pokémon is in the format, do NOT suggest it.
 
 Respond with ONLY valid JSON matching this exact schema (no prose, no markdown fence):
 {
   "swaps": [
-    { "title": "<short roster idea, e.g. 'Add a Steel-type'>", "reasoning": "<why — the threat it answers or coverage it adds, 1 sentence>" }
+    { "title": "<short roster idea, e.g. 'Add a Steel-type'>", "reasoning": "<why — the threat it answers or coverage it adds, 1 sentence>", "addMon": "<the specific format-legal Pokémon to add, if this swap names one — else omit>" }
   ],
   "setTweaks": [
     {

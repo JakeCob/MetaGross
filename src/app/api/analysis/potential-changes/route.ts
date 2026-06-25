@@ -31,7 +31,8 @@ export async function POST(request: Request) {
       return Response.json({ error: "No AI API key configured." }, { status: 503 });
     }
 
-    const cacheKey = `potential-changes:${format}:${teamKey(team)}`;
+    // v2: legality-aware prompt + validation (drops off-format items/Pokémon).
+    const cacheKey = `potential-changes:v2:${format}:${teamKey(team)}`;
     const cached = await db
       .select()
       .from(analysisCache)
