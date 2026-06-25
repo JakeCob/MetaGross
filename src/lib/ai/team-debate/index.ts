@@ -77,6 +77,8 @@ export interface TeamDebateOptions {
   format?: string;
   /** Ladder (surprise OK) vs tournament (open sheet → proven). */
   mode?: DebateMode;
+  /** Player's favoured archetypes — a soft bias when building from scratch. */
+  preferredArchetypes?: string[];
   /** Max propose↔critique rounds (default 2). */
   maxRounds?: number;
 }
@@ -87,6 +89,7 @@ function buildInput(opts: TeamDebateOptions) {
     seed: opts.seed ?? [],
     brief: opts.brief ?? "",
     mode: opts.mode ?? DEFAULT_MODE,
+    preferredArchetypes: opts.preferredArchetypes ?? [],
     round: 0,
     maxRounds: opts.maxRounds ?? 2,
   };

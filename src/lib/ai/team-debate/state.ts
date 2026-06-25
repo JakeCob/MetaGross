@@ -50,6 +50,12 @@ export const TeamDebateState = Annotation.Root({
     reducer: (_p, n) => n,
     default: () => DEFAULT_MODE,
   }),
+  /** The player's favoured archetypes (from their profile) — a soft bias when
+   *  building from scratch. */
+  preferredArchetypes: Annotation<string[]>({
+    reducer: (_p, n) => n,
+    default: () => [],
+  }),
 
   // --- Working draft ---
   draft: Annotation<DraftMember[]>({
