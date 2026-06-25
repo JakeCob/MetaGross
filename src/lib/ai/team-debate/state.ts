@@ -2,6 +2,7 @@ import { Annotation } from "@langchain/langgraph";
 import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
 import type { AITeamMember, TeamViolation } from "@/lib/team-analysis/team-context";
 import type { EVSpread } from "@/lib/types/pokemon";
+import { type DebateMode, DEFAULT_MODE } from "./modes";
 
 /** A Pokemon in the proposed team. Full set is optional until finalize. */
 export interface DraftMember {
@@ -43,6 +44,11 @@ export const TeamDebateState = Annotation.Root({
   brief: Annotation<string>({
     reducer: (_p, n) => n,
     default: () => "",
+  }),
+  /** Ladder (closed sheet → surprise OK) vs tournament (open sheet → proven). */
+  mode: Annotation<DebateMode>({
+    reducer: (_p, n) => n,
+    default: () => DEFAULT_MODE,
   }),
 
   // --- Working draft ---

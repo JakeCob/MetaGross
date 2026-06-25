@@ -8,6 +8,7 @@ import {
   computeCoreWeaknesses,
   formatSpeedProfile,
 } from "@/lib/team-analysis/team-context";
+import { modeDirective } from "../modes";
 
 /**
  * Node: propose (or, on a loop, re-propose) a full 6-Pokemon team. On the
@@ -17,7 +18,7 @@ import {
 export async function proposeTeamNode(
   state: TeamDebateStateType,
 ): Promise<Partial<TeamDebateStateUpdate>> {
-  const { format, seed, brief, draft, critique, violations } = state;
+  const { format, seed, brief, draft, critique, violations, mode } = state;
   const reg = getRegulation(format);
   const round = state.round + 1;
   const isRevision = round > 1;
@@ -36,6 +37,7 @@ export async function proposeTeamNode(
   const system = [
     `You are the lead team architect for Pokemon ${reg.label} (VGC doubles, bring 6 pick 4, level 50, Mega ON, NO Tera, IVs 31, ${reg.points.totalMax}-pt stats max ${reg.points.perStatMax}/stat).`,
     `Build ONE cohesive 6-Pokemon team with a clear win condition. Think synergy first: weather/terrain ↔ its abusers, the speed mode (Tailwind XOR Trick Room) ↔ the attackers built for it, redirection ↔ a fragile sweeper, Intimidate/Fake Out ↔ securing KOs, pivots ↔ bringing breakers in safely.`,
+    modeDirective(mode),
     `HARD RULES: only Pokemon from this roster (exact names): ${reg.pokemon.join(", ")}. No duplicate species. No Terastallization. Never put Trick Room and Tailwind (or a Swift-Swim/weather-speed plan) on the same team. Never run a weather-locked payoff (Archaludon Electro Shot needs rain; Solar Beam needs sun) unless the team sets that weather.`,
     `MEGAS: you MAY carry more than one mega stone — only ONE Mega-Evolves per battle, so a second mega is a MATCHUP OPTION you switch to. A dual-mega plan is good ONLY when both megas share the same support and one answers matchups the other loses (e.g. Mega Mawile + Mega Blastoise both under rain, picked per opponent).`,
     `BANNED ITEMS — do NOT give any Pokemon these (they are illegal in ${reg.label}): ${reg.itemsBanned.join(", ")}.`,

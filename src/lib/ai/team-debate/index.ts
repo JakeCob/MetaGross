@@ -18,6 +18,7 @@ import {
   type DraftMember,
 } from "./state";
 import { optimizeTeamEVsStream, type EvProgress } from "./ev-pass";
+import { type DebateMode, DEFAULT_MODE } from "./modes";
 import { proposeTeamNode } from "./nodes/propose-team";
 import { offenseArchitectNode } from "./nodes/offense-architect";
 import { defenseArchitectNode } from "./nodes/defense-architect";
@@ -74,6 +75,8 @@ export interface TeamDebateOptions {
   /** Free-text brief / win condition. */
   brief?: string;
   format?: string;
+  /** Ladder (surprise OK) vs tournament (open sheet → proven). */
+  mode?: DebateMode;
   /** Max propose↔critique rounds (default 2). */
   maxRounds?: number;
 }
@@ -83,6 +86,7 @@ function buildInput(opts: TeamDebateOptions) {
     format: opts.format ?? ACTIVE_REGULATION_FORMAT_ID,
     seed: opts.seed ?? [],
     brief: opts.brief ?? "",
+    mode: opts.mode ?? DEFAULT_MODE,
     round: 0,
     maxRounds: opts.maxRounds ?? 2,
   };
