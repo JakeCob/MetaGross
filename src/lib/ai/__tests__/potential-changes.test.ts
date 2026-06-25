@@ -21,7 +21,7 @@ vi.mock("@/lib/ai/client", () => ({
   aiComplete: vi.fn(async () => ({
     text:
       '```json\n{"swaps":[{"title":"Add a Steel-type","reasoning":"checks Fairies"}],' +
-      '"setTweaks":[{"species":"Garchomp","suggestion":"add Protect for survivability"}],' +
+      '"setTweaks":[{"species":"Garchomp","suggestion":"add Protect","apply":{"addMove":"Protect","item":"","nature":"Jolly"}}],' +
       '"note":"Solid core; shore up the Fairy weakness."}\n```',
     inputTokens: 10,
     outputTokens: 20,
@@ -55,6 +55,8 @@ describe("generatePotentialChanges", () => {
     );
     expect(out.swaps[0]).toMatchObject({ title: "Add a Steel-type" });
     expect(out.setTweaks[0]).toMatchObject({ species: "Garchomp" });
+    // sanitizeApply keeps real fields, drops empty strings:
+    expect(out.setTweaks[0].apply).toEqual({ addMove: "Protect", nature: "Jolly" });
     expect(out.note).toContain("Fairy");
   });
 });
