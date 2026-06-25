@@ -24,6 +24,8 @@ import { PokemonSlotCard } from "./PokemonSlotCard";
 import { TeamImport } from "./TeamImport";
 import { AITeamSuggestions } from "./AITeamSuggestions";
 import { TeamDebatePanel, type TeamDebateMember } from "./TeamDebatePanel";
+import { MetaTeamBrowser } from "./MetaTeamBrowser";
+import type { MetaTeamPokemon } from "@/lib/meta-teams/types";
 import { SlotAISuggestions } from "./SlotAISuggestions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/lib/types/pokemon";
@@ -361,6 +363,31 @@ export function TeamBuilder({
     });
     handleImport(imported as TeamPokemon[]);
   }, [handleImport]);
+
+  /** Import a proven tournament team (skeleton sets) into the builder slots. */
+  const handleUseMetaTeam = useCallback(
+    (pokemon: MetaTeamPokemon[], species: string[]) => {
+      const source =
+        pokemon.length > 0
+          ? pokemon
+          : species.map((s) => ({ species: s }) as MetaTeamPokemon);
+      const imported: Partial<TeamPokemon>[] = source.slice(0, 6).map((p) => ({
+        ...emptyPokemon(),
+        species: p.species,
+        item: p.item ?? "",
+        ability: p.ability ?? "",
+        nature: p.nature ?? "Hardy",
+        moves: [
+          p.moves?.[0] ?? "",
+          p.moves?.[1] ?? "",
+          p.moves?.[2] ?? "",
+          p.moves?.[3] ?? "",
+        ] as [string, string, string, string],
+      }));
+      handleImport(imported as TeamPokemon[]);
+    },
+    [handleImport],
+  );
 
   const handleSuggestionAdd = useCallback((species: string) => {
     setPokemon((prev) => {
@@ -745,6 +772,9 @@ export function TeamBuilder({
           hasEmptySlots={hasEmptySlots}
         />
       )}
+
+      {/* Browse + import proven tournament teams (open-sheet reference). */}
+      <MetaTeamBrowser format={format} onUseTeam={handleUseMetaTeam} />
 
       {/* Multi-agent team debate — build/finish a whole team around the
           current core (or from scratch) with offense/defense/data/critic
