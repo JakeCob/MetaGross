@@ -10,6 +10,8 @@ import type { CommonCombinationsAnalysis } from "@/lib/types/analysis";
 export interface CommonCombinationsPanelProps {
   team: Partial<TeamPokemon>[];
   format: string;
+  /** Reorder the builder slots so these species become the leads (slots 1-2). */
+  onSetLeads?: (leads: string[]) => void;
 }
 
 function SpriteRow({ species }: { species: string[] }) {
@@ -24,7 +26,7 @@ function SpriteRow({ species }: { species: string[] }) {
   );
 }
 
-export function CommonCombinationsPanel({ team, format }: CommonCombinationsPanelProps) {
+export function CommonCombinationsPanel({ team, format, onSetLeads }: CommonCombinationsPanelProps) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<CommonCombinationsAnalysis | null>(null);
   const [cached, setCached] = useState(false);
@@ -105,9 +107,26 @@ export function CommonCombinationsPanel({ team, format }: CommonCombinationsPane
                   <span className="text-[11px] font-bold text-primary">{i + 1}</span>
                   <SpriteRow species={c.leads} />
                   <SpriteRow species={c.back} />
-                  <p className="text-[10px] leading-snug text-muted-foreground">
-                    {c.strategy}
-                  </p>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-[10px] leading-snug text-muted-foreground">
+                      {c.strategy}
+                    </p>
+                    {onSetLeads &&
+                      c.leads.length >= 2 &&
+                      c.leads.every((lead) =>
+                        team.some(
+                          (p) => p.species?.trim().toLowerCase() === lead.trim().toLowerCase(),
+                        ),
+                      ) && (
+                        <button
+                          type="button"
+                          onClick={() => onSetLeads(c.leads)}
+                          className="self-start rounded border border-primary/40 px-1.5 py-0 text-[9px] text-primary hover:bg-primary/10"
+                        >
+                          ↳ Set as leads
+                        </button>
+                      )}
+                  </div>
                 </div>
               ))}
             </div>
