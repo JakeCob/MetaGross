@@ -18,7 +18,7 @@ import { modeDirective } from "../modes";
 export async function proposeTeamNode(
   state: TeamDebateStateType,
 ): Promise<Partial<TeamDebateStateUpdate>> {
-  const { format, seed, brief, draft, critique, violations, mode } = state;
+  const { format, seed, brief, draft, critique, violations, mode, preferredArchetypes } = state;
   const reg = getRegulation(format);
   const round = state.round + 1;
   const isRevision = round > 1;
@@ -61,6 +61,9 @@ export async function proposeTeamNode(
     `MUST BUILD AROUND these locked-in members (keep them, complete the rest):`,
     seedList,
     brief ? `\nUSER BRIEF / win condition: ${brief}` : "",
+    !isRevision && preferredArchetypes && preferredArchetypes.length
+      ? `\nPLAYER PREFERENCE: this player most enjoys ${preferredArchetypes.join(" / ")} teams. With no seed steering otherwise, LEAN TOWARD one of these archetypes they like to play${brief ? " (but the brief above takes priority)" : ""}.`
+      : "",
     speed ? `\n${speed}` : "",
     weather ? `\n${weather}` : "",
     speeds ? `\nBASE SPEEDS of the current core (the slowest move first under Trick Room): ${speeds}` : "",

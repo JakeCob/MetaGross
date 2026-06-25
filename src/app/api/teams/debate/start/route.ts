@@ -4,6 +4,20 @@ import { normalizeMode } from "@/lib/ai/team-debate/modes";
 import { isAIAvailable } from "@/lib/ai/client";
 import type { AITeamMember } from "@/lib/team-analysis/team-context";
 import { ACTIVE_REGULATION_FORMAT_ID } from "@/lib/data/champions";
+import { buildPlayerProfile } from "@/lib/profile/build-profile";
+
+/** The player's top non-generic favoured archetypes — a soft build bias. */
+async function preferredArchetypes(): Promise<string[]> {
+  try {
+    const profile = await buildPlayerProfile();
+    return profile.preferredArchetypes
+      .map((a) => a.archetype)
+      .filter((a) => a !== "Balance" && a !== "Unknown")
+      .slice(0, 3);
+  } catch {
+    return [];
+  }
+}
 
 export const runtime = "nodejs";
 // The kickoff returns fast; the run is processed out-of-band. (A long debate
@@ -33,7 +47,10 @@ export async function POST(request: Request) {
         ? body.format
         : ACTIVE_REGULATION_FORMAT_ID;
 
-    const opts = { seed, brief, format, mode };
+    // Soft-bias building from scratch toward the player's favoured archetypes.
+    const preferred = seed.length === 0 ? await preferredArchetypes() : [];
+
+    const opts = { seed, brief, format, mode, preferredArchetypes: preferred };
     const runId = await createRun(opts);
     // Fire-and-forget: keep processing after the response returns.
     void processRun(runId, opts);
