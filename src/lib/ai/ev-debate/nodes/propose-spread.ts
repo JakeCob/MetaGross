@@ -8,6 +8,7 @@ import {
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import type { EVSpread } from "@/lib/types/pokemon";
 import { CHAMPIONS_POINTS, ACTIVE_REGULATION_LABEL } from "@/lib/data/champions";
+import { evItemGuidance } from "../item-context";
 
 interface ParsedSet {
   spread: EVSpread;
@@ -147,9 +148,11 @@ HARD RULES:
 - The Nature MUST match the actual offensive category of the moves. Physical attackers get Adamant/Jolly, Special attackers get Modest/Timid, Supports get Bold/Calm/Careful/Relaxed/Sassy.
 - Moves: exactly 4, no duplicates, must make sense for the Pokemon's role. If it's a special attacker, prefer special STAB + coverage. Physical attackers prefer physical moves. Include Protect on bulky pivots.
 - Ability: pick the one that best synergizes with the team strategy (Swift Swim on rain, Chlorophyll on sun, Stamina on Archaludon for bulk, Intimidate on Incineroar, etc.).
-- Item: pick for role (Focus Sash on frail leads, Leftovers on passive bulk, Assault Vest on special-bulky offense, Choice Scarf for speed control, Mega Stone if mega-evolving).
+- Item: respect the user's chosen item — see ITEM GUIDANCE below.
 ${isChampions ? `- ${label}: total must equal exactly ${totalMax}, max ${perStatMax} per stat. Spread across 3-5 stats. 1 Champions point = 8 traditional EVs.` : `- ${label}: total must equal exactly ${totalMax}, max ${perStatMax} per stat. Spread across 3-5 stats.`}
-- Consider teammate coverage — don't duplicate roles that teammates already provide.`;
+- Consider teammate coverage — don't duplicate roles that teammates already provide.
+
+${evItemGuidance(pokemon.item, label)}`;
 
   // Pull verified tournament/creator sets for this species from
   // meta_teams (Limitless top-cut + VGCPastes + creator entries).
