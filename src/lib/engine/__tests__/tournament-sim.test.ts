@@ -76,4 +76,19 @@ describe("scoreMatchup", () => {
     const m = scoreMatchup(user, opp, META);
     expect(m.youThreaten).toBe(1); // Moonblast OHKOs a 0-EV Dragapult (Dragon weak to Fairy)
   });
+
+  it("applies the user's field — Sun never lowers Fire damage, TR flips the speed note", () => {
+    const fire = [
+      mon("Charizard", ["Heat Wave", "Flamethrower", "Air Slash", "Protect"], { spa: 252, spe: 252 }, "Timid", "Choice Specs", "Blaze"),
+    ];
+    const opp = [
+      mon("Garchomp", ["Earthquake", "Rock Slide", "Dragon Claw", "Protect"], {}, "Hardy", "", "Rough Skin"),
+    ];
+    const noSun = scoreMatchup(fire, opp, META, { weather: null, tailwind: false, trickRoom: false });
+    const sun = scoreMatchup(fire, opp, META, { weather: "sun", tailwind: false, trickRoom: false });
+    expect(sun.youThreaten).toBeGreaterThanOrEqual(noSun.youThreaten);
+
+    const tr = scoreMatchup(fire, opp, META, { weather: null, tailwind: false, trickRoom: true });
+    expect(tr.speedNote).toMatch(/Trick Room/);
+  });
 });

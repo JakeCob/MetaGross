@@ -24,6 +24,30 @@ import { getEffectiveSpeed } from "./speed-calc";
 import { importTeamFromPaste } from "@/lib/pokemon/sets";
 import { fetchPokepasteRaw } from "@/lib/meta-teams/scrapers/pokepaste";
 import { listMetaTeams } from "@/lib/meta-teams/queries";
+import { analyzeTeam, type AITeamMember } from "@/lib/team-analysis/team-context";
+import { DEFAULT_FIELD_STATE } from "@/lib/types/battle";
+
+export interface SimField {
+  weather: "rain" | "sun" | "sand" | "snow" | null;
+  tailwind: boolean;
+  trickRoom: boolean;
+}
+
+/** Derive the field the USER's team brings (weather setter + Tailwind/TR) so the
+ *  sim calcs reflect their actual gameplan rather than a neutral field. */
+export function userFieldFrom(userTeam: TeamPokemon[], format: string): SimField {
+  const members: AITeamMember[] = userTeam
+    .filter((p) => p.species)
+    .map((p) => ({
+      species: p.species,
+      item: p.item,
+      ability: p.ability,
+      moves: (p.moves ?? []).filter(Boolean),
+    }));
+  const a = analyzeTeam(members, format);
+  const weather = a.weather === "sandstorm" ? "sand" : ((a.weather as SimField["weather"]) ?? null);
+  return { weather, tailwind: a.hasTailwind, trickRoom: a.hasTrickRoom };
+}
 
 export interface SimThreat {
   attacker: string;
@@ -56,6 +80,8 @@ export interface SimMatchup {
 export interface SimResult {
   matchups: SimMatchup[];
   opponentsConsidered: number;
+  /** The field applied to the calcs (your team's weather + speed control). */
+  field: SimField;
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -103,12 +129,16 @@ export async function loadOpponentTeams(
 }
 
 /** Best damage one attacker can do to one defender across its moves (doubles). */
-function bestHit(att: TeamPokemon, def: TeamPokemon): { maxPercent: number; canOHKO: boolean; move: string } {
+function bestHit(
+  att: TeamPokemon,
+  def: TeamPokemon,
+  weather: SimField["weather"],
+): { maxPercent: number; canOHKO: boolean; move: string } {
   let maxPercent = 0;
   let canOHKO = false;
   let move = "";
   for (const mv of (att.moves ?? []).filter(Boolean)) {
-    const r = calculateDamage(att, def, mv, { isDoubles: true });
+    const r = calculateDamage(att, def, mv, { isDoubles: true, weather });
     if (!r) continue;
     if (r.maxPercent > maxPercent) {
       maxPercent = r.maxPercent;
@@ -123,11 +153,15 @@ export function scoreMatchup(
   user: TeamPokemon[],
   opp: TeamPokemon[],
   meta: MetaTeam,
+  field: SimField = { weather: null, tailwind: false, trickRoom: false },
 ): SimMatchup {
+  // Your weather is applied to both directions (it's up on the field).
+  const weather = field.weather;
+
   // Offense: opp mons the user can OHKO.
   let youThreaten = 0;
   for (const d of opp) {
-    if (user.some((a) => bestHit(a, d).canOHKO)) youThreaten++;
+    if (user.some((a) => bestHit(a, d, weather).canOHKO)) youThreaten++;
   }
 
   // Defense: user mons the opp can OHKO + the single biggest incoming hit.
@@ -136,7 +170,7 @@ export function scoreMatchup(
   for (const d of user) {
     let koed = false;
     for (const a of opp) {
-      const b = bestHit(a, d);
+      const b = bestHit(a, d, weather);
       if (b.canOHKO) koed = true;
       if (!worst || b.maxPercent > worst.percent) {
         worst = { attacker: a.species, move: b.move, target: d.species, percent: Math.round(b.maxPercent) };
@@ -145,11 +179,30 @@ export function scoreMatchup(
     if (koed) theyThreaten++;
   }
 
-  // Speed: how many of yours outspeed their fastest (no field effects).
-  const oppFastest = Math.max(...opp.map((m) => getEffectiveSpeed(m)));
-  const youOutspeedTheirFastest = user.filter((m) => getEffectiveSpeed(m) > oppFastest).length;
-  const speedBonus = youOutspeedTheirFastest >= 3 ? 6 : youOutspeedTheirFastest >= 1 ? 2 : -4;
-  const speedNote = `${youOutspeedTheirFastest}/6 of yours outspeed their fastest (${oppFastest} Spe)`;
+  // Speed: apply your weather + Tailwind (your side) + Trick Room.
+  const uField = {
+    ...DEFAULT_FIELD_STATE,
+    weather: field.weather,
+    trickroom: field.trickRoom,
+    tailwindP1: field.tailwind,
+  };
+  const uSpeeds = user.map((m) => getEffectiveSpeed(m, uField, null, "p1"));
+  const oSpeeds = opp.map((m) => getEffectiveSpeed(m, uField, null, "p2"));
+  let speedAdvantage: number;
+  let speedNote: string;
+  if (field.trickRoom) {
+    // Under your Trick Room the SLOWER mon moves first.
+    const oppSlowest = Math.min(...oSpeeds);
+    speedAdvantage = uSpeeds.filter((s) => s < oppSlowest).length;
+    speedNote = `${speedAdvantage}/6 of yours move before their slowest under your Trick Room (${oppSlowest} Spe)`;
+  } else {
+    const oppFastest = Math.max(...oSpeeds);
+    speedAdvantage = uSpeeds.filter((s) => s > oppFastest).length;
+    speedNote =
+      `${speedAdvantage}/6 of yours outspeed their fastest (${oppFastest} Spe)` +
+      (field.tailwind ? " — Tailwind up" : "");
+  }
+  const speedBonus = speedAdvantage >= 3 ? 6 : speedAdvantage >= 1 ? 2 : -4;
 
   const score = clamp(Math.round(50 + (youThreaten - theyThreaten) * 7 + speedBonus), 3, 97);
   const label: SimMatchup["label"] =
@@ -179,8 +232,9 @@ export async function simulateVsProvenTeams(
   formatId: string,
   max = 8,
 ): Promise<SimResult> {
+  const field = userFieldFrom(userTeam, formatId);
   const opponents = await loadOpponentTeams(formatId, max);
-  const matchups = opponents.map((o) => scoreMatchup(userTeam, o.mons, o.meta));
+  const matchups = opponents.map((o) => scoreMatchup(userTeam, o.mons, o.meta, field));
   matchups.sort((a, b) => a.score - b.score); // worst matchups first
-  return { matchups, opponentsConsidered: opponents.length };
+  return { matchups, opponentsConsidered: opponents.length, field };
 }
