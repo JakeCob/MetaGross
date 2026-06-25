@@ -32,6 +32,7 @@ import { MetaTeamBrowser } from "./MetaTeamBrowser";
 import { TeamSuggestions } from "./TeamSuggestions";
 import { PotentialChangesPanel } from "./PotentialChangesPanel";
 import { CommonCombinationsPanel } from "./CommonCombinationsPanel";
+import { SimulationPanel } from "./SimulationPanel";
 import type { MetaTeam, MetaTeamPokemon } from "@/lib/meta-teams/types";
 import { SlotAISuggestions } from "./SlotAISuggestions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
@@ -861,6 +862,9 @@ export function TeamBuilder({
 
       {/* AI-generated lead + back combinations for the current team. */}
       <CommonCombinationsPanel team={pokemon} format={format} />
+
+      {/* Damage-calc simulation vs proven teams you'll likely face. */}
+      <SimulationPanel team={pokemon} format={format} />
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
