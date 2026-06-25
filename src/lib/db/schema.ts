@@ -284,6 +284,11 @@ export const debateRuns = sqliteTable(
     //   summary, violations, rounds }
     resultJson: text('result_json', { mode: 'json' }).notNull(),
     error: text('error'),
+    // Phase 2 durability: the full serializable debate State (the resumable
+    // checkpoint) + the cursor for the next step to run. Null on legacy rows /
+    // before the first step is taken.
+    stateJson: text('state_json', { mode: 'json' }),
+    nextStep: text('next_step'),
     createdAt: integer('created_at').$defaultFn(() => Date.now()),
     updatedAt: integer('updated_at').$defaultFn(() => Date.now()),
   },

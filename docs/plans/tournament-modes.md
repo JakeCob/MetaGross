@@ -77,8 +77,15 @@ job past 300s.
   status, phase, progressJson {transcript, evProgress, partial team}, error, timestamps`, modeled on
   `analysis_cache`). `POST /api/teams/debate/start` → insert `queued`, run `streamTeamDebate` as a background
   task persisting after each node + EV-batch; UI switches SSE → `GET …/runs/:id` polling.
-- **Phase 2 (true serverless durability):** LangGraph checkpointer (SQLite/Postgres saver) + cron/queue worker
-  advancing runs in ≤300s slices, or Vercel Queues/Workflow.
+- ✅ **Phase 2 (true serverless durability):** DONE — but NOT via the LangGraph checkpointer: its `SqliteSaver`
+  needs a better-sqlite3 file handle, while the app's store is libSQL/Turso (async, and the only durable store on
+  serverless). Instead a **custom resumable step-runner** (`stepper.ts`) reduces the debate to small idempotent
+  STEPS (one graph node, or one EV batch); `runs.ts` persists the full State + a `next_step` cursor to
+  `debate_runs` after EVERY step (added cols `state_json`, `next_step`). A run interrupted by a timeout/restart
+  resumes exactly where it stopped: `resumeStaleRuns` (driven by a `*/5` cron at `/api/teams/debate/advance`)
+  picks up any `running` row gone quiet >90s and advances it within a 240s budget; `POST /advance {id}` resumes
+  one run on demand. Cancel is durable (status re-read each step). Verified live (per-step checkpoint persists,
+  cancel works, guard refuses non-running) + stepper unit-tested (sequence, critic loop, EV batches, resume).
 
 Scope: Phase 1 M, Phase 2 L.
 
@@ -90,7 +97,7 @@ Scope: Phase 1 M, Phase 2 L.
 | 2 | Tournament/ladder mode toggle + prompt branches + meta-analyst Limitless wiring | S–M | ✅ |
 | 3 | Player profile: preferences + derived stats → bias builder | M | partial |
 | 4 | Background job Phase 1 (persist + poll) | M | infra |
-| 5 | Labmaus + Victory Road source adapters; opponent auto-classify; bg-job Phase 2 | L | later |
+| 5 | Labmaus + Victory Road source adapters; opponent auto-classify; bg-job Phase 2 | L | ✅ done |
 
 ## 6. Open items
 

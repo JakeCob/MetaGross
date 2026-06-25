@@ -65,6 +65,33 @@ async function optimizeOne(
 }
 
 /**
+ * Optimize one contiguous batch of members [start, start+count) against the rest
+ * of the team, returning a NEW team array with those members carrying their
+ * benchmarked evs/nature. The unit of the resumable (Phase 2) step-runner: one
+ * call = one durable slice of the EV phase. Idempotent — re-running a batch just
+ * re-optimizes those members from the current team.
+ */
+export async function optimizeEvBatch(
+  team: DraftMember[],
+  format: string,
+  start: number,
+  count: number,
+): Promise<DraftMember[]> {
+  const out = [...team];
+  const end = Math.min(start + count, team.length);
+  await Promise.all(
+    Array.from({ length: Math.max(0, end - start) }, (_, k) => {
+      const i = start + k;
+      const others = team.filter((_, j) => j !== i).map(draftToTeamPokemon);
+      return optimizeOne(team[i], others, format).then((r) => {
+        out[i] = r;
+      });
+    }),
+  );
+  return out;
+}
+
+/**
  * Stream the EV optimization of a team, EV_CONCURRENCY at a time. Yields a
  * snapshot before each batch (the batch's species in `optimizing`) and after it
  * completes (those members now carry evs/nature). The final yield has
