@@ -7,9 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { PokemonSprite } from "@/components/pokemon-sprite";
 import type { TeamPokemon } from "@/lib/types/pokemon";
 
+export interface SimSummary {
+  soft: number;
+  favorable: number;
+  total: number;
+}
+
 export interface SimulationPanelProps {
   team: Partial<TeamPokemon>[];
   format: string;
+  /** Report a soft-matchup summary up to the builder header after a run. */
+  onSummary?: (s: SimSummary | null) => void;
 }
 
 interface SimThreat {
@@ -83,7 +91,7 @@ const LABEL_STYLE: Record<SimMatchup["label"], { bar: string; text: string }> = 
   Hard: { bar: "bg-rose-500", text: "text-rose-400" },
 };
 
-export function SimulationPanel({ team, format }: SimulationPanelProps) {
+export function SimulationPanel({ team, format, onSummary }: SimulationPanelProps) {
   const [open, setOpen] = useState(false);
   const [matchups, setMatchups] = useState<SimMatchup[] | null>(null);
   const [considered, setConsidered] = useState(0);
@@ -116,10 +124,16 @@ export function SimulationPanel({ team, format }: SimulationPanelProps) {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
-      setMatchups(j.matchups as SimMatchup[]);
+      const ms = (j.matchups as SimMatchup[]) ?? [];
+      setMatchups(ms);
       setConsidered(j.opponentsConsidered ?? 0);
       setField(j.field ?? null);
       setCached(!!j.cached);
+      onSummary?.({
+        soft: ms.filter((m) => m.label === "Tricky" || m.label === "Hard").length,
+        favorable: ms.filter((m) => m.label === "Favorable").length,
+        total: ms.length,
+      });
     } catch (e) {
       setError((e as Error).message ?? "Failed to simulate");
     } finally {
