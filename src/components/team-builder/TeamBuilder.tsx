@@ -25,6 +25,7 @@ import { TeamImport } from "./TeamImport";
 import { AITeamSuggestions } from "./AITeamSuggestions";
 import { TeamDebatePanel, type TeamDebateMember } from "./TeamDebatePanel";
 import { MetaTeamBrowser } from "./MetaTeamBrowser";
+import { TeamSuggestions } from "./TeamSuggestions";
 import type { MetaTeam, MetaTeamPokemon } from "@/lib/meta-teams/types";
 import { SlotAISuggestions } from "./SlotAISuggestions";
 import type { TeamPokemon } from "@/lib/types/pokemon";
@@ -805,6 +806,14 @@ export function TeamBuilder({
           hasEmptySlots={hasEmptySlots}
         />
       )}
+
+      {/* Multi-team suggestions — featured Pokémon / playstyle / counter-meta /
+          AI — each one-click into the builder. */}
+      <TeamSuggestions
+        format={format}
+        onUseTeam={handleUseMetaTeam}
+        onSeedForAI={handleSuggestionAdd}
+      />
 
       {/* Browse + import proven tournament teams (open-sheet reference). */}
       <MetaTeamBrowser format={format} onUseTeam={handleUseMetaTeam} />
