@@ -509,6 +509,11 @@ export function TeamBuilder({
   // Imperative handle to the debate panel so Suggestions' "AI Build" can START
   // a debate. The seed is passed explicitly (not via the panel's prop) so it
   // doesn't depend on a not-yet-flushed slot setState.
+  const [simSummary, setSimSummary] = useState<{
+    soft: number;
+    favorable: number;
+    total: number;
+  } | null>(null);
   const debateRef = useRef<TeamDebateHandle | null>(null);
   const handleStartDebate = useCallback(
     (species: string) => {
@@ -745,15 +750,34 @@ export function TeamBuilder({
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">
-          {isEditing ? "Edit Team" : "Build New Team"}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {isEditing
-            ? "Update your VGC team"
-            : "Create a new VGC team from scratch or import a paste"}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
+            {isEditing ? "Edit Team" : "Build New Team"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isEditing
+              ? "Update your VGC team"
+              : "Create a new VGC team from scratch or import a paste"}
+          </p>
+        </div>
+        {simSummary && simSummary.total > 0 && (
+          <span
+            className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${
+              simSummary.soft >= 4
+                ? "border-rose-500/40 bg-rose-500/10 text-rose-400"
+                : simSummary.soft > 0
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
+                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+            }`}
+            title="Run the tournament simulation panel to refresh"
+          >
+            ⚔️ {simSummary.soft} soft matchup{simSummary.soft === 1 ? "" : "s"}
+            <span className="text-muted-foreground">
+              / {simSummary.total} · {simSummary.favorable} favorable
+            </span>
+          </span>
+        )}
       </div>
 
       {/* Team Info */}
@@ -923,7 +947,7 @@ export function TeamBuilder({
       />
 
       {/* Damage-calc simulation vs proven teams you'll likely face. */}
-      <SimulationPanel team={pokemon} format={format} />
+      <SimulationPanel team={pokemon} format={format} onSummary={setSimSummary} />
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
