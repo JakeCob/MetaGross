@@ -138,19 +138,43 @@ function extractSpecies(line: string): string | null {
 }
 
 /**
+ * Force IPv4 for pokepast.es fetches. Some hosts (and several CI / WSL
+ * environments) advertise an AAAA record whose IPv6 path is a black hole;
+ * undici tries IPv6 first and hangs until ETIMEDOUT, even though curl (which
+ * falls back to IPv4) works. A `family: 4` dispatcher sidesteps that. Lazily
+ * imported so the pure parsers above stay usable from any bundle.
+ */
+let _ipv4Dispatcher: unknown;
+async function ipv4Dispatcher(): Promise<unknown> {
+  if (_ipv4Dispatcher === undefined) {
+    try {
+      const { Agent } = await import("undici");
+      _ipv4Dispatcher = new Agent({ connect: { family: 4 } });
+    } catch {
+      _ipv4Dispatcher = null; // undici unavailable — fall back to default fetch
+    }
+  }
+  return _ipv4Dispatcher ?? undefined;
+}
+
+/**
  * Resolve a pokepaste URL (pokepast.es/{hash}) to its raw text.
  * Returns null if the fetch fails.
  */
 export async function fetchPokepasteRaw(
   url: string,
-  timeoutMs = 4000,
+  timeoutMs = 8000,
 ): Promise<string | null> {
   const rawUrl = normalizePokepasteRawUrl(url);
   if (!rawUrl) return null;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(rawUrl, { signal: controller.signal });
+    const dispatcher = await ipv4Dispatcher();
+    const res = await fetch(rawUrl, {
+      signal: controller.signal,
+      ...(dispatcher ? { dispatcher } : {}),
+    } as RequestInit);
     clearTimeout(timer);
     if (!res.ok) return null;
     return await res.text();

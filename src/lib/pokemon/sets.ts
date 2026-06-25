@@ -41,6 +41,21 @@ const setsData: Data = {
 /**
  * Parse a pokepaste-format string into an array of TeamPokemon.
  */
+/**
+ * Pokepastes (esp. Showdown exports) often write the MEGA form as the species:
+ * "Mega Floette @ Floettite", "Charizard-Mega-X @ Charizardite X". In Champions
+ * the team-sheet species is the BASE form — the megastone item drives the
+ * evolution — and the legality check only accepts base species. Strip mega
+ * markers so an imported proven team is actually saveable. Guards against false
+ * hits like "Meganium" (needs a space / hyphen boundary).
+ */
+export function baseSpeciesFromMega(species: string): string {
+  return species
+    .replace(/^Mega\s+/i, "")
+    .replace(/[-\s]Mega(?:-[XY])?$/i, "")
+    .trim();
+}
+
 export function importTeamFromPaste(paste: string): TeamPokemon[] {
   const team = Team.import(paste, setsData);
   if (!team) return [];
@@ -51,7 +66,7 @@ export function importTeamFromPaste(paste: string): TeamPokemon[] {
     while (moves.length < 4) moves.push("");
 
     return {
-      species: (set.species as string) ?? "",
+      species: baseSpeciesFromMega((set.species as string) ?? ""),
       ability: (set.ability as string) ?? "",
       item: (set.item as string) ?? "",
       nature: (set.nature as string) ?? "Hardy",

@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PokemonSprite } from "@/components/pokemon-sprite";
-import type { MetaTeam, MetaTeamPokemon } from "@/lib/meta-teams/types";
+import type { MetaTeam } from "@/lib/meta-teams/types";
 
 export interface MetaTeamBrowserProps {
   format: string;
-  /** Import a proven team into the builder slots. */
-  onUseTeam: (pokemon: MetaTeamPokemon[], species: string[]) => void;
+  /** Import a proven team into the builder slots. May fetch the full set from
+   *  the team's pokepaste, so it can be async. */
+  onUseTeam: (team: MetaTeam) => void | Promise<void>;
 }
 
 const SOURCE_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "info" | "success" | "warning" }> = {
@@ -31,6 +32,7 @@ export function MetaTeamBrowser({ format, onUseTeam }: MetaTeamBrowserProps) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fallback, setFallback] = useState(false);
+  const [usingId, setUsingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,9 +139,17 @@ export function MetaTeamBrowser({ format, onUseTeam }: MetaTeamBrowserProps) {
                     variant="outline"
                     size="xs"
                     className="ml-auto shrink-0 text-[10px] h-6 px-2"
-                    onClick={() => onUseTeam(t.pokemon, t.species)}
+                    disabled={usingId === t.id}
+                    onClick={async () => {
+                      setUsingId(t.id);
+                      try {
+                        await onUseTeam(t);
+                      } finally {
+                        setUsingId(null);
+                      }
+                    }}
                   >
-                    Use this team
+                    {usingId === t.id ? "Loading…" : "Use this team"}
                   </Button>
                 </div>
               </div>
@@ -148,8 +158,9 @@ export function MetaTeamBrowser({ format, onUseTeam }: MetaTeamBrowserProps) {
 
           {teams.length > 0 && (
             <p className="text-[9px] text-muted-foreground/60">
-              Imported as skeletons (sets, no EVs) — run the AI EV Optimizer per
-              Pokémon, or the AI Team Debate, to complete spreads.
+              Pulls the full set from the team&apos;s pokepaste when available —
+              otherwise imports species only; run the AI EV Optimizer or Team
+              Debate to complete spreads.
             </p>
           )}
         </CardContent>
