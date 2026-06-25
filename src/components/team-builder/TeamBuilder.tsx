@@ -533,6 +533,53 @@ export function TeamBuilder({
   );
 
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
+  // Markdown sections reported by the analysis panels (for "Export analysis").
+  const [analysisMd, setAnalysisMd] = useState<{ pc?: string; combos?: string; sim?: string }>({});
+
+  const handleExportAnalysis = useCallback(async () => {
+    const filled = pokemon.filter((p) => p.species?.trim());
+    const teamLines = filled.map((p) => {
+      const moves = (p.moves ?? []).filter(Boolean).join(", ");
+      return `- ${p.species}${p.item ? ` @ ${p.item}` : ""}${p.ability ? ` / ${p.ability}` : ""}${moves ? ` — ${moves}` : ""}`;
+    });
+    const parts = [
+      `# ${teamName.trim() || "Untitled team"} — ${format}`,
+      "",
+      "## Team",
+      ...(teamLines.length ? teamLines : ["_(no Pokémon yet)_"]),
+    ];
+    if (analysisMd.pc) parts.push("", analysisMd.pc);
+    if (analysisMd.combos) parts.push("", analysisMd.combos);
+    if (analysisMd.sim) parts.push("", analysisMd.sim);
+    if (!analysisMd.pc && !analysisMd.combos && !analysisMd.sim) {
+      parts.push(
+        "",
+        "_Run the Potential changes / Common combinations / Tournament simulation panels to include analysis._",
+      );
+    }
+    const md = parts.join("\n");
+
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(md);
+      copied = true;
+    } catch {
+      /* clipboard blocked — the download still works */
+    }
+    try {
+      const blob = new Blob([md], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(teamName.trim() || "team").replace(/[^\w-]+/g, "_")}-analysis.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* download blocked */
+    }
+    setExportFeedback(copied ? "Analysis copied + downloaded (.md)" : "Analysis downloaded (.md)");
+    setTimeout(() => setExportFeedback(null), 3000);
+  }, [pokemon, teamName, format, analysisMd]);
 
   /**
    * Serialise the current team to Showdown pokepaste format and copy it
@@ -937,6 +984,7 @@ export function TeamBuilder({
         team={pokemon}
         format={format}
         onApplyTweak={handleApplyTweak}
+        onMarkdown={(md) => setAnalysisMd((s) => ({ ...s, pc: md ?? undefined }))}
       />
 
       {/* AI-generated lead + back combinations for the current team. */}
@@ -944,10 +992,16 @@ export function TeamBuilder({
         team={pokemon}
         format={format}
         onSetLeads={handleSetLeads}
+        onMarkdown={(md) => setAnalysisMd((s) => ({ ...s, combos: md ?? undefined }))}
       />
 
       {/* Damage-calc simulation vs proven teams you'll likely face. */}
-      <SimulationPanel team={pokemon} format={format} onSummary={setSimSummary} />
+      <SimulationPanel
+        team={pokemon}
+        format={format}
+        onSummary={setSimSummary}
+        onMarkdown={(md) => setAnalysisMd((s) => ({ ...s, sim: md ?? undefined }))}
+      />
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
@@ -963,6 +1017,13 @@ export function TeamBuilder({
           title="Copy the team as a Showdown-compatible pokepaste"
         >
           Export Pokepaste
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleExportAnalysis}
+          title="Copy + download the team + analysis (changes, combos, sim) as Markdown"
+        >
+          📋 Export analysis
         </Button>
         <Button onClick={handleSave} disabled={saving}>
           {saving

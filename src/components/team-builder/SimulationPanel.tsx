@@ -18,6 +18,8 @@ export interface SimulationPanelProps {
   format: string;
   /** Report a soft-matchup summary up to the builder header after a run. */
   onSummary?: (s: SimSummary | null) => void;
+  /** Report a markdown section for the builder's "Export analysis". */
+  onMarkdown?: (md: string | null) => void;
 }
 
 interface SimThreat {
@@ -91,7 +93,28 @@ const LABEL_STYLE: Record<SimMatchup["label"], { bar: string; text: string }> = 
   Hard: { bar: "bg-rose-500", text: "text-rose-400" },
 };
 
-export function SimulationPanel({ team, format, onSummary }: SimulationPanelProps) {
+function simToMarkdown(
+  ms: SimMatchup[],
+  fld: { weather: string | null; tailwind: boolean; trickRoom: boolean } | null,
+  considered: number,
+): string {
+  const fieldStr =
+    fld && (fld.weather || fld.tailwind || fld.trickRoom)
+      ? `; field: ${[fld.weather, fld.tailwind ? "Tailwind" : null, fld.trickRoom ? "Trick Room" : null].filter(Boolean).join(" + ")}`
+      : "";
+  const lines = [`## Tournament simulation (vs ${considered} proven teams${fieldStr})`, "", "Worst matchups first:"];
+  for (const m of ms) {
+    const w = m.worstThreat
+      ? `; ⚠ ${m.worstThreat.attacker} ${m.worstThreat.move} → ${m.worstThreat.target} (${m.worstThreat.percent}%)`
+      : "";
+    lines.push(
+      `- **${m.label} ${m.score}/100** — ${m.team.author ?? m.team.source}${m.team.record ? ` (${m.team.record})` : ""}: you OHKO ${m.youThreaten}/6, they OHKO ${m.theyThreaten}/6${w}`,
+    );
+  }
+  return lines.join("\n");
+}
+
+export function SimulationPanel({ team, format, onSummary, onMarkdown }: SimulationPanelProps) {
   const [open, setOpen] = useState(false);
   const [matchups, setMatchups] = useState<SimMatchup[] | null>(null);
   const [considered, setConsidered] = useState(0);
@@ -134,12 +157,13 @@ export function SimulationPanel({ team, format, onSummary }: SimulationPanelProp
         favorable: ms.filter((m) => m.label === "Favorable").length,
         total: ms.length,
       });
+      onMarkdown?.(simToMarkdown(ms, j.field ?? null, j.opponentsConsidered ?? 0));
     } catch (e) {
       setError((e as Error).message ?? "Failed to simulate");
     } finally {
       setLoading(false);
     }
-  }, [team, format]);
+  }, [team, format, onSummary, onMarkdown]);
 
   return (
     <Card size="sm" className="bg-card/60">

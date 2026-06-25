@@ -13,9 +13,20 @@ export interface PotentialChangesPanelProps {
   format: string;
   /** One-click apply a structured set tweak to the matching slot. */
   onApplyTweak?: (species: string, apply: ApplyChange) => void;
+  /** Report a markdown section for the builder's "Export analysis". */
+  onMarkdown?: (md: string | null) => void;
 }
 
-export function PotentialChangesPanel({ team, format, onApplyTweak }: PotentialChangesPanelProps) {
+function toMarkdown(d: PotentialChangeAnalysis): string {
+  const lines = ["## Potential changes", "", "**Pokémon**"];
+  for (const s of d.swaps) lines.push(`- ${s.title}${s.reasoning ? ` — ${s.reasoning}` : ""}`);
+  lines.push("", "**Sets**");
+  for (const s of d.setTweaks) lines.push(`- ${s.species}: ${s.suggestion}`);
+  if (d.note) lines.push("", `_${d.note}_`);
+  return lines.join("\n");
+}
+
+export function PotentialChangesPanel({ team, format, onApplyTweak, onMarkdown }: PotentialChangesPanelProps) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<PotentialChangeAnalysis | null>(null);
   const [cached, setCached] = useState(false);
@@ -38,12 +49,13 @@ export function PotentialChangesPanel({ team, format, onApplyTweak }: PotentialC
       if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
       setData(j.analysis as PotentialChangeAnalysis);
       setCached(!!j.cached);
+      onMarkdown?.(toMarkdown(j.analysis as PotentialChangeAnalysis));
     } catch (e) {
       setError((e as Error).message ?? "Failed to analyze");
     } finally {
       setLoading(false);
     }
-  }, [team, format]);
+  }, [team, format, onMarkdown]);
 
   return (
     <Card size="sm" className="bg-card/60">

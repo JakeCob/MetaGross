@@ -12,6 +12,19 @@ export interface CommonCombinationsPanelProps {
   format: string;
   /** Reorder the builder slots so these species become the leads (slots 1-2). */
   onSetLeads?: (leads: string[]) => void;
+  /** Report a markdown section for the builder's "Export analysis". */
+  onMarkdown?: (md: string | null) => void;
+}
+
+function toMarkdown(d: CommonCombinationsAnalysis): string {
+  const lines = ["## Common combinations"];
+  d.combos.forEach((c, i) => {
+    lines.push(
+      `${i + 1}. Leads ${c.leads.join(" + ")} | Back ${c.back.join(" + ") || "—"} — ${c.strategy}`,
+    );
+  });
+  if (d.note) lines.push("", `_${d.note}_`);
+  return lines.join("\n");
 }
 
 function SpriteRow({ species }: { species: string[] }) {
@@ -26,7 +39,7 @@ function SpriteRow({ species }: { species: string[] }) {
   );
 }
 
-export function CommonCombinationsPanel({ team, format, onSetLeads }: CommonCombinationsPanelProps) {
+export function CommonCombinationsPanel({ team, format, onSetLeads, onMarkdown }: CommonCombinationsPanelProps) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<CommonCombinationsAnalysis | null>(null);
   const [cached, setCached] = useState(false);
@@ -49,12 +62,13 @@ export function CommonCombinationsPanel({ team, format, onSetLeads }: CommonComb
       if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
       setData(j.analysis as CommonCombinationsAnalysis);
       setCached(!!j.cached);
+      onMarkdown?.(toMarkdown(j.analysis as CommonCombinationsAnalysis));
     } catch (e) {
       setError((e as Error).message ?? "Failed to analyze");
     } finally {
       setLoading(false);
     }
-  }, [team, format]);
+  }, [team, format, onMarkdown]);
 
   return (
     <Card size="sm" className="bg-card/60">
